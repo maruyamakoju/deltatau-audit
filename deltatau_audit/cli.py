@@ -261,11 +261,30 @@ def _run_demo(args):
                   f"{a['stress_score']:.2f})")
             print(f"  {'=' * 50}")
 
+    # Auto-generate comparison.md
+    if len(results) >= 2:
+        before_json = os.path.join(out_dir, "baseline", "summary.json")
+        after_json = os.path.join(out_dir, "robust_wide", "summary.json")
+        if os.path.exists(before_json) and os.path.exists(after_json):
+            from .diff import generate_comparison
+            comp_path = os.path.join(out_dir, "comparison.md")
+            generate_comparison(before_json, after_json, comp_path)
+            print(f"\n  comparison.md -> {comp_path}")
+
     # CI mode: check the "After" model
     if args.ci and "robust_wide" in results:
         after_dir = os.path.join(out_dir, "robust_wide")
         exit_code = _handle_ci(results["robust_wide"], after_dir, args)
         sys.exit(exit_code)
+
+
+def _run_diff(args):
+    """Compare two summary.json files and generate comparison.md."""
+    from .diff import generate_comparison
+
+    md = generate_comparison(args.before, args.after, args.out)
+    print(md)
+    print(f"Written to: {args.out}")
 
 
 def main():
@@ -313,12 +332,24 @@ def main():
                              help="Episodes per condition (default: 30)")
     _add_ci_args(demo_parser)
 
+    # ── diff subcommand ────────────────────────────────────────────
+    diff_parser = subparsers.add_parser(
+        "diff", help="Compare two audit summary.json files")
+    diff_parser.add_argument("before", type=str,
+                             help="Path to 'before' summary.json")
+    diff_parser.add_argument("after", type=str,
+                             help="Path to 'after' summary.json")
+    diff_parser.add_argument("--out", type=str, default="comparison.md",
+                             help="Output path (default: comparison.md)")
+
     args = parser.parse_args()
 
     if args.command == "audit":
         _run_audit(args)
     elif args.command == "demo":
         _run_demo(args)
+    elif args.command == "diff":
+        _run_diff(args)
     else:
         # No subcommand — check if legacy args present
         if "--checkpoint" in sys.argv:
@@ -331,6 +362,8 @@ def main():
             print("  python -m deltatau_audit demo cartpole --out demo_report/")
             print("  python -m deltatau_audit audit --checkpoint model.pt "
                   "--agent-type internal_time --env chain")
+            print("  python -m deltatau_audit diff before/summary.json "
+                  "after/summary.json")
             print("  python -m deltatau_audit demo cartpole --ci  "
                   "# CI gate mode")
 
