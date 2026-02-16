@@ -8,9 +8,7 @@ on:
       - "pyproject.toml"
   pull_request:
     branches: [main]
-    paths:
-      - "deltatau_audit/**"
-      - "pyproject.toml"
+  workflow_dispatch:
 
 jobs:
   smoke-test:
