@@ -39,6 +39,7 @@ Issues = "https://github.com/maruyamakoju/deltatau-audit/issues"
 [project.optional-dependencies]
 demo = ["gymnasium[classic-control]>=0.29"]
 sb3 = ["sb3-contrib>=2.0", "stable-baselines3>=2.0"]
+dev = ["pytest>=7.0"]
 
 [project.scripts]
 deltatau-audit = "deltatau_audit.cli:main"
