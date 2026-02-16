@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel & sdist
+        run: |
+          pip install -U build
+          python -m build
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install from wheel
+        run: pip install dist/*.whl
+
+      - name: Assert site-packages (not source tree)
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "
+          import deltatau_audit
+          p = deltatau_audit.__file__
+          print('__file__:', p)
+          assert ('site-packages' in p) or ('dist-packages' in p), \
+              f'SOURCE SHADOWING: {p}'
+          "
+
+      - name: Assert demo_data bundled
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "
+          import deltatau_audit, pathlib
+          d = pathlib.Path(deltatau_audit.__file__).parent / 'demo_data' / 'cartpole'
+          files = sorted(f.name for f in d.iterdir())
+          assert 'baseline.pt' in files, f'baseline.pt missing: {files}'
+          assert 'robust_wide.pt' in files, f'robust_wide.pt missing: {files}'
+          print(f'demo_data OK: {files}')
+          "
+
+      - name: Run demo (smoke)
+        working-directory: ${{ runner.temp }}
+        run: python -m deltatau_audit demo cartpole --episodes 5 --out smoke_report/
+
+      - name: Run demo --ci (gate check)
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m deltatau_audit demo cartpole \
+            --ci \
+            --episodes 5 \
+            --ci-deploy-threshold 0 \
+            --ci-stress-threshold 0 \
+            --out ci_report/
+
+  twine-check:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Twine check
+        run: |
+          pip install -U twine
+          twine check dist/*
+
+  publish:
+    needs: [smoke-test, twine-check]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
