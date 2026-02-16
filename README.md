@@ -82,3 +82,38 @@ from deltatau_audit.report import generate_report
 result = run_full_audit(adapter, env_factory, speeds=[1,2,3,5,8], n_episodes=30)
 generate_report(result, "my_report/", title="My Agent Audit")
 ```
+
+## SB3 RecurrentPPO
+
+Audit an SB3 Contrib RecurrentPPO model (Reliance = N/A, Deployment + Stress only):
+
+```bash
+pip install deltatau-audit[sb3]
+```
+
+```python
+from sb3_contrib import RecurrentPPO
+from deltatau_audit.adapters.sb3_recurrent import SB3RecurrentAdapter
+from deltatau_audit.auditor import run_full_audit
+from deltatau_audit.report import generate_report
+import gymnasium as gym
+
+model = RecurrentPPO.load("my_model.zip")
+adapter = SB3RecurrentAdapter(model)
+
+result = run_full_audit(
+    adapter,
+    lambda: gym.make("CartPole-v1"),
+    speeds=[1, 2, 3, 5, 8],
+    n_episodes=30,
+)
+generate_report(result, "sb3_audit/", title="SB3 RecurrentPPO Audit")
+```
+
+## Comparing Results
+
+```bash
+python -m deltatau_audit diff before/summary.json after/summary.json --out comparison.md
+```
+
+The `demo` subcommand also auto-generates `comparison.md` in the output directory.
