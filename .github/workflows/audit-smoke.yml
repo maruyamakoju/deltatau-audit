@@ -1,0 +1,88 @@
+name: Audit Smoke Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deltatau_audit/**"
+      - "pyproject.toml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "deltatau_audit/**"
+      - "pyproject.toml"
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel
+        run: |
+          pip install -U build
+          python -m build
+
+      - name: Install from wheel
+        run: pip install dist/*.whl
+
+      # All subsequent steps run from RUNNER_TEMP to prevent
+      # source-shadowing (CWD's deltatau_audit/ beating site-packages)
+      - name: Assert site-packages (not source tree)
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "
+          import deltatau_audit
+          p = deltatau_audit.__file__
+          print('__file__:', p)
+          assert ('site-packages' in p) or ('dist-packages' in p), \
+              f'SOURCE SHADOWING: {p}'
+          "
+
+      - name: Assert demo_data bundled
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "
+          import deltatau_audit, pathlib
+          d = pathlib.Path(deltatau_audit.__file__).parent / 'demo_data' / 'cartpole'
+          files = sorted(f.name for f in d.iterdir())
+          assert 'baseline.pt' in files, f'baseline.pt missing: {files}'
+          assert 'robust_wide.pt' in files, f'robust_wide.pt missing: {files}'
+          print(f'demo_data OK: {files}')
+          "
+
+      - name: Run demo (smoke)
+        working-directory: ${{ runner.temp }}
+        run: python -m deltatau_audit demo cartpole --episodes 5 --out smoke_report/
+
+      - name: Run demo --ci (gate check)
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m deltatau_audit demo cartpole \
+            --ci \
+            --episodes 5 \
+            --ci-deploy-threshold 0 \
+            --ci-stress-threshold 0 \
+            --out ci_report/
+
+      - name: Show CI summary
+        working-directory: ${{ runner.temp }}
+        run: cat ci_report/robust_wide/ci_summary.md
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-reports
+          path: |
+            ${{ runner.temp }}/smoke_report/
+            ${{ runner.temp }}/ci_report/robust_wide/ci_summary.json
+            ${{ runner.temp }}/ci_report/robust_wide/ci_summary.md
+          retention-days: 30

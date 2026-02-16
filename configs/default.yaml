@@ -1,0 +1,40 @@
+env:
+  name: delayed_chain
+  length: 20
+  delay: 10
+  max_steps: 200
+  noise: 0.0
+  flickering: false
+  flicker_prob: 0.3
+  variable_speed: false
+
+model:
+  hidden_dim: 128
+  latent_dim: 64
+  time_hidden_dim: 32
+  use_internal_time: true
+  transition_type: gru  # gru or ode
+  time_init_bias: 0.0
+
+algorithm:
+  lr: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_epsilon: 0.2
+  value_coef: 0.5
+  entropy_coef: 0.01
+  time_var_coef: 0.01
+  time_mean_coef: 0.001
+  max_grad_norm: 0.5
+  num_epochs: 4
+  num_minibatches: 4
+  num_steps: 128
+  num_envs: 8
+  total_timesteps: 500000
+
+logging:
+  log_interval: 10
+  save_interval: 100
+
+seed: 42
+device: auto

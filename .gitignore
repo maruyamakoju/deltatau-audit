@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Training runs & generated reports
+runs/
+audit_report_*/
+demo_report_*/
+
+# IDE / OS / Tools
+.vscode/
+.idea/
+.claude/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Env
+.env
+*.venv/
+venv/
