@@ -1,8 +1,28 @@
 # deltatau-audit
 
+[![PyPI version](https://img.shields.io/pypi/v/deltatau-audit)](https://pypi.org/project/deltatau-audit/)
+[![CI](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/audit-smoke.yml/badge.svg)](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/audit-smoke.yml)
+[![Python 3.9+](https://img.shields.io/pypi/pyversions/deltatau-audit)](https://pypi.org/project/deltatau-audit/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Time Robustness Audit for RL agents.**
 
 Evaluates whether an RL agent breaks when the environment's timing changes — the kind of failure that silently appears in deployment but never shows up in training.
+
+## Install
+
+```bash
+pip install deltatau-audit[demo]
+```
+
+## Quick Start
+
+```bash
+# Run the bundled CartPole demo (Before/After comparison)
+python -m deltatau_audit demo cartpole --out demo_report/
+```
+
+Open `demo_report/baseline/index.html` and `demo_report/robust_wide/index.html` to see the Before/After reports.
 
 ## What It Measures
 
@@ -14,49 +34,25 @@ Evaluates whether an RL agent breaks when the environment's timing changes — t
 
 Agents without internal timing (standard GRU, SB3 models, etc.) get **Reliance: N/A** — only Deployment and Stress are tested.
 
-## Quick Start
+## Rating Scale
 
-```bash
-pip install .
-
-# Run the bundled CartPole demo (Before/After comparison)
-python -m deltatau_audit demo cartpole --out demo_report/
-
-# Audit your own checkpoint
-python -m deltatau_audit audit \
-    --checkpoint path/to/model.pt \
-    --agent-type internal_time \
-    --env chain \
-    --out audit_report/
-```
-
-Open `demo_report/baseline/index.html` and `demo_report/robust_wide/index.html` to see the Before/After reports.
+| Rating | Return Ratio | Meaning |
+|--------|-------------|---------|
+| PASS | > 95% | Production ready |
+| MILD | > 80% | Minor degradation |
+| DEGRADED | > 50% | Significant loss |
+| FAIL | ≤ 50% | Agent breaks |
 
 ## CI Mode
-
-Use `--ci` to get machine-readable output and exit codes for CI pipelines:
 
 ```bash
 python -m deltatau_audit demo cartpole --ci --out ci_report/
 # exit 0 = pass, exit 1 = warn (stress), exit 2 = fail (deployment)
 ```
 
-Outputs:
-- `ci_summary.json` — scores and ratings
-- `ci_summary.md` — one-line summary for PR comments
+Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments.
 
-## Rating Scale
-
-**Deployment / Stress Robustness** (return ratio vs nominal):
-
-| Rating | Threshold | Meaning |
-|--------|-----------|---------|
-| PASS | > 95% | Production ready |
-| MILD | > 80% | Minor degradation |
-| DEGRADED | > 50% | Significant loss |
-| FAIL | ≤ 50% | Agent breaks |
-
-## Adapting to Your Model
+## Audit Your Own Model
 
 Implement `AgentAdapter` (see `deltatau_audit/adapters/base.py`):
 
@@ -83,9 +79,17 @@ result = run_full_audit(adapter, env_factory, speeds=[1,2,3,5,8], n_episodes=30)
 generate_report(result, "my_report/", title="My Agent Audit")
 ```
 
-## SB3 RecurrentPPO
+## Audit Your Own Checkpoint
 
-Audit an SB3 Contrib RecurrentPPO model (Reliance = N/A, Deployment + Stress only):
+```bash
+python -m deltatau_audit audit \
+    --checkpoint path/to/model.pt \
+    --agent-type internal_time \
+    --env chain \
+    --out audit_report/
+```
+
+## SB3 RecurrentPPO
 
 ```bash
 pip install deltatau-audit[sb3]
