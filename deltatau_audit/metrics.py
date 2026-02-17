@@ -102,6 +102,86 @@ def compute_return_ratio(nominal_return: float,
     return perturbed_return / nominal_return
 
 
+# ── Bootstrap confidence intervals ────────────────────────────────────
+
+def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
+                 ci: float = 0.95, seed: int = 42) -> Dict:
+    """Compute bootstrap confidence interval for the mean.
+
+    Returns:
+        Dict with mean, ci_lower, ci_upper, std, n.
+    """
+    data = np.array(data)
+    n = len(data)
+    if n == 0:
+        return {"mean": 0.0, "ci_lower": 0.0, "ci_upper": 0.0,
+                "std": 0.0, "n": 0}
+    if n == 1:
+        v = float(data[0])
+        return {"mean": v, "ci_lower": v, "ci_upper": v,
+                "std": 0.0, "n": 1}
+
+    rng = np.random.RandomState(seed)
+    means = np.empty(n_bootstrap)
+    for i in range(n_bootstrap):
+        sample = data[rng.randint(0, n, size=n)]
+        means[i] = sample.mean()
+
+    alpha = (1 - ci) / 2
+    lower = float(np.percentile(means, alpha * 100))
+    upper = float(np.percentile(means, (1 - alpha) * 100))
+
+    return {
+        "mean": float(data.mean()),
+        "ci_lower": lower,
+        "ci_upper": upper,
+        "std": float(data.std()),
+        "n": n,
+    }
+
+
+def bootstrap_return_ratio(nominal_returns: List[float],
+                           perturbed_returns: List[float],
+                           n_bootstrap: int = 2000,
+                           ci: float = 0.95,
+                           seed: int = 42) -> Dict:
+    """Bootstrap CI for the return ratio (perturbed_mean / nominal_mean).
+
+    Returns:
+        Dict with ratio, ci_lower, ci_upper, significant (bool).
+        significant=True means CI excludes 1.0 (statistically significant drop).
+    """
+    nom = np.array(nominal_returns)
+    pert = np.array(perturbed_returns)
+
+    if len(nom) == 0 or len(pert) == 0 or abs(nom.mean()) < 1e-10:
+        return {"ratio": 0.0, "ci_lower": 0.0, "ci_upper": 0.0,
+                "significant": False}
+
+    rng = np.random.RandomState(seed)
+    ratios = np.empty(n_bootstrap)
+    for i in range(n_bootstrap):
+        nom_sample = nom[rng.randint(0, len(nom), size=len(nom))]
+        pert_sample = pert[rng.randint(0, len(pert), size=len(pert))]
+        nom_mean = nom_sample.mean()
+        if abs(nom_mean) < 1e-10:
+            ratios[i] = 1.0
+        else:
+            ratios[i] = pert_sample.mean() / nom_mean
+
+    alpha = (1 - ci) / 2
+    lower = float(np.percentile(ratios, alpha * 100))
+    upper = float(np.percentile(ratios, (1 - alpha) * 100))
+    ratio = float(pert.mean() / nom.mean())
+
+    return {
+        "ratio": ratio,
+        "ci_lower": lower,
+        "ci_upper": upper,
+        "significant": upper < 1.0,  # CI entirely below 1.0 = real drop
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 2-AXIS RATING SYSTEM
 # ══════════════════════════════════════════════════════════════════════

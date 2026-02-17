@@ -30,6 +30,7 @@ from .metrics import (
     aggregate_episode_metrics,
     compute_degradation,
     compute_return_ratio,
+    bootstrap_return_ratio,
     reliance_rating,
     robustness_rating,
     severity_rating,
@@ -291,6 +292,7 @@ def run_robustness_audit(
         print("  Robustness Test (env wrappers)")
 
     scenario_results = {}
+    scenario_episode_returns = {}  # raw per-episode returns for bootstrap
     for scenario in scenarios:
         if verbose:
             label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
@@ -305,6 +307,9 @@ def run_robustness_audit(
 
         agg = aggregate_episode_metrics(episodes)
         scenario_results[scenario] = agg
+        scenario_episode_returns[scenario] = [
+            ep["total_reward"] for ep in episodes
+        ]
 
         if verbose:
             r = agg.get("total_reward_mean", 0)
@@ -321,6 +326,8 @@ def run_robustness_audit(
     worst_scenario = None
     per_scenario_scores = {}
 
+    nominal_ep_returns = scenario_episode_returns.get("nominal", [])
+
     for scenario in scenarios:
         if scenario == "nominal":
             continue
@@ -332,11 +339,18 @@ def run_robustness_audit(
         ret_ratio = compute_return_ratio(nominal_return, s_return)
         rmse_ratio = s_rmse / nominal_rmse if nominal_rmse > 1e-10 else 1.0
 
+        # Bootstrap CI for return ratio
+        pert_ep_returns = scenario_episode_returns.get(scenario, [])
+        bci = bootstrap_return_ratio(nominal_ep_returns, pert_ep_returns)
+
         per_scenario_scores[scenario] = {
             "return_ratio": ret_ratio,
             "return_drop_pct": (1 - ret_ratio) * 100,
             "rmse_ratio": rmse_ratio,
             "rmse_increase_pct": (rmse_ratio - 1) * 100,
+            "ci_lower": bci["ci_lower"],
+            "ci_upper": bci["ci_upper"],
+            "significant": bci["significant"],
         }
 
         if ret_ratio < worst_return_ratio:
@@ -384,6 +398,12 @@ def run_robustness_audit(
         print(f"    -> Stress:     {stress['rating']} "
               f"(worst: {stress['worst_case']['scenario']}, "
               f"drop: {stress['worst_case']['return_drop_pct']:.1f}%)")
+        # Show bootstrap CIs
+        sig_count = sum(1 for s in per_scenario_scores.values()
+                        if s.get("significant"))
+        total = len(per_scenario_scores)
+        print(f"    -> {sig_count}/{total} scenarios with "
+              f"statistically significant drop (95% CI)")
 
     return {
         "scenarios": scenario_results,

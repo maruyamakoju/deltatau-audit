@@ -10,6 +10,7 @@ dist/
 runs/
 audit_report_*/
 demo_report_*/
+halfcheetah_audit/
 
 # IDE / OS / Tools
 .vscode/
