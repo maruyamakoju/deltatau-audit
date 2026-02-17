@@ -500,9 +500,20 @@ def generate_report(audit_result: Dict, output_dir: str,
                 r_col = "#ffc107"
             else:
                 r_col = "#dc3545"
+            # Bootstrap CI
+            ci_lo = sc.get("ci_lower")
+            ci_hi = sc.get("ci_upper")
+            sig = sc.get("significant", False)
+            if ci_lo is not None and ci_hi is not None:
+                ci_str = f"{ci_lo*100:.0f}%–{ci_hi*100:.0f}%"
+                sig_str = " ***" if sig else ""
+            else:
+                ci_str = "–"
+                sig_str = ""
             rows += (
                 f'<tr><td>{category_label}</td><td>{label}</td>'
                 f'<td style="color:{r_col};font-weight:bold">{ret_r:.0f}%</td>'
+                f'<td>{ci_str}{sig_str}</td>'
                 f'<td>{rmse_r:.2f}x</td>'
                 f'<td>{sc["return_drop_pct"]:+.1f}%</td></tr>\n'
             )
@@ -630,7 +641,7 @@ def generate_report(audit_result: Dict, output_dir: str,
 
 <h3>Robustness Detail</h3>
 <table>
-  <tr><th>Category</th><th>Scenario</th><th>Return (% nominal)</th><th>RMSE ratio</th><th>Return Change</th></tr>
+  <tr><th>Category</th><th>Scenario</th><th>Return (% nominal)</th><th>95% CI</th><th>RMSE ratio</th><th>Return Change</th></tr>
   {dep_rows}
   {str_rows}
 </table>

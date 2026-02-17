@@ -8,7 +8,13 @@ __all__ = [
     "GenericRecurrentAdapter",
 ]
 
-# SB3 adapter is optional (requires sb3-contrib)
+# SB3 adapters are optional (require stable-baselines3 / sb3-contrib)
+try:
+    from .sb3 import SB3Adapter
+    __all__.append("SB3Adapter")
+except ImportError:
+    pass
+
 try:
     from .sb3_recurrent import SB3RecurrentAdapter
     __all__.append("SB3RecurrentAdapter")
