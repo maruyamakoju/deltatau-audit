@@ -96,10 +96,23 @@ def compute_degradation(baseline_rmse: float, intervention_rmse: float
 
 def compute_return_ratio(nominal_return: float,
                           perturbed_return: float) -> float:
-    """Ratio of perturbed return to nominal (1.0 = no degradation)."""
+    """Ratio measuring perturbed performance relative to nominal.
+
+    Semantics: 1.0 = same, < 1.0 = worse, > 1.0 = better.
+
+    Handles negative nominal returns (e.g. penalty-heavy envs) correctly:
+    - nominal=-100, perturbed=-50  → 1.5  (less penalty = improvement)
+    - nominal=-100, perturbed=-150 → 0.5  (more penalty = degradation)
+    - nominal=+100, perturbed=+50  → 0.5  (lower return = degradation)
+    """
     if abs(nominal_return) < 1e-10:
         return 1.0 if abs(perturbed_return) < 1e-10 else 0.0
-    return perturbed_return / nominal_return
+    if nominal_return > 0:
+        return perturbed_return / nominal_return
+    else:
+        # nominal < 0: measure relative change preserving sign semantics
+        # ratio = 1 + (improvement) / |nominal|
+        return 1.0 + (perturbed_return - nominal_return) / abs(nominal_return)
 
 
 # ── Bootstrap confidence intervals ────────────────────────────────────
@@ -140,12 +153,24 @@ def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
     }
 
 
+def _safe_return_ratio(nominal_mean: float, pert_mean: float) -> float:
+    """Sign-aware return ratio consistent with compute_return_ratio."""
+    if abs(nominal_mean) < 1e-10:
+        return 1.0 if abs(pert_mean) < 1e-10 else 0.0
+    if nominal_mean > 0:
+        return pert_mean / nominal_mean
+    else:
+        return 1.0 + (pert_mean - nominal_mean) / abs(nominal_mean)
+
+
 def bootstrap_return_ratio(nominal_returns: List[float],
                            perturbed_returns: List[float],
                            n_bootstrap: int = 2000,
                            ci: float = 0.95,
                            seed: int = 42) -> Dict:
-    """Bootstrap CI for the return ratio (perturbed_mean / nominal_mean).
+    """Bootstrap CI for the return ratio.
+
+    Uses sign-aware ratio so negative nominal returns are handled correctly.
 
     Returns:
         Dict with ratio, ci_lower, ci_upper, significant (bool).
@@ -163,16 +188,12 @@ def bootstrap_return_ratio(nominal_returns: List[float],
     for i in range(n_bootstrap):
         nom_sample = nom[rng.randint(0, len(nom), size=len(nom))]
         pert_sample = pert[rng.randint(0, len(pert), size=len(pert))]
-        nom_mean = nom_sample.mean()
-        if abs(nom_mean) < 1e-10:
-            ratios[i] = 1.0
-        else:
-            ratios[i] = pert_sample.mean() / nom_mean
+        ratios[i] = _safe_return_ratio(nom_sample.mean(), pert_sample.mean())
 
     alpha = (1 - ci) / 2
     lower = float(np.percentile(ratios, alpha * 100))
     upper = float(np.percentile(ratios, (1 - alpha) * 100))
-    ratio = float(pert.mean() / nom.mean())
+    ratio = _safe_return_ratio(float(nom.mean()), float(pert.mean()))
 
     return {
         "ratio": ratio,

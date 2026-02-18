@@ -7,6 +7,21 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.3] — 2026-02-19
+
+### Fixed
+- **Episode timeout guard** (`P0`): `_run_single_episode` now accepts `max_steps=10_000` to prevent infinite loops on envs without episode termination. Truncated episodes emit a `RuntimeWarning`.
+- **Continuous action space** (`P0`): `fixer_cleanrl._ppo_train_cleanrl` now detects action space type via a test forward pass (dtype check) and allocates the correct buffer — `(num_steps,) long` for discrete, `(num_steps, act_dim) float32` for continuous. Previously only discrete was supported.
+- **Negative nominal return ratio** (`P1`): `compute_return_ratio` and `bootstrap_return_ratio` now use the sign-aware formula `1 + (perturbed − nominal) / |nominal|` when `nominal < 0`, so that reduced penalty correctly maps to ratio > 1.0 (improvement). Previously the sign was inverted for penalty-heavy environments.
+
+### Added
+- `--seed` flag on all audit CLI subcommands (`audit`, `audit-sb3`, `audit-cleanrl`, `demo`) for reproducible results. Seed is threaded through `run_full_audit` → `run_reliance_audit` / `run_robustness_audit` → `_run_single_episode` with per-episode offsets.
+- `tqdm` progress bars in `run_reliance_audit` and `run_robustness_audit` when tqdm is installed. Falls back to a plain print statement.
+- `tqdm>=4.60` added to package dependencies.
+- 36 new unit tests in `tests/test_quality_fixes.py` covering timeout behavior, seed reproducibility, negative return ratio semantics, and continuous action buffer shape.
+
+---
+
 ## [0.4.2] — 2026-02-19
 
 ### Added

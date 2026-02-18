@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.4.2"
+version = "0.4.3"
 description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,6 +30,7 @@ dependencies = [
     "gymnasium>=0.29",
     "numpy>=1.24",
     "matplotlib>=3.7",
+    "tqdm>=4.60",
 ]
 
 [project.urls]

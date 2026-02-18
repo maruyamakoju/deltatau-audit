@@ -75,9 +75,21 @@ def _ppo_train_cleanrl(
     obs_dim = env.observation_space.shape[0]
     optimizer = optim.Adam(agent.parameters(), lr=lr, eps=1e-5)
 
+    # Detect action space (discrete vs continuous) from a test forward pass
+    agent.eval()
+    with torch.no_grad():
+        _test_obs = torch.zeros(1, obs_dim, device=device)
+        _test_action, _, _, _ = agent.get_action_and_value(_test_obs)
+    _is_discrete = _test_action.dtype in (torch.int32, torch.int64, torch.bool)
+    _act_dim = 1 if _is_discrete else int(_test_action.numel())
+
     # Rollout buffers
     obs_buf = torch.zeros(num_steps, obs_dim, device=device)
-    act_buf = torch.zeros(num_steps, dtype=torch.long, device=device)
+    if _is_discrete:
+        act_buf = torch.zeros(num_steps, dtype=torch.long, device=device)
+    else:
+        act_buf = torch.zeros(num_steps, _act_dim, dtype=torch.float32,
+                              device=device)
     logp_buf = torch.zeros(num_steps, device=device)
     rew_buf = torch.zeros(num_steps, device=device)
     done_buf = torch.zeros(num_steps, device=device)
@@ -102,12 +114,16 @@ def _ppo_train_cleanrl(
             with torch.no_grad():
                 action, logp, _, value = agent.get_action_and_value(
                     obs_t.unsqueeze(0))
-            act_buf[step] = action.squeeze()
+            if _is_discrete:
+                act_buf[step] = action.squeeze()
+                action_for_env = int(action.squeeze().item())
+            else:
+                act_buf[step] = action.reshape(_act_dim)
+                action_for_env = action.squeeze(0).cpu().numpy()
             logp_buf[step] = logp.squeeze()
             val_buf[step] = value.squeeze()
 
-            obs, reward, terminated, truncated, _ = env.step(
-                action.squeeze().item())
+            obs, reward, terminated, truncated, _ = env.step(action_for_env)
             done = terminated or truncated
             rew_buf[step] = reward
             ep_return += reward
@@ -125,6 +141,7 @@ def _ppo_train_cleanrl(
         with torch.no_grad():
             next_val = agent.get_action_and_value(
                 obs_t.unsqueeze(0))[3].squeeze()
+
         advantages = torch.zeros(num_steps, device=device)
         last_gae = 0.0
         for t in reversed(range(num_steps)):

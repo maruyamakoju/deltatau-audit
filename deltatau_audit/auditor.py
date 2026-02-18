@@ -13,11 +13,19 @@ Bonus — Temporal Sensitivity:
     sensitivity to internal time — the "timing Jacobian".
 """
 
+import warnings
 import numpy as np
 import torch
 from typing import Any, Dict, List, Optional
 
 import gymnasium as gym
+
+# Optional tqdm for episode progress bars
+try:
+    from tqdm import tqdm as _tqdm
+    _HAS_TQDM = True
+except ImportError:
+    _HAS_TQDM = False
 
 from .adapters.base import AgentAdapter
 from .wrappers.speed import FixedSpeedWrapper, JitterWrapper, PiecewiseSwitchWrapper
@@ -62,17 +70,37 @@ STRESS_SCENARIOS = ["speed_5x"]
 
 # ── Episode runner ────────────────────────────────────────────────────
 
+def _episode_iter(n: int, label: str, verbose: bool):
+    """Return an iterator for n episodes, with tqdm bar if available."""
+    if _HAS_TQDM and verbose:
+        return _tqdm(range(n), desc=f"    {label:<28}", ncols=72, leave=True)
+    else:
+        if verbose:
+            print(f"    {label}...", end="", flush=True)
+        return range(n)
+
+
 def _run_single_episode(
     adapter: AgentAdapter,
     env: gym.Env,
     intervention: str = "none",
     gamma: float = 0.99,
     device: str = "cpu",
+    seed: Optional[int] = None,
+    max_steps: int = 10_000,
 ) -> Dict:
-    """Run one episode and collect value/return data."""
-    obs, info = env.reset()
+    """Run one episode and collect value/return data.
+
+    Args:
+        max_steps: Hard cap on episode length to prevent infinite loops.
+                   Episodes exceeding this are truncated with a warning.
+        seed: If provided, passed to env.reset(seed=seed) for reproducibility.
+    """
+    reset_kwargs = {"seed": seed} if seed is not None else {}
+    obs, info = env.reset(**reset_kwargs)
     hidden = adapter.reset_hidden(1, device)
     done = False
+    n_steps = 0
 
     step_values = []
     step_rewards = []
@@ -106,6 +134,15 @@ def _run_single_episode(
         obs, reward, term, trunc, info = env.step(action)
         step_rewards.append(reward)
         done = term or trunc
+        n_steps += 1
+
+        if n_steps >= max_steps and not done:
+            warnings.warn(
+                f"Episode exceeded max_steps={max_steps}. "
+                "Truncating. Check env or wrapper for infinite loops.",
+                RuntimeWarning, stacklevel=3,
+            )
+            done = True
 
     returns = compute_discounted_returns(step_rewards, gamma)
 
@@ -133,6 +170,7 @@ def run_reliance_audit(
     gamma: float = 0.99,
     device: str = "cpu",
     verbose: bool = True,
+    seed: Optional[int] = None,
 ) -> Dict:
     """Axis 1: Intervention ablation at multiple speeds.
 
@@ -170,32 +208,35 @@ def run_reliance_audit(
 
     per_speed = {}
     for speed in speeds:
-        if verbose:
-            print(f"    Speed {speed}...", end="", flush=True)
-
         results = {}
         for interv in interventions:
             if interv != "none" and not adapter.supports_intervention:
                 continue
 
+            label = f"speed={speed} [{interv}]"
+            bar = _episode_iter(n_episodes, label, verbose)
             episodes = []
-            for _ in range(n_episodes):
+            for ep_idx in bar:
+                ep_seed = None if seed is None else seed + speed * 1000 + ep_idx
                 env = env_factory()
                 if speed > 1:
                     env = FixedSpeedWrapper(env, speed=speed)
-                ep = _run_single_episode(adapter, env, interv, gamma, device)
+                ep = _run_single_episode(adapter, env, interv, gamma, device,
+                                         seed=ep_seed)
                 episodes.append(ep)
                 env.close()
+                if _HAS_TQDM and verbose and hasattr(bar, "set_postfix"):
+                    bar.set_postfix(R=f"{ep['total_reward']:.1f}")
 
-            results[interv] = aggregate_episode_metrics(episodes)
+            agg = aggregate_episode_metrics(episodes)
+            results[interv] = agg
+            if not (_HAS_TQDM and verbose):
+                if verbose:
+                    r = agg.get("total_reward_mean", 0)
+                    rmse = agg.get("rmse_mean", 0)
+                    print(f" R={r:.3f}, RMSE={rmse:.4f}")
 
         per_speed[str(speed)] = results
-
-        if verbose:
-            none_r = results.get("none", {})
-            rmse = none_r.get("rmse_mean", 0)
-            reward = none_r.get("total_reward_mean", 0)
-            print(f" R={reward:.3f}, RMSE={rmse:.4f}")
 
     # Compute reliance summary
     worst_ratio = 1.0
@@ -272,6 +313,7 @@ def run_robustness_audit(
     gamma: float = 0.99,
     device: str = "cpu",
     verbose: bool = True,
+    seed: Optional[int] = None,
 ) -> Dict:
     """Axis 2: Realistic timing perturbations via env wrappers.
 
@@ -293,17 +335,19 @@ def run_robustness_audit(
 
     scenario_results = {}
     scenario_episode_returns = {}  # raw per-episode returns for bootstrap
-    for scenario in scenarios:
-        if verbose:
-            label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
-            print(f"    {label}...", end="", flush=True)
-
+    for sc_idx, scenario in enumerate(scenarios):
+        label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
+        bar = _episode_iter(n_episodes, label, verbose)
         episodes = []
-        for _ in range(n_episodes):
+        for ep_idx in bar:
+            ep_seed = None if seed is None else seed + sc_idx * 1000 + ep_idx
             env = _make_wrapped_env(env_factory, scenario)
-            ep = _run_single_episode(adapter, env, "none", gamma, device)
+            ep = _run_single_episode(adapter, env, "none", gamma, device,
+                                     seed=ep_seed)
             episodes.append(ep)
             env.close()
+            if _HAS_TQDM and verbose and hasattr(bar, "set_postfix"):
+                bar.set_postfix(R=f"{ep['total_reward']:.1f}")
 
         agg = aggregate_episode_metrics(episodes)
         scenario_results[scenario] = agg
@@ -311,7 +355,7 @@ def run_robustness_audit(
             ep["total_reward"] for ep in episodes
         ]
 
-        if verbose:
+        if not (_HAS_TQDM and verbose) and verbose:
             r = agg.get("total_reward_mean", 0)
             rmse = agg.get("rmse_mean", 0)
             print(f" R={r:.3f}, RMSE={rmse:.4f}")
@@ -434,6 +478,7 @@ def compute_temporal_sensitivity(
     gamma: float = 0.99,
     device: str = "cpu",
     verbose: bool = True,
+    seed: Optional[int] = None,
 ) -> Optional[Dict]:
     """Compute temporal sensitivity: |dV/dτ| via finite difference.
 
@@ -542,6 +587,7 @@ def run_full_audit(
     gamma: float = 0.99,
     device: str = "cpu",
     verbose: bool = True,
+    seed: Optional[int] = None,
 ) -> Dict:
     """Run the complete 2-axis time robustness audit.
 
@@ -565,7 +611,7 @@ def run_full_audit(
     reliance = run_reliance_audit(
         adapter, env_factory, speeds=speeds,
         n_episodes=n_episodes, interventions=interventions,
-        gamma=gamma, device=device, verbose=verbose,
+        gamma=gamma, device=device, verbose=verbose, seed=seed,
     )
 
     if verbose:
@@ -575,7 +621,7 @@ def run_full_audit(
     robustness = run_robustness_audit(
         adapter, env_factory, scenarios=robustness_scenarios,
         n_episodes=n_episodes, gamma=gamma, device=device,
-        verbose=verbose,
+        verbose=verbose, seed=seed,
     )
 
     if verbose:
@@ -585,7 +631,7 @@ def run_full_audit(
     sensitivity = compute_temporal_sensitivity(
         adapter, env_factory, speeds=[1, 3, 5],
         n_episodes=sensitivity_episodes,
-        gamma=gamma, device=device, verbose=verbose,
+        gamma=gamma, device=device, verbose=verbose, seed=seed,
     )
 
     # 2-axis summary with deployment/stress split
