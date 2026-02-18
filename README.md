@@ -43,7 +43,7 @@ A single step of observation delay destroys 96% of performance. The agent goes *
 
 ![HalfCheetah robustness audit results](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/assets/halfcheetah_robustness.png)
 
-[View interactive report](https://maruyamakoju.github.io/deltatau-audit/sample/halfcheetah/) | [Download report ZIP](https://github.com/maruyamakoju/deltatau-audit/releases/latest/download/halfcheetah_audit_report.zip)
+[View interactive report](https://maruyamakoju.github.io/deltatau-audit/sample/halfcheetah/) | [Download report ZIP](https://github.com/maruyamakoju/deltatau-audit/releases/download/assets/halfcheetah_audit_report.zip)
 
 ### Speed-randomized training fixes the problem
 
@@ -72,7 +72,7 @@ python examples/train_robust_halfcheetah.py        # train robust PPO (~30 min)
 python examples/audit_before_after.py              # Before/After comparison
 ```
 
-Or download pre-trained models from [Releases](https://github.com/maruyamakoju/deltatau-audit/releases/latest).
+Or download pre-trained models from [Releases](https://github.com/maruyamakoju/deltatau-audit/releases/tag/assets).
 
 </details>
 
