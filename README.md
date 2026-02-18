@@ -5,9 +5,9 @@
 [![Python 3.9+](https://img.shields.io/pypi/pyversions/deltatau-audit)](https://pypi.org/project/deltatau-audit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Time Robustness Audit for RL agents.**
+**Find and fix timing failures in RL agents.**
 
-Evaluates whether an RL agent breaks when the environment's timing changes — the kind of failure that silently appears in deployment but never shows up in training.
+RL agents silently break when deployment timing differs from training — frame drops, variable inference latency, sensor rate changes. `deltatau-audit` finds these failures **and fixes them in one command**.
 
 ## Try it in 30 seconds
 
@@ -84,12 +84,42 @@ pip install "deltatau-audit[demo]"    # + CartPole demo (recommended start)
 pip install "deltatau-audit[sb3,mujoco]"  # + SB3 + MuJoCo environments
 ```
 
-## Audit Your Own SB3 Model
-
-One command — no Python code required:
+## Find and Fix in One Command
 
 ```bash
 pip install "deltatau-audit[sb3]"
+deltatau-audit fix-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5
+```
+
+This single command:
+1. **Audits** your model (finds timing failures)
+2. **Retrains** with speed randomization (the fix)
+3. **Re-audits** the fixed model (verifies the fix)
+4. **Generates** Before/After comparison report
+
+```
+BEFORE vs AFTER
+
+  Scenario        Before       After      Change
+  ------------  ----------  ----------  ----------
+  speed_5x           12.7%       76.6%  +    63.9pp
+  jitter             43.7%      100.0%  +    56.3pp
+  delay             100.0%      100.0%  +     0.0pp
+  spike              26.7%       91.9%  +    65.2pp
+
+  Deployment: FAIL (0.27) -> MILD (0.92)
+  Quadrant:   deployment_fragile -> deployment_ready
+```
+
+Output: fixed model (`.zip`) + HTML reports + `comparison.md`.
+
+Options: `--timesteps` (training budget), `--speed-min`/`--speed-max` (speed range), `--ci` (pipeline gate).
+
+## Audit Your Own SB3 Model
+
+Just want the diagnosis? Use `audit-sb3`:
+
+```bash
 deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --out my_report/
 ```
 
@@ -106,15 +136,15 @@ Supported algorithms: `ppo`, `sac`, `td3`, `a2c`. Any Gymnasium environment ID w
 <summary>Python API (for custom workflows)</summary>
 
 ```python
-from stable_baselines3 import PPO
+# Audit only
 from deltatau_audit.adapters.sb3 import SB3Adapter
 from deltatau_audit.auditor import run_full_audit
 from deltatau_audit.report import generate_report
+from stable_baselines3 import PPO
 import gymnasium as gym
 
 model = PPO.load("my_model.zip")
 adapter = SB3Adapter(model)
-
 result = run_full_audit(
     adapter,
     lambda: gym.make("HalfCheetah-v5"),
@@ -122,6 +152,12 @@ result = run_full_audit(
     n_episodes=30,
 )
 generate_report(result, "my_audit/", title="My Agent Audit")
+
+# Full fix pipeline
+from deltatau_audit.fixer import fix_sb3_model
+result = fix_sb3_model("my_model.zip", "ppo", "HalfCheetah-v5",
+                       output_dir="fix_output/")
+# result["fixed_model_path"] -> "fix_output/ppo_fixed.zip"
 ```
 
 </details>

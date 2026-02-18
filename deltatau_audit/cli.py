@@ -373,6 +373,78 @@ def _run_audit_sb3(args):
         sys.exit(exit_code)
 
 
+def _run_fix_sb3(args):
+    """Fix a timing-fragile SB3 model via speed-randomized retraining."""
+    # (1) Model file existence check
+    if not os.path.isfile(args.model):
+        print(f"ERROR: Model file not found: {args.model}")
+        if not args.model.endswith(".zip"):
+            print("  SB3 models are saved as .zip files. "
+                  "Did you mean: {}.zip?".format(args.model))
+        sys.exit(1)
+
+    # (2) Dependency check: stable-baselines3
+    try:
+        import stable_baselines3  # noqa: F401
+    except ImportError:
+        print("ERROR: stable-baselines3 is required.")
+        print('  pip install "deltatau-audit[sb3]"')
+        sys.exit(1)
+
+    # (3) Dependency check: gymnasium env
+    import gymnasium as gym
+    try:
+        test_env = gym.make(args.env)
+        test_env.close()
+    except Exception as e:
+        err = str(e).lower()
+        print(f"ERROR: Cannot create environment '{args.env}'")
+        print(f"  {e}")
+        env_lower = args.env.lower()
+        if any(k in env_lower or k in err for k in
+               ("mujoco", "cheetah", "hopper", "walker", "ant",
+                "humanoid", "swimmer", "reacher", "pusher",
+                "inverted")):
+            print('\n  pip install "deltatau-audit[sb3,mujoco]"')
+        elif "box2d" in err or any(k in env_lower for k in
+                                   ("lunar", "bipedal", "car_racing")):
+            print('\n  pip install gymnasium[box2d]')
+        sys.exit(1)
+
+    # (4) Run the fix pipeline
+    from .fixer import fix_sb3_model
+
+    result = fix_sb3_model(
+        model_path=args.model,
+        algo=args.algo,
+        env_id=args.env,
+        output_dir=args.out,
+        timesteps=args.timesteps,
+        speed_min=args.speed_min,
+        speed_max=args.speed_max,
+        n_audit_episodes=args.episodes,
+        device=args.device,
+    )
+
+    # CI mode: check the "After" model
+    if args.ci and result.get("after"):
+        after_dir = os.path.join(args.out, "after")
+        from .ci import write_ci_summary
+        exit_code = write_ci_summary(
+            result["after"]["summary"],
+            result["after"]["robustness"],
+            after_dir,
+            deploy_threshold=args.ci_deploy_threshold,
+            stress_threshold=args.ci_stress_threshold,
+        )
+        status = {0: "pass", 1: "warn", 2: "fail"}[exit_code]
+        print(f"\n  CI (fixed model): {status.upper()}")
+        sys.exit(exit_code)
+    elif args.ci and result.get("skipped"):
+        print("\n  CI: PASS (original model already robust)")
+        sys.exit(0)
+
+
 def _run_diff(args):
     """Compare two summary.json files and generate comparison.md."""
     from .diff import generate_comparison
@@ -440,6 +512,32 @@ def main():
                             help="Report title (default: auto)")
     _add_ci_args(sb3_parser)
 
+    # ── fix-sb3 subcommand ────────────────────────────────────────
+    fix_parser = subparsers.add_parser(
+        "fix-sb3",
+        help="Fix a timing-fragile SB3 model: audit -> retrain -> re-audit")
+    fix_parser.add_argument("--model", type=str, required=True,
+                            help="Path to SB3 model (.zip file)")
+    fix_parser.add_argument("--algo", type=str, required=True,
+                            choices=["ppo", "sac", "td3", "a2c"],
+                            help="SB3 algorithm (ppo, sac, td3, a2c)")
+    fix_parser.add_argument("--env", type=str, required=True,
+                            help="Gymnasium environment ID "
+                                 "(e.g. HalfCheetah-v5, CartPole-v1)")
+    fix_parser.add_argument("--out", type=str, default="fix_output",
+                            help="Output directory (default: fix_output/)")
+    fix_parser.add_argument("--timesteps", type=int, default=None,
+                            help="Training timesteps (default: auto)")
+    fix_parser.add_argument("--speed-min", type=int, default=1,
+                            help="Min speed during training (default: 1)")
+    fix_parser.add_argument("--speed-max", type=int, default=5,
+                            help="Max speed during training (default: 5)")
+    fix_parser.add_argument("--episodes", type=int, default=30,
+                            help="Audit episodes per condition (default: 30)")
+    fix_parser.add_argument("--device", type=str, default="cpu",
+                            help="Device (default: cpu)")
+    _add_ci_args(fix_parser)
+
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(
         "demo", help="Run a bundled demo (Before/After comparison)")
@@ -468,6 +566,8 @@ def main():
         _run_audit(args)
     elif args.command == "audit-sb3":
         _run_audit_sb3(args)
+    elif args.command == "fix-sb3":
+        _run_fix_sb3(args)
     elif args.command == "demo":
         _run_demo(args)
     elif args.command == "diff":
@@ -483,6 +583,8 @@ def main():
             print("\nExamples:")
             print("  python -m deltatau_audit demo cartpole")
             print("  python -m deltatau_audit audit-sb3 "
+                  "--algo ppo --model my_model.zip --env HalfCheetah-v5")
+            print("  python -m deltatau_audit fix-sb3 "
                   "--algo ppo --model my_model.zip --env HalfCheetah-v5")
             print("  python -m deltatau_audit audit-sb3 "
                   "--algo ppo --model my_model.zip --env CartPole-v1 --ci")

@@ -8,11 +8,16 @@ dist/
 
 # Training runs & generated reports
 runs/
-audit_report_*/
-demo_report_*/
+audit_report*/
+demo_report*/
+fix_output*/
+test_fix_output/
 halfcheetah_audit/
 halfcheetah_before_after/
 halfcheetah_audit_report*.zip
+
+# Test models
+test_*.zip
 
 # IDE / OS / Tools
 .vscode/
