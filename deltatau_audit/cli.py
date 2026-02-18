@@ -1,4 +1,4 @@
-"""CLI entry point for deltatau-audit (v0.3).
+"""CLI entry point for deltatau-audit.
 
 Usage:
     # Audit an internal-time agent on chain env
@@ -83,7 +83,8 @@ def _handle_ci(result, out_dir, args):
 
 def _run_audit(args):
     """Run audit on a checkpoint."""
-    print(f"deltatau-audit v0.3")
+    from . import __version__
+    print(f"deltatau-audit v{__version__}")
     print(f"  Checkpoint: {args.checkpoint}")
     print(f"  Agent type: {args.agent_type}")
     print(f"  Environment: {args.env}")
@@ -186,7 +187,8 @@ def _run_demo(args):
          "CartPole Speed-Randomized GRU (After Fix)"),
     ]
 
-    print(f"deltatau-audit v0.3 — CartPole Demo")
+    from . import __version__
+    print(f"deltatau-audit v{__version__} — CartPole Demo")
     print(f"  Episodes per condition: {n_episodes}")
     print(f"  Output: {out_dir}/")
     if args.ci:
