@@ -86,18 +86,45 @@ def print_comparison(before, after):
           f"({a_str:.2f})")
 
 
+RELEASE_URL = (
+    "https://github.com/maruyamakoju/deltatau-audit/releases/download/assets/"
+)
+ASSETS = {
+    "runs/halfcheetah_ppo_500k.zip": "halfcheetah_ppo_500k.zip",
+    "runs/halfcheetah_ppo_robust_500k.zip": "halfcheetah_ppo_robust_500k.zip",
+}
+
+
+def _try_download(local_path: Path, asset_name: str) -> bool:
+    """Try to download a model from GitHub Releases. Returns True on success."""
+    url = RELEASE_URL + asset_name
+    try:
+        import urllib.request
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"  Downloading {asset_name} from GitHub Releases...")
+        urllib.request.urlretrieve(url, str(local_path))
+        print(f"  Saved: {local_path}")
+        return True
+    except Exception as e:
+        print(f"  Download failed: {e}")
+        return False
+
+
 def main():
     standard_model = Path("runs/halfcheetah_ppo_500k.zip")
     robust_model = Path("runs/halfcheetah_ppo_robust_500k.zip")
 
-    if not standard_model.exists():
-        print(f"ERROR: {standard_model} not found.")
-        print("Run: python examples/audit_halfcheetah.py")
-        return 1
-    if not robust_model.exists():
-        print(f"ERROR: {robust_model} not found.")
-        print("Run: python examples/train_robust_halfcheetah.py")
-        return 1
+    for path, asset in ASSETS.items():
+        p = Path(path)
+        if not p.exists():
+            print(f"Model not found locally: {p}")
+            ok = _try_download(p, asset)
+            if not ok:
+                if path.endswith("500k.zip"):
+                    print(f"  Fallback: python examples/audit_halfcheetah.py")
+                else:
+                    print(f"  Fallback: python examples/train_robust_halfcheetah.py")
+                return 1
 
     output = Path("halfcheetah_before_after")
 
