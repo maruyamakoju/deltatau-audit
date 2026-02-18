@@ -1,0 +1,108 @@
+# Changelog
+
+All notable changes to `deltatau-audit` are documented here.
+
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+
+---
+
+## [0.4.2] — 2026-02-19
+
+### Added
+- `fix-cleanrl` CLI command: audit → retrain → re-audit pipeline for CleanRL agents (no SB3 dependency)
+- `deltatau_audit/fixer_cleanrl.py`: self-contained PPO training loop with JitterWrapper, works with any agent implementing `get_action_and_value(obs)`
+- `notebooks/quickstart.ipynb`: Google Colab notebook — install, run demo, view Before/After table
+- Open in Colab badge on README
+- `examples/audit_before_after.py`: auto-downloads HalfCheetah pre-trained models from GitHub Releases if not found locally
+
+---
+
+## [0.4.1] — 2026-02-19
+
+### Added
+- `CleanRLAdapter`: wraps any CleanRL MLP or LSTM agent; `from_checkpoint()` and `from_module_path()` (dynamic class loading for CLI)
+- `TorchPolicyAdapter`: generic callable adapter for IsaacLab/RSL-RL and any custom PyTorch actor-critic
+  - Auto-detects RSL-RL checkpoint format (`{"model_state_dict": {"actor.*": ...}}`)
+  - `from_actor_critic()`, `from_checkpoint()` class methods
+- `audit-cleanrl` CLI subcommand: one-command CleanRL agent auditing with `--agent-module`
+- `examples/audit_cleanrl.py`: train minimal CleanRL PPO, audit end-to-end
+- `examples/isaaclab_skeleton.py`: IsaacLab/RSL-RL integration skeleton
+- README: "Audit CleanRL Agents" section, "Sim-to-Real Transfer" section, "IsaacLab / RSL-RL" section
+- 38 new tests (131 total)
+
+---
+
+## [0.4.0] — 2026-02-18
+
+### Added
+- `fix-sb3` CLI command: diagnose + fix in one command
+  - Audits original model → retrains with speed randomization → re-audits → Before/After report
+  - Skips retraining if deployment score ≥ 0.95
+- `deltatau_audit/fixer.py`: `fix_sb3_model()` Python API
+- `action.yml`: GitHub Action composite action (`uses: maruyamakoju/deltatau-audit@main`)
+  - Inputs: `command`, `model`, `algo`, `env`, `extras`, `episodes`, `deploy-threshold`
+  - Outputs: `status`, `deployment-score`, `stress-score`
+- `examples/fix_cartpole.py`: train CartPole PPO, fix in one script
+- `JitterWrapper`, `FixedSpeedWrapper`, `PiecewiseSwitchWrapper`, `ObservationDelayWrapper` documented in README
+- `tests/test_fixer.py`: 6 tests for fix-sb3 pipeline
+
+### Changed
+- README hero section updated: "Find and fix timing failures in RL agents"
+
+---
+
+## [0.3.9] — 2026-02-17
+
+### Added
+- `audit-sb3` CLI: zero-friction SB3 model auditing with smart error hints
+  - Auto-detects MuJoCo / Box2D / Atari dependencies and prints install hints
+  - `--ci` flag for pipeline gate mode
+- SB3 sample model download snippet in README
+
+---
+
+## [0.3.7] — 2026-02-16
+
+### Added
+- PyPI metadata polish: keywords, classifiers, long description
+- CI snippet in README
+- Stable `assets` release tag for download links
+
+---
+
+## [0.3.5] — 2026-02-15
+
+### Added
+- Before/After audit story in README: speed-randomized PPO fixes deployment failures
+- CartPole Before/After demo as the hero experience
+- Sample HTML reports on GitHub Pages
+
+---
+
+## [0.3.2] — 2026-02-14
+
+### Added
+- MuJoCo showcase: HalfCheetah PPO timing audit results
+- Bootstrap 95% confidence intervals on all return ratios
+- Statistical significance testing per scenario
+- `SB3Adapter`: wraps PPO/SAC/TD3/A2C from stable-baselines3
+- `SB3RecurrentAdapter`: wraps RecurrentPPO from sb3-contrib
+- `examples/audit_halfcheetah.py`, `examples/train_robust_halfcheetah.py`
+- `diff` subcommand: compare two `summary.json` files → `comparison.md`
+- 75 unit tests
+
+---
+
+## [0.3.0] — 2026-02-13
+
+### Initial release
+
+- 3-badge evaluation: **Reliance** (intervention ablation), **Deployment** (jitter/delay/spike), **Stress** (5x speed)
+- `InternalTimeAdapter`: wraps Δτ-GRU agents with internal time module
+- `GenericRecurrentAdapter`: wraps standard GRU/LSTM policies
+- `VariableFrequencyChainEnv` integration
+- HTML report generation with charts
+- CI mode: `--ci` flag → `ci_summary.json` + `ci_summary.md` + exit codes (0/1/2)
+- Bundled CartPole checkpoints for `demo` subcommand
+- `deltatau_audit/wrappers/`: `JitterWrapper`, `FixedSpeedWrapper`, `PiecewiseSwitchWrapper`, `ObservationDelayWrapper`

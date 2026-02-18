@@ -37,7 +37,7 @@ Homepage = "https://github.com/maruyamakoju/deltatau-audit"
 Repository = "https://github.com/maruyamakoju/deltatau-audit"
 Documentation = "https://maruyamakoju.github.io/deltatau-audit/"
 Issues = "https://github.com/maruyamakoju/deltatau-audit/issues"
-Changelog = "https://github.com/maruyamakoju/deltatau-audit/releases"
+Changelog = "https://github.com/maruyamakoju/deltatau-audit/blob/main/CHANGELOG.md"
 "Sample Reports" = "https://maruyamakoju.github.io/deltatau-audit/"
 "Models & Reports" = "https://github.com/maruyamakoju/deltatau-audit/releases/tag/assets"
 
