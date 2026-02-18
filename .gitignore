@@ -11,6 +11,7 @@ runs/
 audit_report_*/
 demo_report_*/
 halfcheetah_audit/
+halfcheetah_before_after/
 halfcheetah_audit_report*.zip
 
 # IDE / OS / Tools
