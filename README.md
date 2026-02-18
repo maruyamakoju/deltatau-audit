@@ -40,6 +40,38 @@ To skip training, download the [pre-trained model](https://github.com/maruyamako
 
 </details>
 
+## Speed-randomized training fixes the problem
+
+Training the same PPO with speed randomization (`JitterWrapper`, speeds 1-5) transforms deployment robustness:
+
+| Scenario | Before (Standard) | After (Speed-Randomized) | Change |
+|----------|:-----------------:|:------------------------:|:------:|
+| Observation delay | **2%** | **148%** | +146pp |
+| Speed jitter | **28%** | **121%** | +93pp |
+| 5x speed (unseen) | **-12%** | **38%** | +50pp |
+| Mid-episode spike | **100%** | **113%** | +13pp |
+| **Deployment** | **FAIL** (0.02) | **PASS** (1.00) | |
+| **Quadrant** | deployment_fragile | deployment_ready | |
+
+The robust agent survives all deployment-realistic conditions (jitter, delay, spike) with no degradation — going from `FAIL` to `PASS`. Even at 5x speed (stress test), performance improves from -12% to 38%.
+
+![Robust agent audit results](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/assets/halfcheetah_robust_robustness.png)
+
+<details>
+<summary>Reproduce this result</summary>
+
+```bash
+pip install "deltatau-audit[sb3,mujoco]"
+git clone https://github.com/maruyamakoju/deltatau-audit.git
+cd deltatau-audit
+python examples/train_robust_halfcheetah.py  # train speed-randomized PPO (~30 min)
+python examples/audit_before_after.py        # audit both models + comparison
+```
+
+Or download pre-trained models from [Releases](https://github.com/maruyamakoju/deltatau-audit/releases/latest).
+
+</details>
+
 ## Install
 
 ```bash
