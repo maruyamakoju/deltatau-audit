@@ -272,6 +272,74 @@ def _run_demo(args):
         sys.exit(exit_code)
 
 
+def _run_audit_sb3(args):
+    """Audit an SB3 model (.zip) on a Gymnasium environment."""
+    # Dependency check: stable-baselines3
+    try:
+        import stable_baselines3  # noqa: F401
+    except ImportError:
+        print("ERROR: stable-baselines3 is required.")
+        print('  pip install "deltatau-audit[sb3]"')
+        sys.exit(1)
+
+    # Dependency check: gymnasium env
+    import gymnasium as gym
+    try:
+        test_env = gym.make(args.env)
+        test_env.close()
+    except Exception as e:
+        print(f"ERROR: Cannot create environment '{args.env}': {e}")
+        if "mujoco" in args.env.lower() or "cheetah" in args.env.lower():
+            print('  pip install "deltatau-audit[sb3,mujoco]"')
+        sys.exit(1)
+
+    from . import __version__
+    from .adapters.sb3 import SB3Adapter
+    from .auditor import run_full_audit
+    from .report import generate_report
+
+    print(f"deltatau-audit v{__version__} — SB3 Audit")
+    print(f"  Model: {args.model}")
+    print(f"  Algo:  {args.algo}")
+    print(f"  Env:   {args.env}")
+    print(f"  Speeds: {args.speeds}")
+    print(f"  Episodes: {args.episodes}")
+    print(f"  Device: {args.device}")
+    print(f"  Output: {args.out}")
+    if args.ci:
+        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+              f"stress>={args.ci_stress_threshold})")
+    print()
+
+    # Load model
+    adapter = SB3Adapter.from_path(args.model, algo=args.algo,
+                                   device=args.device)
+    print(f"  Model loaded ({args.algo.upper()} on {args.env})")
+    print()
+
+    env_factory = lambda: gym.make(args.env)
+
+    title = args.title or f"{args.algo.upper()} on {args.env}"
+
+    t0 = time.time()
+    result = run_full_audit(
+        adapter, env_factory,
+        speeds=args.speeds,
+        n_episodes=args.episodes,
+        sensitivity_episodes=0,
+        device=args.device,
+    )
+    elapsed = time.time() - t0
+    print(f"\n  Audit completed in {elapsed:.1f}s")
+
+    print()
+    generate_report(result, args.out, title=title)
+
+    exit_code = _handle_ci(result, args.out, args)
+    if args.ci:
+        sys.exit(exit_code)
+
+
 def _run_diff(args):
     """Compare two summary.json files and generate comparison.md."""
     from .diff import generate_comparison
@@ -314,6 +382,31 @@ def main():
                               default="Time Robustness Audit")
     _add_ci_args(audit_parser)
 
+    # ── audit-sb3 subcommand ─────────────────────────────────────
+    sb3_parser = subparsers.add_parser(
+        "audit-sb3",
+        help="Audit a Stable-Baselines3 model (.zip) on any Gymnasium env")
+    sb3_parser.add_argument("--model", type=str, required=True,
+                            help="Path to SB3 model (.zip file)")
+    sb3_parser.add_argument("--algo", type=str, required=True,
+                            choices=["ppo", "sac", "td3", "a2c"],
+                            help="SB3 algorithm (ppo, sac, td3, a2c)")
+    sb3_parser.add_argument("--env", type=str, required=True,
+                            help="Gymnasium environment ID "
+                                 "(e.g. HalfCheetah-v5, CartPole-v1)")
+    sb3_parser.add_argument("--out", type=str, default="audit_report",
+                            help="Output directory (default: audit_report/)")
+    sb3_parser.add_argument("--episodes", type=int, default=30,
+                            help="Episodes per condition (default: 30)")
+    sb3_parser.add_argument("--speeds", type=int, nargs="+",
+                            default=[1, 2, 3, 5, 8],
+                            help="Speed multipliers (default: 1 2 3 5 8)")
+    sb3_parser.add_argument("--device", type=str, default="cpu",
+                            help="Device (default: cpu)")
+    sb3_parser.add_argument("--title", type=str, default=None,
+                            help="Report title (default: auto)")
+    _add_ci_args(sb3_parser)
+
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(
         "demo", help="Run a bundled demo (Before/After comparison)")
@@ -340,6 +433,8 @@ def main():
 
     if args.command == "audit":
         _run_audit(args)
+    elif args.command == "audit-sb3":
+        _run_audit_sb3(args)
     elif args.command == "demo":
         _run_demo(args)
     elif args.command == "diff":
@@ -353,13 +448,13 @@ def main():
         else:
             parser.print_help()
             print("\nExamples:")
-            print("  python -m deltatau_audit demo cartpole --out demo_report/")
-            print("  python -m deltatau_audit audit --checkpoint model.pt "
-                  "--agent-type internal_time --env chain")
+            print("  python -m deltatau_audit demo cartpole")
+            print("  python -m deltatau_audit audit-sb3 "
+                  "--algo ppo --model my_model.zip --env HalfCheetah-v5")
+            print("  python -m deltatau_audit audit-sb3 "
+                  "--algo ppo --model my_model.zip --env CartPole-v1 --ci")
             print("  python -m deltatau_audit diff before/summary.json "
                   "after/summary.json")
-            print("  python -m deltatau_audit demo cartpole --ci  "
-                  "# CI gate mode")
 
 
 if __name__ == "__main__":
