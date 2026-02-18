@@ -135,6 +135,23 @@ python -m deltatau_audit demo cartpole --ci --out ci_report/
 
 Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments.
 
+### GitHub Actions example
+
+```yaml
+- name: Install deltatau-audit
+  run: pip install "deltatau-audit[demo]"
+
+- name: Run timing robustness gate
+  run: python -m deltatau_audit demo cartpole --ci --out ci_report/
+
+- name: Upload audit report
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: timing-audit
+    path: ci_report/
+```
+
 ## Custom Adapters
 
 Implement `AgentAdapter` (see `deltatau_audit/adapters/base.py`):
