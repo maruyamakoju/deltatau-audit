@@ -53,7 +53,7 @@ def test_audit_sb3_missing_sb3(monkeypatch):
 
 
 def test_audit_sb3_missing_model():
-    """audit-sb3 fails gracefully with non-existent model file."""
+    """audit-sb3 shows helpful message for non-existent model file."""
     result = subprocess.run(
         [sys.executable, "-m", "deltatau_audit", "audit-sb3",
          "--algo", "ppo", "--model", "nonexistent.zip",
@@ -61,3 +61,43 @@ def test_audit_sb3_missing_model():
         capture_output=True, text=True,
     )
     assert result.returncode != 0
+    output = result.stdout + result.stderr
+    assert "not found" in output.lower()
+
+
+def test_audit_sb3_model_not_zip():
+    """audit-sb3 hints about .zip extension when missing."""
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "audit-sb3",
+         "--algo", "ppo", "--model", "nonexistent",
+         "--env", "CartPole-v1"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    output = result.stdout + result.stderr
+    assert ".zip" in output
+
+
+def test_audit_sb3_sample_model_hint():
+    """audit-sb3 suggests sample model download on missing file."""
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "audit-sb3",
+         "--algo", "ppo", "--model", "nonexistent.zip",
+         "--env", "CartPole-v1"],
+        capture_output=True, text=True,
+    )
+    output = result.stdout + result.stderr
+    assert "cartpole_ppo_sb3.zip" in output
+
+
+def test_audit_sb3_bad_env():
+    """audit-sb3 fails gracefully with invalid environment."""
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "audit-sb3",
+         "--algo", "ppo", "--model", __file__,  # use this file as dummy
+         "--env", "NonExistentEnv-v99"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    output = result.stdout + result.stderr
+    assert "cannot create" in output.lower() or "error" in output.lower()
