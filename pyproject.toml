@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.3.1"
+version = "0.3.2"
 description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,7 +38,8 @@ Issues = "https://github.com/maruyamakoju/deltatau-audit/issues"
 
 [project.optional-dependencies]
 demo = ["gymnasium[classic-control]>=0.29"]
-sb3 = ["sb3-contrib>=2.0", "stable-baselines3>=2.0"]
+sb3 = ["stable-baselines3>=2.0", "sb3-contrib>=2.0"]
+mujoco = ["gymnasium[mujoco]>=1.0"]
 dev = ["pytest>=7.0"]
 
 [project.scripts]
