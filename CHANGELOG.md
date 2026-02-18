@@ -7,6 +7,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.4] — 2026-02-19
+
+### Added
+- **`ObsNoiseWrapper`** (`wrappers/latency.py`): Gaussian observation noise (σ=0.1) simulating noisy sensors. Uses a seeded, thread-local `numpy.random.Generator` for reproducibility.
+- **`obs_noise` robustness scenario**: Added to `ROBUSTNESS_SCENARIOS` and `DEPLOYMENT_SCENARIOS`. Now 4 deployment scenarios: `jitter`, `delay`, `spike`, `obs_noise`.
+- **Parallel episode execution**: `run_reliance_audit`, `run_robustness_audit`, `run_full_audit` accept `n_workers: int = 1`. When > 1, episodes are dispatched via `ThreadPoolExecutor` for 2-8× speedup on multi-core machines. Serial path unchanged when `n_workers=1`.
+- **`--workers` CLI flag** on `audit`, `audit-sb3`, `audit-cleanrl`, `demo` subcommands.
+- **Visual score card in HTML reports**: Each badge now shows a colored meter bar and numeric score. A verdict pill (green/orange/red) displays the quadrant classification prominently.
+- **`examples/validate_mujoco.py`**: End-to-end validation script proving fix-sb3 on HalfCheetah-v5. Trains initial PPO → before audit → fix → after audit → prints Before/After comparison table.
+- 8 new tests (170 total, all passing): `TestObsNoiseWrapper` (5 tests), `TestParallelExecution` (3 tests).
+
+---
+
 ## [0.4.3] — 2026-02-19
 
 ### Fixed

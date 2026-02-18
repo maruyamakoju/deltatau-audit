@@ -1,8 +1,11 @@
-"""Tests for v0.4.3 quality fixes:
+"""Tests for v0.4.3 and v0.4.4 quality fixes:
   1. Episode timeout / max_steps guard
   2. Seed reproducibility
   3. Negative nominal return ratio
   4. Continuous action detection in fixer_cleanrl
+  5. ObsNoiseWrapper
+  6. Parallel episode execution (n_workers > 1)
+  7. obs_noise scenario in robustness audit
 """
 
 import warnings
@@ -297,3 +300,149 @@ class TestContinuousActionDetection:
         act_buf = torch.zeros(num_steps, act_dim, dtype=torch.float32)
         assert act_buf.shape == (num_steps, act_dim)
         assert act_buf.dtype == torch.float32
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 5. ObsNoiseWrapper
+# ─────────────────────────────────────────────────────────────────────
+
+class TestObsNoiseWrapper:
+    """Verify Gaussian observation noise wrapper."""
+
+    def test_noise_applied_on_step(self):
+        """Step must return a perturbed observation (not identical to clean)."""
+        import gymnasium as gym
+        from deltatau_audit.wrappers.latency import ObsNoiseWrapper
+
+        base = gym.make("CartPole-v1")
+        env = ObsNoiseWrapper(base, std=1.0, seed=0)
+        env.reset(seed=0)
+
+        # Collect 20 steps; at least some should differ from clean obs
+        clean_env = gym.make("CartPole-v1")
+        clean_env.reset(seed=0)
+
+        diffs = []
+        for _ in range(20):
+            action = 0
+            noisy_obs, _, _, _, _ = env.step(action)
+            clean_obs, _, _, _, _ = clean_env.step(action)
+            diffs.append(np.any(noisy_obs != clean_obs))
+
+        assert any(diffs), "Noise wrapper returned identical obs on all steps"
+        clean_env.close()
+        env.close()
+
+    def test_reset_is_clean(self):
+        """Reset must return obs without noise (initial state is clean)."""
+        import gymnasium as gym
+        from deltatau_audit.wrappers.latency import ObsNoiseWrapper
+
+        base_env = gym.make("CartPole-v1")
+        noisy_env = ObsNoiseWrapper(base_env, std=10.0, seed=42)
+
+        # Two independent resets with same seed → same obs
+        obs_noisy, _ = noisy_env.reset(seed=99)
+        # Compare with a fresh base env reset
+        base_env2 = gym.make("CartPole-v1")
+        obs_clean, _ = base_env2.reset(seed=99)
+
+        np.testing.assert_array_equal(
+            obs_noisy, obs_clean,
+            err_msg="ObsNoiseWrapper reset should return clean observation")
+        noisy_env.close()
+        base_env2.close()
+
+    def test_noise_info_key(self):
+        """Step info must contain obs_noise_std key."""
+        import gymnasium as gym
+        from deltatau_audit.wrappers.latency import ObsNoiseWrapper
+
+        env = ObsNoiseWrapper(gym.make("CartPole-v1"), std=0.05, seed=0)
+        env.reset()
+        _, _, _, _, info = env.step(0)
+        assert "obs_noise_std" in info
+        assert info["obs_noise_std"] == pytest.approx(0.05)
+        env.close()
+
+    def test_obs_noise_scenario_in_auditor(self):
+        """obs_noise must be a valid robustness scenario in ROBUSTNESS_SCENARIOS."""
+        from deltatau_audit.auditor import ROBUSTNESS_SCENARIOS, DEPLOYMENT_SCENARIOS
+        assert "obs_noise" in ROBUSTNESS_SCENARIOS
+        assert "obs_noise" in DEPLOYMENT_SCENARIOS
+
+    def test_make_wrapped_env_obs_noise(self):
+        """_make_wrapped_env must create ObsNoiseWrapper for obs_noise scenario."""
+        import gymnasium as gym
+        from deltatau_audit.auditor import _make_wrapped_env
+        from deltatau_audit.wrappers.latency import ObsNoiseWrapper
+
+        env = _make_wrapped_env(lambda: gym.make("CartPole-v1"), "obs_noise")
+        assert isinstance(env, ObsNoiseWrapper)
+        env.close()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6. Parallel episode execution
+# ─────────────────────────────────────────────────────────────────────
+
+class TestParallelExecution:
+    """Verify n_workers > 1 produces correct results."""
+
+    def _cartpole(self):
+        import gymnasium as gym
+        return gym.make("CartPole-v1")
+
+    def test_parallel_same_count(self):
+        """Parallel run must return same number of episodes as serial."""
+        adapter = _DummyAdapter()
+
+        serial = run_robustness_audit(
+            adapter, self._cartpole,
+            scenarios=["nominal", "jitter"],
+            n_episodes=4, verbose=False, seed=0, n_workers=1,
+        )
+        parallel = run_robustness_audit(
+            adapter, self._cartpole,
+            scenarios=["nominal", "jitter"],
+            n_episodes=4, verbose=False, seed=0, n_workers=2,
+        )
+
+        s_n = serial["scenarios"]["nominal"]["n_episodes"]
+        p_n = parallel["scenarios"]["nominal"]["n_episodes"]
+        assert s_n == p_n == 4
+
+    def test_parallel_result_structure(self):
+        """Parallel run must return the same dict structure as serial."""
+        adapter = _DummyAdapter()
+
+        result = run_robustness_audit(
+            adapter, self._cartpole,
+            scenarios=["nominal", "obs_noise"],
+            n_episodes=3, verbose=False, seed=42, n_workers=2,
+        )
+
+        assert "scenarios" in result
+        assert "nominal" in result["scenarios"]
+        assert "obs_noise" in result["scenarios"]
+        assert "per_scenario_scores" in result
+        assert result["scenarios"]["nominal"]["n_episodes"] == 3
+
+    def test_parallel_n_workers_1_same_as_serial(self):
+        """n_workers=1 must be functionally identical to not specifying n_workers."""
+        adapter = _DummyAdapter()
+
+        r1 = run_robustness_audit(
+            adapter, self._cartpole,
+            scenarios=["nominal"], n_episodes=5,
+            verbose=False, seed=7, n_workers=1,
+        )
+        r2 = run_robustness_audit(
+            adapter, self._cartpole,
+            scenarios=["nominal"], n_episodes=5,
+            verbose=False, seed=7,
+        )
+
+        m1 = r1["scenarios"]["nominal"]["total_reward_mean"]
+        m2 = r2["scenarios"]["nominal"]["total_reward_mean"]
+        assert abs(m1 - m2) < 1e-6

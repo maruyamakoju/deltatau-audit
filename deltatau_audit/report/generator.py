@@ -173,6 +173,7 @@ def _plot_robustness_bars(robustness: Dict) -> str:
         "jitter": "Jitter",
         "delay": "Delay",
         "spike": "Spike",
+        "obs_noise": "Obs. Noise",
     }
     labels = [scenario_labels.get(s, s) for s in ordered]
 
@@ -374,47 +375,77 @@ def generate_report(audit_result: Dict, output_dir: str,
     }
     quadrant_label = quadrant_labels.get(quadrant, quadrant)
 
-    # ── Badge HTML ────────────────────────────────────────────────
+    # Verdict pill color: green for good quadrants, orange/red for fragile
+    _good_quadrants = {"time_aware_robust", "time_blind_robust", "deployment_ready"}
+    _warn_quadrants = {"time_aware_fragile", "time_blind_robust"}
+    if quadrant in _good_quadrants:
+        verdict_color = "#28a745"
+    elif quadrant in {"time_blind_fragile", "deployment_fragile"}:
+        verdict_color = "#dc3545"
+    else:
+        verdict_color = "#fd7e14"
+    verdict_pill = (f'<div style="text-align:center">'
+                    f'<span class="verdict-pill" style="background:{verdict_color}">'
+                    f'{quadrant_label}</span></div>')
+
+    # ── Badge HTML ─────────────────────────────────────────────────
+    # Helper: colored score meter bar (0–100%)
+    def _meter(score_01: float, color: str, label_pct: str) -> str:
+        pct = min(100, max(0, score_01 * 100))
+        return (
+            f'<div class="meter-wrap">'
+            f'<div class="meter-fill" style="width:{pct:.0f}%;background:{color}"></div>'
+            f'</div>'
+            f'<div class="badge-score" style="color:{color}">{label_pct}</div>'
+        )
+
+    dep_pct = f"{summary['deployment_score']*100:.0f}%"
+    str_pct = f"{summary['stress_score']*100:.0f}%"
+
     if has_reliance:
         rel_rating = summary["reliance_rating"]
         rel_color = reliance_color(rel_rating)
+        rel_score = summary["reliance_score"]
+        # Reliance meter: cap at 5x for display (>2x = deep blue)
+        rel_norm = min(1.0, (rel_score - 1.0) / 4.0)
+        rel_meter = (
+            f'<div class="meter-wrap">'
+            f'<div class="meter-fill" style="width:{rel_norm*100:.0f}%;background:{rel_color}"></div>'
+            f'</div>'
+            f'<div class="badge-score" style="color:{rel_color}">{rel_score:.1f}x RMSE</div>'
+        )
         badge_html = f"""
     <div class="badge">
       <div class="badge-label">Timing Reliance</div>
       <div class="badge-value" style="color:{rel_color}">{rel_rating}</div>
-      <div class="badge-detail">
-        RMSE {summary['reliance_score']:.1f}x under intervention
-      </div>
+      {rel_meter}
+      <div class="badge-detail">Value RMSE ratio under Δτ intervention</div>
     </div>
     <div class="badge">
       <div class="badge-label">Deployment Robustness</div>
       <div class="badge-value" style="color:{dep_color}">{dep_rating}</div>
-      <div class="badge-detail">
-        Return {summary['deployment_score']*100:.0f}% under deployment conditions
-      </div>
+      {_meter(summary['deployment_score'], dep_color, dep_pct)}
+      <div class="badge-detail">Return under jitter / delay / spike / noise</div>
     </div>
     <div class="badge">
       <div class="badge-label">Stress Robustness</div>
       <div class="badge-value" style="color:{str_color}">{str_rating}</div>
-      <div class="badge-detail">
-        Return {summary['stress_score']*100:.0f}% under extreme conditions
-      </div>
+      {_meter(summary['stress_score'], str_color, str_pct)}
+      <div class="badge-detail">Return at 5× speed (extreme)</div>
     </div>"""
     else:
         badge_html = f"""
     <div class="badge">
       <div class="badge-label">Deployment Robustness</div>
       <div class="badge-value" style="color:{dep_color}">{dep_rating}</div>
-      <div class="badge-detail">
-        Return {summary['deployment_score']*100:.0f}% (jitter / delay / spike)
-      </div>
+      {_meter(summary['deployment_score'], dep_color, dep_pct)}
+      <div class="badge-detail">Return under jitter / delay / spike / noise</div>
     </div>
     <div class="badge">
       <div class="badge-label">Stress Robustness</div>
       <div class="badge-value" style="color:{str_color}">{str_rating}</div>
-      <div class="badge-detail">
-        Return {summary['stress_score']*100:.0f}% (5x speed)
-      </div>
+      {_meter(summary['stress_score'], str_color, str_pct)}
+      <div class="badge-detail">Return at 5× speed (extreme)</div>
     </div>"""
 
     # ── Quadrant + reliance section (only if has_reliance) ────────
@@ -488,6 +519,7 @@ def generate_report(audit_result: Dict, output_dir: str,
         "jitter": "Speed jitter (2 +/- 1)",
         "delay": "Observation delay (1 step)",
         "spike": "Mid-episode spike (1-5-1)",
+        "obs_noise": "Observation noise (σ=0.1)",
     }
 
     def _make_rob_rows(scenario_list, category_label):
@@ -579,7 +611,15 @@ def generate_report(audit_result: Dict, output_dir: str,
   .badge-label {{ font-size: 0.8em; color: #666; text-transform: uppercase;
                   letter-spacing: 1px; margin-bottom: 6px; }}
   .badge-value {{ font-size: 2em; font-weight: bold; }}
-  .badge-detail {{ font-size: 0.8em; color: #888; margin-top: 4px; }}
+  .badge-detail {{ font-size: 0.78em; color: #999; margin-top: 4px; }}
+  .badge-score {{ font-size: 1.05em; font-weight: 600; margin-top: 2px; }}
+  .meter-wrap {{ height: 6px; background: #e0e0e0; border-radius: 3px;
+                 margin: 8px 0 2px 0; overflow: hidden; }}
+  .meter-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s; }}
+  .verdict-pill {{ display: inline-block; margin: 14px auto 0;
+                   padding: 6px 20px; border-radius: 20px;
+                   font-size: 0.9em; font-weight: 600; letter-spacing: 0.5px;
+                   color: white; }}
   .quadrant-label {{ text-align: center; margin-top: 18px; font-size: 1.1em;
                      color: #555; font-weight: 500; }}
   .interpretation {{ text-align: center; margin-top: 12px; color: #666;
@@ -624,7 +664,7 @@ def generate_report(audit_result: Dict, output_dir: str,
   <div class="badge-row">
     {badge_html}
   </div>
-  <div class="quadrant-label">{quadrant_label}</div>
+  {verdict_pill}
   <div class="interpretation">{summary['prescription']}</div>
 </div>
 

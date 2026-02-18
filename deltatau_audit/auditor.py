@@ -14,6 +14,7 @@ Bonus — Temporal Sensitivity:
 """
 
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 import torch
 from typing import Any, Dict, List, Optional
@@ -29,7 +30,7 @@ except ImportError:
 
 from .adapters.base import AgentAdapter
 from .wrappers.speed import FixedSpeedWrapper, JitterWrapper, PiecewiseSwitchWrapper
-from .wrappers.latency import ObservationDelayWrapper
+from .wrappers.latency import ObservationDelayWrapper, ObsNoiseWrapper
 from .metrics import (
     compute_discounted_returns,
     compute_value_rmse,
@@ -60,15 +61,91 @@ ROBUSTNESS_SCENARIOS = {
     "jitter": "Speed jitter (2 ± 1)",
     "delay": "Observation delay (1 step)",
     "spike": "Mid-episode speed spike (1→5→1)",
+    "obs_noise": "Observation noise (σ=0.1)",
 }
 
 # Deployment = realistic conditions an agent might face
-DEPLOYMENT_SCENARIOS = ["jitter", "delay", "spike"]
+DEPLOYMENT_SCENARIOS = ["jitter", "delay", "spike", "obs_noise"]
 # Stress = extreme conditions for stress testing
 STRESS_SCENARIOS = ["speed_5x"]
 
 
-# ── Episode runner ────────────────────────────────────────────────────
+# ── Parallel episode runner ───────────────────────────────────────────
+
+def _run_episodes_parallel(
+    adapter: "AgentAdapter",
+    env_factory: callable,
+    scenario: str,
+    intervention: str,
+    n_episodes: int,
+    gamma: float,
+    device: str,
+    seed: Optional[int],
+    n_workers: int,
+    label: str,
+    verbose: bool,
+    seed_offset: int = 0,
+) -> List[Dict]:
+    """Run n_episodes, optionally in parallel via ThreadPoolExecutor.
+
+    Each episode gets its own env (created via env_factory) and its own
+    hidden state, so there is no shared mutable state between threads.
+    PyTorch forward-pass over shared read-only weights is thread-safe.
+
+    Args:
+        n_workers: Number of parallel threads. 1 = serial (default).
+        seed_offset: Added to per-episode seed to keep scenarios distinct.
+    """
+    def _one(ep_idx: int) -> Dict:
+        ep_seed = (None if seed is None
+                   else seed + seed_offset + ep_idx)
+        env = _make_wrapped_env(env_factory, scenario)
+        ep = _run_single_episode(adapter, env, intervention,
+                                 gamma, device, seed=ep_seed)
+        env.close()
+        return ep
+
+    if n_workers <= 1 or n_episodes <= 1:
+        # Serial path with tqdm
+        bar = _episode_iter(n_episodes, label, verbose)
+        results = []
+        for ep_idx in bar:
+            ep = _one(ep_idx)
+            results.append(ep)
+            if _HAS_TQDM and verbose and hasattr(bar, "set_postfix"):
+                bar.set_postfix(R=f"{ep['total_reward']:.1f}")
+        if not (_HAS_TQDM and verbose) and verbose:
+            print()
+        return results
+
+    # Parallel path
+    if _HAS_TQDM and verbose:
+        bar = _tqdm(total=n_episodes,
+                    desc=f"    {label:<28}", ncols=72, leave=True)
+    elif verbose:
+        print(f"    {label}...", end="", flush=True)
+
+    results = [None] * n_episodes
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        futures = {executor.submit(_one, i): i
+                   for i in range(n_episodes)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            ep = future.result()
+            results[idx] = ep
+            if _HAS_TQDM and verbose:
+                bar.update(1)
+                bar.set_postfix(R=f"{ep['total_reward']:.1f}")
+
+    if _HAS_TQDM and verbose:
+        bar.close()
+    elif verbose:
+        print()
+
+    return results
+
+
+# ── Episode iterator (serial path helper) ─────────────────────────────
 
 def _episode_iter(n: int, label: str, verbose: bool):
     """Return an iterator for n episodes, with tqdm bar if available."""
@@ -171,6 +248,7 @@ def run_reliance_audit(
     device: str = "cpu",
     verbose: bool = True,
     seed: Optional[int] = None,
+    n_workers: int = 1,
 ) -> Dict:
     """Axis 1: Intervention ablation at multiple speeds.
 
@@ -214,27 +292,28 @@ def run_reliance_audit(
                 continue
 
             label = f"speed={speed} [{interv}]"
-            bar = _episode_iter(n_episodes, label, verbose)
-            episodes = []
-            for ep_idx in bar:
-                ep_seed = None if seed is None else seed + speed * 1000 + ep_idx
-                env = env_factory()
-                if speed > 1:
-                    env = FixedSpeedWrapper(env, speed=speed)
-                ep = _run_single_episode(adapter, env, interv, gamma, device,
-                                         seed=ep_seed)
-                episodes.append(ep)
-                env.close()
-                if _HAS_TQDM and verbose and hasattr(bar, "set_postfix"):
-                    bar.set_postfix(R=f"{ep['total_reward']:.1f}")
+
+            # Build a factory that also applies the speed wrapper
+            if speed > 1:
+                def _speed_factory(s=speed):
+                    return FixedSpeedWrapper(env_factory(), speed=s)
+                _factory = _speed_factory
+            else:
+                _factory = env_factory
+
+            episodes = _run_episodes_parallel(
+                adapter, _factory, "nominal", interv,
+                n_episodes, gamma, device, seed, n_workers,
+                label, verbose,
+                seed_offset=speed * 1000,
+            )
 
             agg = aggregate_episode_metrics(episodes)
             results[interv] = agg
-            if not (_HAS_TQDM and verbose):
-                if verbose:
-                    r = agg.get("total_reward_mean", 0)
-                    rmse = agg.get("rmse_mean", 0)
-                    print(f" R={r:.3f}, RMSE={rmse:.4f}")
+            if not (_HAS_TQDM and verbose) and verbose:
+                r = agg.get("total_reward_mean", 0)
+                rmse = agg.get("rmse_mean", 0)
+                print(f" R={r:.3f}, RMSE={rmse:.4f}")
 
         per_speed[str(speed)] = results
 
@@ -301,6 +380,8 @@ def _make_wrapped_env(env_factory, scenario: str):
     elif scenario == "spike":
         return PiecewiseSwitchWrapper(
             env, schedule=[(0, 1), (20, 5), (40, 1)])
+    elif scenario == "obs_noise":
+        return ObsNoiseWrapper(env, std=0.1)
     else:
         raise ValueError(f"Unknown robustness scenario: {scenario}")
 
@@ -314,6 +395,7 @@ def run_robustness_audit(
     device: str = "cpu",
     verbose: bool = True,
     seed: Optional[int] = None,
+    n_workers: int = 1,
 ) -> Dict:
     """Axis 2: Realistic timing perturbations via env wrappers.
 
@@ -337,17 +419,13 @@ def run_robustness_audit(
     scenario_episode_returns = {}  # raw per-episode returns for bootstrap
     for sc_idx, scenario in enumerate(scenarios):
         label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
-        bar = _episode_iter(n_episodes, label, verbose)
-        episodes = []
-        for ep_idx in bar:
-            ep_seed = None if seed is None else seed + sc_idx * 1000 + ep_idx
-            env = _make_wrapped_env(env_factory, scenario)
-            ep = _run_single_episode(adapter, env, "none", gamma, device,
-                                     seed=ep_seed)
-            episodes.append(ep)
-            env.close()
-            if _HAS_TQDM and verbose and hasattr(bar, "set_postfix"):
-                bar.set_postfix(R=f"{ep['total_reward']:.1f}")
+
+        episodes = _run_episodes_parallel(
+            adapter, env_factory, scenario, "none",
+            n_episodes, gamma, device, seed, n_workers,
+            label, verbose,
+            seed_offset=sc_idx * 1000,
+        )
 
         agg = aggregate_episode_metrics(episodes)
         scenario_results[scenario] = agg
@@ -588,6 +666,7 @@ def run_full_audit(
     device: str = "cpu",
     verbose: bool = True,
     seed: Optional[int] = None,
+    n_workers: int = 1,
 ) -> Dict:
     """Run the complete 2-axis time robustness audit.
 
@@ -612,6 +691,7 @@ def run_full_audit(
         adapter, env_factory, speeds=speeds,
         n_episodes=n_episodes, interventions=interventions,
         gamma=gamma, device=device, verbose=verbose, seed=seed,
+        n_workers=n_workers,
     )
 
     if verbose:
@@ -621,7 +701,7 @@ def run_full_audit(
     robustness = run_robustness_audit(
         adapter, env_factory, scenarios=robustness_scenarios,
         n_episodes=n_episodes, gamma=gamma, device=device,
-        verbose=verbose, seed=seed,
+        verbose=verbose, seed=seed, n_workers=n_workers,
     )
 
     if verbose:

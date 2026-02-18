@@ -63,6 +63,13 @@ def _add_seed_arg(parser):
                              "(default: None = non-deterministic)")
 
 
+def _add_workers_arg(parser):
+    """Add --workers for parallel episode execution."""
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Parallel workers for episode collection "
+                             "(default: 1 = serial). Use 4-8 for speedup.")
+
+
 def _handle_ci(result, out_dir, args):
     """Write CI summary and return exit code if --ci is set."""
     if not args.ci:
@@ -131,6 +138,7 @@ def _run_audit(args):
         sensitivity_episodes=args.sensitivity_episodes,
         device=args.device,
         seed=getattr(args, "seed", None),
+        n_workers=getattr(args, "workers", 1),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -220,6 +228,7 @@ def _run_demo(args):
             n_episodes=n_episodes,
             sensitivity_episodes=0,
             seed=getattr(args, "seed", None),
+            n_workers=getattr(args, "workers", 1),
         )
         elapsed = time.time() - t0
         print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -371,6 +380,7 @@ def _run_audit_sb3(args):
         sensitivity_episodes=0,
         device=args.device,
         seed=getattr(args, "seed", None),
+        n_workers=getattr(args, "workers", 1),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -533,6 +543,7 @@ def _run_audit_cleanrl(args):
         sensitivity_episodes=0,
         device=args.device,
         seed=getattr(args, "seed", None),
+        n_workers=getattr(args, "workers", 1),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -686,6 +697,7 @@ def main():
                               default="Time Robustness Audit")
     _add_ci_args(audit_parser)
     _add_seed_arg(audit_parser)
+    _add_workers_arg(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
     sb3_parser = subparsers.add_parser(
@@ -712,6 +724,7 @@ def main():
                             help="Report title (default: auto)")
     _add_ci_args(sb3_parser)
     _add_seed_arg(sb3_parser)
+    _add_workers_arg(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -770,6 +783,7 @@ def main():
                                 help="Report title (default: auto)")
     _add_ci_args(cleanrl_parser)
     _add_seed_arg(cleanrl_parser)
+    _add_workers_arg(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
@@ -812,6 +826,7 @@ def main():
                              help="Episodes per condition (default: 30)")
     _add_ci_args(demo_parser)
     _add_seed_arg(demo_parser)
+    _add_workers_arg(demo_parser)
 
     # ── diff subcommand ────────────────────────────────────────────
     diff_parser = subparsers.add_parser(
