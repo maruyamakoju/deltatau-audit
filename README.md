@@ -93,10 +93,11 @@ pip install "deltatau-audit[sb3]"
 deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --out my_report/
 ```
 
-Add `--ci` to use as a pipeline gate (exit code 0=pass, 1=warn, 2=fail):
+No model handy? Try with a sample:
 
 ```bash
-deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env CartPole-v1 --ci --out ci_report/
+gh release download assets -R maruyamakoju/deltatau-audit -p cartpole_ppo_sb3.zip
+deltatau-audit audit-sb3 --algo ppo --model cartpole_ppo_sb3.zip --env CartPole-v1
 ```
 
 Supported algorithms: `ppo`, `sac`, `td3`, `a2c`. Any Gymnasium environment ID works.
@@ -155,7 +156,9 @@ python -m deltatau_audit demo cartpole --ci --out ci_report/
 
 Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments.
 
-### GitHub Actions example
+### GitHub Actions examples
+
+**CartPole demo gate (no dependencies):**
 
 ```yaml
 - name: Install deltatau-audit
@@ -163,6 +166,23 @@ Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments
 
 - name: Run timing robustness gate
   run: python -m deltatau_audit demo cartpole --ci --out ci_report/
+
+- name: Upload audit report
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: timing-audit
+    path: ci_report/
+```
+
+**Audit your own SB3 model in CI:**
+
+```yaml
+- name: Install deltatau-audit
+  run: pip install "deltatau-audit[sb3]"
+
+- name: Audit trained model
+  run: deltatau-audit audit-sb3 --algo ppo --model model.zip --env CartPole-v1 --ci --out ci_report/
 
 - name: Upload audit report
   if: always()

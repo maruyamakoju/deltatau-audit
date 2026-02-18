@@ -274,7 +274,20 @@ def _run_demo(args):
 
 def _run_audit_sb3(args):
     """Audit an SB3 model (.zip) on a Gymnasium environment."""
-    # Dependency check: stable-baselines3
+    # (1) Model file existence check — before any imports
+    if not os.path.isfile(args.model):
+        print(f"ERROR: Model file not found: {args.model}")
+        if not args.model.endswith(".zip"):
+            print("  SB3 models are saved as .zip files. "
+                  "Did you mean: {}.zip?".format(args.model))
+        print("\n  To try with a sample model:")
+        print("  gh release download assets -R maruyamakoju/deltatau-audit "
+              "-p cartpole_ppo_sb3.zip")
+        print("  deltatau-audit audit-sb3 --algo ppo "
+              "--model cartpole_ppo_sb3.zip --env CartPole-v1")
+        sys.exit(1)
+
+    # (2) Dependency check: stable-baselines3
     try:
         import stable_baselines3  # noqa: F401
     except ImportError:
@@ -282,15 +295,28 @@ def _run_audit_sb3(args):
         print('  pip install "deltatau-audit[sb3]"')
         sys.exit(1)
 
-    # Dependency check: gymnasium env
+    # (3) Dependency check: gymnasium env (with smart hints)
     import gymnasium as gym
     try:
         test_env = gym.make(args.env)
         test_env.close()
     except Exception as e:
-        print(f"ERROR: Cannot create environment '{args.env}': {e}")
-        if "mujoco" in args.env.lower() or "cheetah" in args.env.lower():
-            print('  pip install "deltatau-audit[sb3,mujoco]"')
+        err = str(e).lower()
+        print(f"ERROR: Cannot create environment '{args.env}'")
+        print(f"  {e}")
+        env_lower = args.env.lower()
+        if any(k in env_lower or k in err for k in
+               ("mujoco", "cheetah", "hopper", "walker", "ant",
+                "humanoid", "swimmer", "reacher", "pusher",
+                "inverted")):
+            print('\n  pip install "deltatau-audit[sb3,mujoco]"')
+        elif "box2d" in err or any(k in env_lower for k in
+                                   ("lunar", "bipedal", "car_racing")):
+            print('\n  pip install gymnasium[box2d]')
+        elif "ale" in err or "atari" in env_lower:
+            print('\n  pip install gymnasium[atari] autorom[accept-rom-license]')
+        else:
+            print(f"\n  Check the environment ID is correct: {args.env}")
         sys.exit(1)
 
     from . import __version__
@@ -311,9 +337,16 @@ def _run_audit_sb3(args):
               f"stress>={args.ci_stress_threshold})")
     print()
 
-    # Load model
-    adapter = SB3Adapter.from_path(args.model, algo=args.algo,
-                                   device=args.device)
+    # (4) Load model with friendly error
+    try:
+        adapter = SB3Adapter.from_path(args.model, algo=args.algo,
+                                       device=args.device)
+    except Exception as e:
+        print(f"ERROR: Failed to load model: {e}")
+        print(f"\n  Make sure the file was saved with "
+              f"{args.algo.upper()}.save() from stable-baselines3.")
+        sys.exit(1)
+
     print(f"  Model loaded ({args.algo.upper()} on {args.env})")
     print()
 
