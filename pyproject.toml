@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.3.3"
+version = "0.3.4"
 description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,11 +13,13 @@ license-files = ["LICENSE"]
 authors = [
     { name = "maruyamakoju" },
 ]
-keywords = ["reinforcement-learning", "robustness", "audit", "timing", "deployment"]
+keywords = ["reinforcement-learning", "robustness", "audit", "timing", "rl", "mujoco", "stable-baselines3", "deployment"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -34,7 +36,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/maruyamakoju/deltatau-audit"
 Repository = "https://github.com/maruyamakoju/deltatau-audit"
+Documentation = "https://maruyamakoju.github.io/deltatau-audit/"
 Issues = "https://github.com/maruyamakoju/deltatau-audit/issues"
+Changelog = "https://github.com/maruyamakoju/deltatau-audit/releases"
 
 [project.optional-dependencies]
 demo = ["gymnasium[classic-control]>=0.29"]

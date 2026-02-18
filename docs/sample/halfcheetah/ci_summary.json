@@ -1,0 +1,14 @@
+{
+  "status": "fail",
+  "exit_code": 2,
+  "deployment_score": 0.037735249173031345,
+  "deployment_rating": "FAIL",
+  "stress_score": -0.09343300098414922,
+  "stress_rating": "FAIL",
+  "thresholds": {
+    "deployment": 0.8,
+    "stress": 0.5
+  },
+  "deployment_worst": "delay",
+  "stress_worst": "speed_5x"
+}

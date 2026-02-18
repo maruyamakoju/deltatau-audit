@@ -22,7 +22,9 @@ A PPO agent trained to reward ~990 on HalfCheetah-v5 was audited with `deltatau-
 
 A single step of observation delay destroys 96% of performance. The agent goes *negative* at 5x speed. These are deployment-realistic conditions that never appear during standard training.
 
-[Download the sample HTML report](https://github.com/maruyamakoju/deltatau-audit/releases/download/v0.3.2/halfcheetah_audit_report_v0.3.2.zip) (open `index.html`)
+![HalfCheetah robustness audit results](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/assets/halfcheetah_robustness.png)
+
+[View the full interactive report](https://maruyamakoju.github.io/deltatau-audit/sample/halfcheetah/) | [Download report ZIP](https://github.com/maruyamakoju/deltatau-audit/releases/latest/download/halfcheetah_audit_report.zip)
 
 <details>
 <summary>Reproduce this result</summary>
@@ -34,7 +36,7 @@ cd deltatau-audit
 python examples/audit_halfcheetah.py  # trains PPO 500K steps + runs audit (~30 min)
 ```
 
-To skip training, download the [pre-trained model](https://github.com/maruyamakoju/deltatau-audit/releases/download/v0.3.2/halfcheetah_ppo_500k.zip) to `runs/halfcheetah_ppo_500k.zip`.
+To skip training, download the [pre-trained model](https://github.com/maruyamakoju/deltatau-audit/releases/latest/download/halfcheetah_ppo_500k.zip) to `runs/halfcheetah_ppo_500k.zip`.
 
 </details>
 
@@ -51,6 +53,7 @@ pip install "deltatau-audit[sb3,mujoco]"  # + SB3 + MuJoCo environments
 ### CartPole demo (no GPU, 30 seconds)
 
 ```bash
+pip install "deltatau-audit[demo]"
 python -m deltatau_audit demo cartpole --out demo_report/
 ```
 
