@@ -86,6 +86,24 @@ pip install "deltatau-audit[sb3,mujoco]"  # + SB3 + MuJoCo environments
 
 ## Audit Your Own SB3 Model
 
+One command — no Python code required:
+
+```bash
+pip install "deltatau-audit[sb3]"
+deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --out my_report/
+```
+
+Add `--ci` to use as a pipeline gate (exit code 0=pass, 1=warn, 2=fail):
+
+```bash
+deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env CartPole-v1 --ci --out ci_report/
+```
+
+Supported algorithms: `ppo`, `sac`, `td3`, `a2c`. Any Gymnasium environment ID works.
+
+<details>
+<summary>Python API (for custom workflows)</summary>
+
 ```python
 from stable_baselines3 import PPO
 from deltatau_audit.adapters.sb3 import SB3Adapter
@@ -104,6 +122,8 @@ result = run_full_audit(
 )
 generate_report(result, "my_audit/", title="My Agent Audit")
 ```
+
+</details>
 
 ## What It Measures
 
