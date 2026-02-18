@@ -1,0 +1,137 @@
+name: "deltatau-audit"
+description: "Time robustness audit for RL agents — find timing failures before deployment"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  command:
+    description: "Command to run: audit-sb3, fix-sb3, or demo"
+    required: false
+    default: "demo"
+  model:
+    description: "Path to SB3 model (.zip)"
+    required: false
+  algo:
+    description: "SB3 algorithm (ppo, sac, td3, a2c)"
+    required: false
+    default: "ppo"
+  env:
+    description: "Gymnasium environment ID"
+    required: false
+  episodes:
+    description: "Episodes per condition"
+    required: false
+    default: "20"
+  output:
+    description: "Output directory"
+    required: false
+    default: "audit_report"
+  extras:
+    description: "pip extras to install (e.g. 'sb3,mujoco')"
+    required: false
+    default: "demo"
+  deploy-threshold:
+    description: "Deployment score threshold for pass (0-1)"
+    required: false
+    default: "0.80"
+  stress-threshold:
+    description: "Stress score threshold for warn (0-1)"
+    required: false
+    default: "0.50"
+  python-version:
+    description: "Python version"
+    required: false
+    default: "3.11"
+
+outputs:
+  status:
+    description: "Audit status: pass, warn, or fail"
+    value: ${{ steps.audit.outputs.status }}
+  deployment-score:
+    description: "Deployment robustness score (0-1)"
+    value: ${{ steps.audit.outputs.deployment_score }}
+  stress-score:
+    description: "Stress robustness score (0-1)"
+    value: ${{ steps.audit.outputs.stress_score }}
+  report-dir:
+    description: "Path to the generated report directory"
+    value: ${{ inputs.output }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install deltatau-audit
+      shell: bash
+      run: pip install "deltatau-audit[${{ inputs.extras }}]"
+
+    - name: Run audit
+      id: audit
+      shell: bash
+      run: |
+        set +e
+
+        if [ "${{ inputs.command }}" = "demo" ]; then
+          python -m deltatau_audit demo cartpole \
+            --ci \
+            --episodes ${{ inputs.episodes }} \
+            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
+            --ci-stress-threshold ${{ inputs.stress-threshold }} \
+            --out ${{ inputs.output }}
+          EXIT_CODE=$?
+
+        elif [ "${{ inputs.command }}" = "audit-sb3" ]; then
+          python -m deltatau_audit audit-sb3 \
+            --algo ${{ inputs.algo }} \
+            --model "${{ inputs.model }}" \
+            --env "${{ inputs.env }}" \
+            --ci \
+            --episodes ${{ inputs.episodes }} \
+            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
+            --ci-stress-threshold ${{ inputs.stress-threshold }} \
+            --out ${{ inputs.output }}
+          EXIT_CODE=$?
+
+        elif [ "${{ inputs.command }}" = "fix-sb3" ]; then
+          python -m deltatau_audit fix-sb3 \
+            --algo ${{ inputs.algo }} \
+            --model "${{ inputs.model }}" \
+            --env "${{ inputs.env }}" \
+            --ci \
+            --episodes ${{ inputs.episodes }} \
+            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
+            --ci-stress-threshold ${{ inputs.stress-threshold }} \
+            --out ${{ inputs.output }}
+          EXIT_CODE=$?
+
+        else
+          echo "Unknown command: ${{ inputs.command }}"
+          exit 1
+        fi
+
+        # Parse CI summary for outputs
+        if [ "${{ inputs.command }}" = "demo" ]; then
+          CI_JSON="${{ inputs.output }}/robust_wide/ci_summary.json"
+        else
+          CI_JSON="${{ inputs.output }}/ci_summary.json"
+        fi
+
+        if [ -f "$CI_JSON" ]; then
+          STATUS=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['status'])")
+          DEP=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['deployment_score'])")
+          STR=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['stress_score'])")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "deployment_score=$DEP" >> $GITHUB_OUTPUT
+          echo "stress_score=$STR" >> $GITHUB_OUTPUT
+        else
+          echo "status=unknown" >> $GITHUB_OUTPUT
+          echo "deployment_score=0" >> $GITHUB_OUTPUT
+          echo "stress_score=0" >> $GITHUB_OUTPUT
+        fi
+
+        exit $EXIT_CODE

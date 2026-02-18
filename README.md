@@ -192,41 +192,79 @@ python -m deltatau_audit demo cartpole --ci --out ci_report/
 
 Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments.
 
-### GitHub Actions examples
-
-**CartPole demo gate (no dependencies):**
+### GitHub Action (one line)
 
 ```yaml
-- name: Install deltatau-audit
-  run: pip install "deltatau-audit[demo]"
-
-- name: Run timing robustness gate
-  run: python -m deltatau_audit demo cartpole --ci --out ci_report/
-
-- name: Upload audit report
-  if: always()
-  uses: actions/upload-artifact@v4
+- uses: maruyamakoju/deltatau-audit@main
   with:
-    name: timing-audit
-    path: ci_report/
+    command: audit-sb3
+    model: model.zip
+    algo: ppo
+    env: CartPole-v1
+    extras: sb3
 ```
 
-**Audit your own SB3 model in CI:**
+Outputs `status`, `deployment-score`, `stress-score` for downstream steps. Exit code 0/1/2 for pass/warn/fail.
+
+<details>
+<summary>Full workflow examples</summary>
+
+**CartPole demo gate (zero config):**
 
 ```yaml
-- name: Install deltatau-audit
-  run: pip install "deltatau-audit[sb3]"
+- uses: maruyamakoju/deltatau-audit@main
 
-- name: Audit trained model
-  run: deltatau-audit audit-sb3 --algo ppo --model model.zip --env CartPole-v1 --ci --out ci_report/
-
-- name: Upload audit report
+- uses: actions/upload-artifact@v4
   if: always()
-  uses: actions/upload-artifact@v4
   with:
     name: timing-audit
-    path: ci_report/
+    path: audit_report/
 ```
+
+**Audit your own SB3 model:**
+
+```yaml
+- uses: maruyamakoju/deltatau-audit@main
+  id: audit
+  with:
+    command: audit-sb3
+    model: model.zip
+    algo: ppo
+    env: HalfCheetah-v5
+    extras: "sb3,mujoco"
+
+- run: echo "Deployment score: ${{ steps.audit.outputs.deployment-score }}"
+```
+
+**Manual install (if you prefer):**
+
+```yaml
+- run: pip install "deltatau-audit[sb3]"
+- run: deltatau-audit audit-sb3 --algo ppo --model model.zip --env CartPole-v1 --ci
+```
+
+</details>
+
+## Speed-Randomized Training (the fix)
+
+The fix for timing failures is simple: train with variable speed. Use `JitterWrapper` during SB3 training:
+
+```python
+import gymnasium as gym
+from stable_baselines3 import PPO
+from deltatau_audit.wrappers import JitterWrapper
+
+# Wrap env with speed randomization (speed 1-5)
+env = JitterWrapper(gym.make("CartPole-v1"), base_speed=3, jitter=2)
+
+model = PPO("MlpPolicy", env)
+model.learn(total_timesteps=100_000)
+model.save("robust_model")
+```
+
+This is exactly what `fix-sb3` does under the hood. Use the wrapper directly when you want more control over training.
+
+Available wrappers: `JitterWrapper` (random speed), `FixedSpeedWrapper` (constant speed), `PiecewiseSwitchWrapper` (scheduled speed changes), `ObservationDelayWrapper` (sensor delay).
 
 ## Custom Adapters
 
