@@ -1,0 +1,198 @@
+{
+  "speeds": [
+    1,
+    2,
+    3,
+    5,
+    8
+  ],
+  "n_episodes": 30,
+  "supports_intervention": false,
+  "reliance": {
+    "per_speed": {},
+    "degradation": {},
+    "score": null,
+    "rating": "N/A",
+    "worst_case": {
+      "speed": null,
+      "intervention": null,
+      "rmse_ratio": null,
+      "percent": null
+    }
+  },
+  "robustness": {
+    "scenarios": {
+      "nominal": {
+        "n_episodes": 30,
+        "rmse_mean": 26.192698300958202,
+        "rmse_std": 1.5823196218213782,
+        "rmse_se": 0.2888907166848708,
+        "mae_mean": 22.44428329453001,
+        "mae_std": 2.2472685661662117,
+        "mae_se": 0.41029322882050834,
+        "bias_mean": -3.018568137126137,
+        "bias_std": 7.725886334661221,
+        "bias_se": 1.4105474074049527,
+        "total_reward_mean": 283.7,
+        "total_reward_std": 83.46222698522567,
+        "total_reward_se": 15.238048139808164,
+        "length_mean": 283.7,
+        "length_std": 83.46222698522567,
+        "length_se": 15.238048139808164
+      },
+      "speed_5x": {
+        "n_episodes": 30,
+        "rmse_mean": 46.56973118769063,
+        "rmse_std": 9.097925351814213,
+        "rmse_se": 1.6610463138955898,
+        "mae_mean": 44.8406870813045,
+        "mae_std": 11.18301954490802,
+        "mae_se": 2.041730688589093,
+        "bias_mean": 44.08428081252519,
+        "bias_std": 12.685698367838638,
+        "bias_se": 2.31608105125723,
+        "total_reward_mean": 34.833333333333336,
+        "total_reward_std": 26.811792596210758,
+        "total_reward_se": 4.895141204031544,
+        "length_mean": 7.3,
+        "length_std": 5.336353311641449,
+        "length_se": 0.9742803612011391
+      },
+      "jitter": {
+        "n_episodes": 30,
+        "rmse_mean": 42.189202306159835,
+        "rmse_std": 14.102060009898482,
+        "rmse_se": 2.5746721249043083,
+        "mae_mean": 37.37377596282401,
+        "mae_std": 13.692386758031997,
+        "mae_se": 2.499876364486385,
+        "bias_mean": -3.767401739121148,
+        "bias_std": 28.8834856459894,
+        "bias_se": 5.273378875895022,
+        "total_reward_mean": 187.46666666666667,
+        "total_reward_std": 107.26532006612804,
+        "total_reward_se": 19.583878479409954,
+        "length_mean": 95.2,
+        "length_std": 54.599389495976354,
+        "length_se": 9.968439084318957
+      },
+      "delay": {
+        "n_episodes": 30,
+        "rmse_mean": 25.495709335201308,
+        "rmse_std": 0.8305472681618492,
+        "rmse_se": 0.15163649128217901,
+        "mae_mean": 21.1381863095689,
+        "mae_std": 1.3581774749753999,
+        "mae_se": 0.24796814671314493,
+        "bias_mean": 1.9376197125502428,
+        "bias_std": 7.0256029985973845,
+        "bias_se": 1.282693747469241,
+        "total_reward_mean": 233.3,
+        "total_reward_std": 55.618432196529945,
+        "total_reward_se": 10.154489975703685,
+        "length_mean": 233.3,
+        "length_std": 55.618432196529945,
+        "length_se": 10.154489975703685
+      },
+      "spike": {
+        "n_episodes": 30,
+        "rmse_mean": 34.522834938431814,
+        "rmse_std": 8.6247924614382,
+        "rmse_se": 1.5746644616434027,
+        "mae_mean": 31.737964796503547,
+        "mae_std": 10.567160355673439,
+        "mae_se": 1.9292906985255522,
+        "bias_mean": 26.313501080095683,
+        "bias_std": 16.996527652579413,
+        "bias_se": 3.1031271981926913,
+        "total_reward_mean": 65.06666666666666,
+        "total_reward_std": 44.43342085512761,
+        "total_reward_se": 8.112395636491293,
+        "length_mean": 33.06666666666667,
+        "length_std": 26.173693324065336,
+        "length_se": 4.778640748937653
+      }
+    },
+    "per_scenario_scores": {
+      "speed_5x": {
+        "return_ratio": 0.12278228175302551,
+        "return_drop_pct": 87.72177182469744,
+        "rmse_ratio": 1.777966158835456,
+        "rmse_increase_pct": 77.7966158835456,
+        "ci_lower": 0.08805470234471564,
+        "ci_upper": 0.16084024881345876,
+        "significant": true
+      },
+      "jitter": {
+        "return_ratio": 0.6607919163435554,
+        "return_drop_pct": 33.92080836564446,
+        "rmse_ratio": 1.6107237910886194,
+        "rmse_increase_pct": 61.07237910886194,
+        "ci_lower": 0.5195838436680509,
+        "ci_upper": 0.8284368735353707,
+        "significant": true
+      },
+      "delay": {
+        "return_ratio": 0.8223475502291153,
+        "return_drop_pct": 17.765244977088468,
+        "rmse_ratio": 0.9733899517434828,
+        "rmse_increase_pct": -2.661004825651725,
+        "ci_lower": 0.7224840961378346,
+        "ci_upper": 0.9448804736045482,
+        "significant": true
+      },
+      "spike": {
+        "return_ratio": 0.2293502526142639,
+        "return_drop_pct": 77.06497473857361,
+        "rmse_ratio": 1.3180327792791349,
+        "rmse_increase_pct": 31.803277927913488,
+        "ci_lower": 0.1782798049762025,
+        "ci_upper": 0.3027145371718898,
+        "significant": true
+      }
+    },
+    "deployment": {
+      "return_score": 0.2293502526142639,
+      "rmse_score": 1.6107237910886194,
+      "rating": "FAIL",
+      "worst_case": {
+        "scenario": "spike",
+        "return_ratio": 0.2293502526142639,
+        "return_drop_pct": 77.06497473857361
+      }
+    },
+    "stress": {
+      "return_score": 0.12278228175302551,
+      "rmse_score": 1.777966158835456,
+      "rating": "FAIL",
+      "worst_case": {
+        "scenario": "speed_5x",
+        "return_ratio": 0.12278228175302551,
+        "return_drop_pct": 87.72177182469744
+      }
+    },
+    "return_score": 0.12278228175302551,
+    "rmse_score": 1.777966158835456,
+    "rating": "FAIL",
+    "worst_case": {
+      "scenario": "speed_5x",
+      "return_ratio": 0.12278228175302551,
+      "return_drop_pct": 87.72177182469744
+    }
+  },
+  "sensitivity": null,
+  "summary": {
+    "reliance_rating": "N/A",
+    "reliance_score": null,
+    "robustness_rating": "FAIL",
+    "robustness_score": 0.12278228175302551,
+    "robustness_rmse_score": 1.777966158835456,
+    "deployment_rating": "FAIL",
+    "deployment_score": 0.2293502526142639,
+    "stress_rating": "FAIL",
+    "stress_score": 0.12278228175302551,
+    "sensitivity_mean": null,
+    "quadrant": "deployment_fragile",
+    "prescription": "Agent degrades under deployment timing conditions. Recommended fix: train with speed randomization (jitter/delay/spike augmentation)."
+  }
+}

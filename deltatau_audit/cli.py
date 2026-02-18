@@ -222,46 +222,38 @@ def _run_demo(args):
 
     # Before/After comparison
     if len(results) >= 2:
-        print("\n" + "=" * 60)
+        b_res = results.get("baseline", {})
+        a_res = results.get("robust_wide", {})
+        b_sum = b_res.get("summary", {})
+        a_sum = a_res.get("summary", {})
+        b_rob = b_res.get("robustness", {}).get("per_scenario_scores", {})
+        a_rob = a_res.get("robustness", {}).get("per_scenario_scores", {})
+
+        print(f"\n{'=' * 60}")
         print("BEFORE vs AFTER COMPARISON")
-        print("=" * 60)
+        print(f"{'=' * 60}\n")
 
-        for name in ["baseline", "robust_wide"]:
-            if name not in results:
-                continue
-            s = results[name]["summary"]
-            rob = results[name]["robustness"]
-            print(f"\n  {name.upper()}:")
-            if s["reliance_rating"] != "N/A":
-                print(f"    Reliance:    {s['reliance_rating']:>10s} "
-                      f"({s['reliance_score']:.2f}x)")
-            else:
-                print(f"    Reliance:           N/A")
-            print(f"    Deployment:  {s['deployment_rating']:>10s} "
-                  f"(return ratio: {s['deployment_score']:.2f})")
-            print(f"    Stress:      {s['stress_rating']:>10s} "
-                  f"(return ratio: {s['stress_score']:.2f})")
+        print(f"  {'Scenario':12s}  {'Before':>10s}  {'After':>10s}  "
+              f"{'Change':>10s}")
+        print(f"  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
 
-            for sc, scores in rob["per_scenario_scores"].items():
-                ret = scores["return_ratio"] * 100
-                rmse = scores["rmse_ratio"]
-                marker = " <<<" if ret < 80 else ""
-                print(f"      {sc:>10s}: return={ret:5.0f}%, "
-                      f"RMSE={rmse:.2f}x{marker}")
+        for sc in b_rob:
+            b_pct = b_rob[sc]["return_ratio"] * 100
+            a_pct = a_rob.get(sc, {}).get("return_ratio", 0) * 100
+            delta = a_pct - b_pct
+            sign = "+" if delta >= 0 else ""
+            print(f"  {sc:12s}  {b_pct:9.1f}%  {a_pct:9.1f}%  "
+                  f"{sign}{delta:8.1f}%")
 
-        b = results.get("baseline", {}).get("summary", {})
-        a = results.get("robust_wide", {}).get("summary", {})
-        if b and a:
-            print(f"\n  {'=' * 50}")
-            print(f"  Deployment: {b['deployment_rating']} -> "
-                  f"{a['deployment_rating']} "
-                  f"({b['deployment_score']:.2f} -> "
-                  f"{a['deployment_score']:.2f})")
-            print(f"  Stress:     {b['stress_rating']} -> "
-                  f"{a['stress_rating']} "
-                  f"({b['stress_score']:.2f} -> "
-                  f"{a['stress_score']:.2f})")
-            print(f"  {'=' * 50}")
+        if b_sum and a_sum:
+            print(f"\n  Deployment: {b_sum['deployment_rating']} "
+                  f"({b_sum['deployment_score']:.2f}) -> "
+                  f"{a_sum['deployment_rating']} "
+                  f"({a_sum['deployment_score']:.2f})")
+            print(f"  Stress:     {b_sum['stress_rating']} "
+                  f"({b_sum['stress_score']:.2f}) -> "
+                  f"{a_sum['stress_rating']} "
+                  f"({a_sum['stress_score']:.2f})")
 
     # Auto-generate comparison.md
     if len(results) >= 2:
