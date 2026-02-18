@@ -20,3 +20,17 @@ try:
     __all__.append("SB3RecurrentAdapter")
 except ImportError:
     pass
+
+# CleanRL adapter (requires torch, which is a core dep)
+try:
+    from .cleanrl import CleanRLAdapter
+    __all__.append("CleanRLAdapter")
+except ImportError:
+    pass
+
+# Generic PyTorch adapter (requires torch)
+try:
+    from .torch_policy import TorchPolicyAdapter
+    __all__.append("TorchPolicyAdapter")
+except ImportError:
+    pass

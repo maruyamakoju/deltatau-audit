@@ -266,6 +266,88 @@ This is exactly what `fix-sb3` does under the hood. Use the wrapper directly whe
 
 Available wrappers: `JitterWrapper` (random speed), `FixedSpeedWrapper` (constant speed), `PiecewiseSwitchWrapper` (scheduled speed changes), `ObservationDelayWrapper` (sensor delay).
 
+## Audit CleanRL Agents
+
+[CleanRL](https://github.com/vwxyzjn/cleanrl) agents are plain `nn.Module` subclasses — no framework wrapper needed.
+
+```bash
+deltatau-audit audit-cleanrl \
+  --checkpoint runs/CartPole-v1/agent.pt \
+  --agent-module ppo_cartpole.py \
+  --agent-class Agent \
+  --agent-kwargs obs_dim=4,act_dim=2 \
+  --env CartPole-v1
+```
+
+Or via Python API:
+
+```python
+from deltatau_audit.adapters.cleanrl import CleanRLAdapter
+
+# Agent class must implement get_action_and_value(obs)
+adapter = CleanRLAdapter(agent, lstm=False)
+result = run_full_audit(adapter, env_factory, speeds=[1, 2, 3, 5, 8])
+```
+
+LSTM agents: pass `--lstm` (CLI) or `CleanRLAdapter(agent, lstm=True)` (API).
+
+See `examples/audit_cleanrl.py` for a complete runnable example.
+
+## Sim-to-Real Transfer
+
+Timing failures are one of the main causes of sim-to-real gaps. A policy that runs at 50 Hz in simulation may be deployed at 30 Hz or with variable latency in the real world — and collapse.
+
+```
+Simulation → Reality
+  50 Hz → 30 Hz (0.6x speed)
+  Fixed dt → Variable dt (jitter)
+  Instant obs → Observation delay (network/sensor lag)
+  Stable → Mid-episode spikes (system load)
+```
+
+`deltatau-audit` measures exactly these failure modes. **If your agent passes Deployment ≥ MILD, it is likely to survive real-world timing variation.**
+
+### IsaacLab / RSL-RL
+
+For policies trained with IsaacLab (RSL-RL format):
+
+```python
+from deltatau_audit.adapters.torch_policy import TorchPolicyAdapter
+
+# Define your actor/critic architectures (same as training)
+actor = MyActorNet(obs_dim=48, act_dim=12)
+critic = MyCriticNet(obs_dim=48)
+
+# Loads RSL-RL checkpoint format automatically
+adapter = TorchPolicyAdapter.from_checkpoint(
+    "model.pt",
+    actor=actor,
+    critic=critic,
+    is_discrete=False,  # continuous actions
+)
+
+result = run_full_audit(adapter, env_factory, speeds=[1, 2, 3, 5])
+```
+
+Supported checkpoint formats:
+- `{"model_state_dict": {"actor.*": ..., "critic.*": ...}}` (RSL-RL)
+- `{"actor": state_dict, "critic": state_dict}` (explicit split)
+- Raw `state_dict` (actor-only)
+
+Or use a callable — no checkpoint loading needed:
+
+```python
+# Works with any framework's inference API
+def my_act(obs):
+    action = runner.alg.actor_critic.act(obs)
+    value  = runner.alg.actor_critic.evaluate(obs)
+    return action, value
+
+adapter = TorchPolicyAdapter(my_act)
+```
+
+See `examples/isaaclab_skeleton.py` for a complete IsaacLab skeleton.
+
 ## Custom Adapters
 
 Implement `AgentAdapter` (see `deltatau_audit/adapters/base.py`):
@@ -283,7 +365,7 @@ class MyAdapter(AgentAdapter):
         return action, value, hidden_new, None
 ```
 
-Built-in adapters: `SB3Adapter` (PPO/SAC/TD3/A2C), `SB3RecurrentAdapter` (RecurrentPPO), `InternalTimeAdapter` (Dt-GRU models).
+Built-in adapters: `SB3Adapter` (PPO/SAC/TD3/A2C), `SB3RecurrentAdapter` (RecurrentPPO), `CleanRLAdapter` (CleanRL MLP/LSTM), `TorchPolicyAdapter` (IsaacLab/RSL-RL/custom), `InternalTimeAdapter` (Dt-GRU models).
 
 ## Comparing Results
 

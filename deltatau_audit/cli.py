@@ -445,6 +445,116 @@ def _run_fix_sb3(args):
         sys.exit(0)
 
 
+def _run_audit_cleanrl(args):
+    """Audit a CleanRL agent (.pt checkpoint) on a Gymnasium environment."""
+    # (1) Dependency check: torch
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        print("ERROR: PyTorch is required for CleanRL auditing.")
+        print("  pip install torch")
+        sys.exit(1)
+
+    # (2) Checkpoint existence check
+    if not os.path.isfile(args.checkpoint):
+        print(f"ERROR: Checkpoint not found: {args.checkpoint}")
+        sys.exit(1)
+
+    # (3) Load agent class dynamically
+    try:
+        from .adapters.cleanrl import CleanRLAdapter
+    except ImportError as e:
+        print(f"ERROR: CleanRL adapter not available: {e}")
+        sys.exit(1)
+
+    if args.agent_module:
+        try:
+            adapter = CleanRLAdapter.from_module_path(
+                checkpoint_path=args.checkpoint,
+                agent_module_path=args.agent_module,
+                agent_class_name=args.agent_class,
+                agent_kwargs=_parse_kwargs(args.agent_kwargs),
+                lstm=args.lstm,
+                device=args.device,
+            )
+        except (FileNotFoundError, AttributeError, RuntimeError) as e:
+            print(f"ERROR: Failed to load agent: {e}")
+            sys.exit(1)
+    else:
+        print("ERROR: --agent-module is required for CleanRL auditing.")
+        print("  Provide the path to the Python file containing your Agent class.")
+        print("  Example: --agent-module ppo_cartpole.py")
+        sys.exit(1)
+
+    # (4) Environment check
+    import gymnasium as gym
+    try:
+        test_env = gym.make(args.env)
+        test_env.close()
+    except Exception as e:
+        print(f"ERROR: Cannot create environment '{args.env}': {e}")
+        sys.exit(1)
+
+    from . import __version__
+    from .auditor import run_full_audit
+    from .report import generate_report
+
+    print(f"deltatau-audit v{__version__} — CleanRL Audit")
+    print(f"  Checkpoint: {args.checkpoint}")
+    print(f"  Agent module: {args.agent_module}")
+    print(f"  Agent class: {args.agent_class}")
+    print(f"  Env: {args.env}")
+    print(f"  Speeds: {args.speeds}")
+    print(f"  Episodes: {args.episodes}")
+    print(f"  Output: {args.out}")
+    if args.ci:
+        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+              f"stress>={args.ci_stress_threshold})")
+    print()
+
+    env_factory = lambda: gym.make(args.env)
+    title = args.title or f"CleanRL on {args.env}"
+
+    t0 = time.time()
+    result = run_full_audit(
+        adapter, env_factory,
+        speeds=args.speeds,
+        n_episodes=args.episodes,
+        sensitivity_episodes=0,
+        device=args.device,
+    )
+    elapsed = time.time() - t0
+    print(f"\n  Audit completed in {elapsed:.1f}s")
+
+    print()
+    generate_report(result, args.out, title=title)
+
+    exit_code = _handle_ci(result, args.out, args)
+    if args.ci:
+        sys.exit(exit_code)
+
+
+def _parse_kwargs(kwargs_str):
+    """Parse key=value,key=value string into a dict."""
+    if not kwargs_str:
+        return {}
+    result = {}
+    for pair in kwargs_str.split(","):
+        pair = pair.strip()
+        if "=" not in pair:
+            continue
+        k, v = pair.split("=", 1)
+        # Try int, then float, then string
+        try:
+            result[k.strip()] = int(v.strip())
+        except ValueError:
+            try:
+                result[k.strip()] = float(v.strip())
+            except ValueError:
+                result[k.strip()] = v.strip()
+    return result
+
+
 def _run_diff(args):
     """Compare two summary.json files and generate comparison.md."""
     from .diff import generate_comparison
@@ -538,6 +648,37 @@ def main():
                             help="Device (default: cpu)")
     _add_ci_args(fix_parser)
 
+    # ── audit-cleanrl subcommand ──────────────────────────────────
+    cleanrl_parser = subparsers.add_parser(
+        "audit-cleanrl",
+        help="Audit a CleanRL agent (.pt checkpoint) on any Gymnasium env")
+    cleanrl_parser.add_argument("--checkpoint", type=str, required=True,
+                                help="Path to CleanRL checkpoint (.pt file)")
+    cleanrl_parser.add_argument("--agent-module", type=str, required=True,
+                                help="Path to Python file containing the Agent class")
+    cleanrl_parser.add_argument("--agent-class", type=str, default="Agent",
+                                help="Agent class name (default: Agent)")
+    cleanrl_parser.add_argument("--agent-kwargs", type=str, default=None,
+                                help="Agent constructor kwargs: key=val,key=val "
+                                     "(e.g. obs_dim=4,act_dim=2)")
+    cleanrl_parser.add_argument("--lstm", action="store_true", default=False,
+                                help="Agent uses LSTM (get_action_and_value takes "
+                                     "lstm_state)")
+    cleanrl_parser.add_argument("--env", type=str, required=True,
+                                help="Gymnasium environment ID")
+    cleanrl_parser.add_argument("--out", type=str, default="audit_report",
+                                help="Output directory (default: audit_report/)")
+    cleanrl_parser.add_argument("--episodes", type=int, default=30,
+                                help="Episodes per condition (default: 30)")
+    cleanrl_parser.add_argument("--speeds", type=int, nargs="+",
+                                default=[1, 2, 3, 5, 8],
+                                help="Speed multipliers (default: 1 2 3 5 8)")
+    cleanrl_parser.add_argument("--device", type=str, default="cpu",
+                                help="Device (default: cpu)")
+    cleanrl_parser.add_argument("--title", type=str, default=None,
+                                help="Report title (default: auto)")
+    _add_ci_args(cleanrl_parser)
+
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(
         "demo", help="Run a bundled demo (Before/After comparison)")
@@ -568,6 +709,8 @@ def main():
         _run_audit_sb3(args)
     elif args.command == "fix-sb3":
         _run_fix_sb3(args)
+    elif args.command == "audit-cleanrl":
+        _run_audit_cleanrl(args)
     elif args.command == "demo":
         _run_demo(args)
     elif args.command == "diff":
@@ -588,6 +731,9 @@ def main():
                   "--algo ppo --model my_model.zip --env HalfCheetah-v5")
             print("  python -m deltatau_audit audit-sb3 "
                   "--algo ppo --model my_model.zip --env CartPole-v1 --ci")
+            print("  python -m deltatau_audit audit-cleanrl "
+                  "--checkpoint runs/CartPole/agent.pt "
+                  "--agent-module ppo_cartpole.py --env CartPole-v1")
             print("  python -m deltatau_audit diff before/summary.json "
                   "after/summary.json")
 
