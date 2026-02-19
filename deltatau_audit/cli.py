@@ -16,6 +16,8 @@ Usage:
 """
 
 import argparse
+import contextlib
+import json as json_mod
 import os
 import sys
 import time
@@ -184,14 +186,30 @@ def _maybe_compare(args, out_dir: str):
         print(f"  WARNING: Could not generate comparison: {e}")
 
 
+def _json_redirect(args):
+    """Return a context manager that redirects stdout to stderr in JSON mode."""
+    fmt = getattr(args, "output_format", "text")
+    if fmt == "json":
+        return contextlib.redirect_stdout(sys.stderr)
+    return contextlib.nullcontext()
+
+
+def _emit_json(result: dict, args) -> None:
+    """Print JSON result to stdout if --format json is active."""
+    fmt = getattr(args, "output_format", "text")
+    if fmt == "json":
+        print(json_mod.dumps(result, indent=2, default=str))
+
+
 def _add_format_arg(parser):
     """Add --format for output format selection."""
     parser.add_argument(
         "--format", type=str, default="text",
-        choices=["text", "markdown"],
+        choices=["text", "markdown", "json"],
         dest="output_format",
-        help="Output format: text (default) or markdown (PR-ready table, "
-             "also writes to $GITHUB_STEP_SUMMARY when available).",
+        help="Output format: text (default), markdown (PR-ready table, "
+             "writes to $GITHUB_STEP_SUMMARY), or json (structured JSON "
+             "to stdout for piping; progress goes to stderr).",
     )
 
 
@@ -300,71 +318,80 @@ def _handle_ci(result, out_dir, args):
 
 def _run_audit(args):
     """Run audit on a checkpoint."""
-    from . import __version__
-    print(f"deltatau-audit v{__version__}")
-    print(f"  Checkpoint: {args.checkpoint}")
-    print(f"  Agent type: {args.agent_type}")
-    print(f"  Environment: {args.env}")
-    print(f"  Speeds: {args.speeds}")
-    print(f"  Episodes: {args.episodes}")
-    print(f"  Output: {args.out}")
-    if args.ci:
-        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-              f"stress>={args.ci_stress_threshold})")
-    print()
+    _json_mode = getattr(args, "output_format", "text") == "json"
 
-    env_factory = make_env_factory(args.env, args.speed_hidden,
-                                   args.chain_length)
-    sample_env = env_factory()
-    obs_dim = sample_env.observation_space.shape[0]
-    act_dim = sample_env.action_space.n
-    sample_env.close()
-
-    from .adapters.internal_time import InternalTimeAdapter
-
-    adapter = InternalTimeAdapter.from_checkpoint(
-        args.checkpoint, obs_dim, act_dim,
-        agent_type=args.agent_type, device=args.device,
-    )
-    print(f"  Agent loaded ({obs_dim}D obs, {act_dim} actions)")
-    print(f"  Intervention support: {adapter.supports_intervention}")
-    print()
-
-    from .auditor import run_full_audit
-
-    _verbose = not getattr(args, "quiet", False)
-    t0 = time.time()
-    result = run_full_audit(
-        adapter, env_factory,
-        speeds=args.speeds,
-        n_episodes=args.episodes,
-        interventions=args.interventions,
-        sensitivity_episodes=args.sensitivity_episodes,
-        device=args.device,
-        seed=getattr(args, "seed", None),
-        n_workers=_resolve_workers(args),
-        verbose=_verbose,
-        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
-        stress_threshold=getattr(args, "stress_threshold", 0.50),
-        adaptive=getattr(args, "adaptive", False),
-        target_ci_width=getattr(args, "target_ci_width", 0.10),
-        max_episodes=getattr(args, "max_episodes", 500),
-    )
-    elapsed = time.time() - t0
-    print(f"\n  Audit completed in {elapsed:.1f}s")
-
-    from .report import generate_report
-    from .auditor import _print_summary
-
-    if not _verbose:
+    with _json_redirect(args):
+        from . import __version__
+        print(f"deltatau-audit v{__version__}")
+        print(f"  Checkpoint: {args.checkpoint}")
+        print(f"  Agent type: {args.agent_type}")
+        print(f"  Environment: {args.env}")
+        print(f"  Speeds: {args.speeds}")
+        print(f"  Episodes: {args.episodes}")
+        print(f"  Output: {args.out}")
+        if args.ci:
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+                  f"stress>={args.ci_stress_threshold})")
         print()
-        _print_summary(result["summary"])
 
-    print()
-    generate_report(result, args.out, title=args.title)
+        env_factory = make_env_factory(args.env, args.speed_hidden,
+                                       args.chain_length)
+        sample_env = env_factory()
+        obs_dim = sample_env.observation_space.shape[0]
+        act_dim = sample_env.action_space.n
+        sample_env.close()
 
-    from .tracker import maybe_log
-    maybe_log(result, args)
+        from .adapters.internal_time import InternalTimeAdapter
+
+        adapter = InternalTimeAdapter.from_checkpoint(
+            args.checkpoint, obs_dim, act_dim,
+            agent_type=args.agent_type, device=args.device,
+        )
+        print(f"  Agent loaded ({obs_dim}D obs, {act_dim} actions)")
+        print(f"  Intervention support: {adapter.supports_intervention}")
+        print()
+
+        from .auditor import run_full_audit
+
+        _verbose = not getattr(args, "quiet", False) and not _json_mode
+        t0 = time.time()
+        result = run_full_audit(
+            adapter, env_factory,
+            speeds=args.speeds,
+            n_episodes=args.episodes,
+            interventions=args.interventions,
+            sensitivity_episodes=args.sensitivity_episodes,
+            device=args.device,
+            seed=getattr(args, "seed", None),
+            n_workers=_resolve_workers(args),
+            verbose=_verbose,
+            deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+            stress_threshold=getattr(args, "stress_threshold", 0.50),
+            adaptive=getattr(args, "adaptive", False),
+            target_ci_width=getattr(args, "target_ci_width", 0.10),
+            max_episodes=getattr(args, "max_episodes", 500),
+        )
+        elapsed = time.time() - t0
+        print(f"\n  Audit completed in {elapsed:.1f}s")
+
+        from .report import generate_report
+        from .auditor import _print_summary
+
+        if not _verbose:
+            print()
+            _print_summary(result["summary"])
+
+        if getattr(args, "output_format", "text") == "markdown":
+            print()
+            _print_markdown_summary(result, label=args.title or "")
+
+        print()
+        generate_report(result, args.out, title=args.title)
+
+        from .tracker import maybe_log
+        maybe_log(result, args)
+
+    _emit_json(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -564,75 +591,80 @@ def _run_audit_sb3(args):
     from .auditor import run_full_audit
     from .report import generate_report
 
-    _n_workers = _resolve_workers(args)
-    print(f"deltatau-audit v{__version__} — SB3 Audit")
-    print(f"  Model: {args.model}")
-    print(f"  Algo:  {args.algo}")
-    print(f"  Env:   {args.env}")
-    print(f"  Speeds: {args.speeds}")
-    print(f"  Episodes: {args.episodes}")
-    print(f"  Workers: {_n_workers}"
-          + ("" if _n_workers > 1 else
-             "  — tip: --workers auto for faster auditing"))
-    print(f"  Device: {args.device}")
-    print(f"  Output: {args.out}")
-    if args.ci:
-        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-              f"stress>={args.ci_stress_threshold})")
-    print()
+    _json_mode = getattr(args, "output_format", "text") == "json"
 
-    # (4) Load model with friendly error
-    try:
-        adapter = SB3Adapter.from_path(args.model, algo=args.algo,
-                                       device=args.device)
-    except Exception as e:
-        print(f"ERROR: Failed to load model: {e}")
-        print(f"\n  Make sure the file was saved with "
-              f"{args.algo.upper()}.save() from stable-baselines3.")
-        sys.exit(1)
-
-    print(f"  Model loaded ({args.algo.upper()} on {args.env})")
-    print()
-
-    env_factory = lambda: gym.make(args.env)
-
-    title = args.title or f"{args.algo.upper()} on {args.env}"
-
-    _verbose = not getattr(args, "quiet", False)
-    t0 = time.time()
-    result = run_full_audit(
-        adapter, env_factory,
-        speeds=args.speeds,
-        n_episodes=args.episodes,
-        sensitivity_episodes=0,
-        device=args.device,
-        seed=getattr(args, "seed", None),
-        n_workers=_resolve_workers(args),
-        verbose=_verbose,
-        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
-        stress_threshold=getattr(args, "stress_threshold", 0.50),
-        adaptive=getattr(args, "adaptive", False),
-        target_ci_width=getattr(args, "target_ci_width", 0.10),
-        max_episodes=getattr(args, "max_episodes", 500),
-    )
-    elapsed = time.time() - t0
-    print(f"\n  Audit completed in {elapsed:.1f}s")
-
-    from .auditor import _print_summary as _aps
-    if not _verbose:
+    with _json_redirect(args):
+        _n_workers = _resolve_workers(args)
+        print(f"deltatau-audit v{__version__} — SB3 Audit")
+        print(f"  Model: {args.model}")
+        print(f"  Algo:  {args.algo}")
+        print(f"  Env:   {args.env}")
+        print(f"  Speeds: {args.speeds}")
+        print(f"  Episodes: {args.episodes}")
+        print(f"  Workers: {_n_workers}"
+              + ("" if _n_workers > 1 else
+                 "  — tip: --workers auto for faster auditing"))
+        print(f"  Device: {args.device}")
+        print(f"  Output: {args.out}")
+        if args.ci:
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+                  f"stress>={args.ci_stress_threshold})")
         print()
-        _aps(result["summary"])
 
-    print()
-    generate_report(result, args.out, title=title)
-    _maybe_compare(args, args.out)
+        # (4) Load model with friendly error
+        try:
+            adapter = SB3Adapter.from_path(args.model, algo=args.algo,
+                                           device=args.device)
+        except Exception as e:
+            print(f"ERROR: Failed to load model: {e}")
+            print(f"\n  Make sure the file was saved with "
+                  f"{args.algo.upper()}.save() from stable-baselines3.")
+            sys.exit(1)
 
-    if getattr(args, "output_format", "text") == "markdown":
+        print(f"  Model loaded ({args.algo.upper()} on {args.env})")
         print()
-        _print_markdown_summary(result, label=title)
 
-    from .tracker import maybe_log
-    maybe_log(result, args)
+        env_factory = lambda: gym.make(args.env)
+
+        title = args.title or f"{args.algo.upper()} on {args.env}"
+
+        _verbose = not getattr(args, "quiet", False) and not _json_mode
+        t0 = time.time()
+        result = run_full_audit(
+            adapter, env_factory,
+            speeds=args.speeds,
+            n_episodes=args.episodes,
+            sensitivity_episodes=0,
+            device=args.device,
+            seed=getattr(args, "seed", None),
+            n_workers=_resolve_workers(args),
+            verbose=_verbose,
+            deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+            stress_threshold=getattr(args, "stress_threshold", 0.50),
+            adaptive=getattr(args, "adaptive", False),
+            target_ci_width=getattr(args, "target_ci_width", 0.10),
+            max_episodes=getattr(args, "max_episodes", 500),
+        )
+        elapsed = time.time() - t0
+        print(f"\n  Audit completed in {elapsed:.1f}s")
+
+        from .auditor import _print_summary as _aps
+        if not _verbose:
+            print()
+            _aps(result["summary"])
+
+        print()
+        generate_report(result, args.out, title=title)
+        _maybe_compare(args, args.out)
+
+        if getattr(args, "output_format", "text") == "markdown":
+            print()
+            _print_markdown_summary(result, label=title)
+
+        from .tracker import maybe_log
+        maybe_log(result, args)
+
+    _emit_json(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -767,57 +799,62 @@ def _run_audit_cleanrl(args):
     from .auditor import run_full_audit
     from .report import generate_report
 
-    print(f"deltatau-audit v{__version__} — CleanRL Audit")
-    print(f"  Checkpoint: {args.checkpoint}")
-    print(f"  Agent module: {args.agent_module}")
-    print(f"  Agent class: {args.agent_class}")
-    print(f"  Env: {args.env}")
-    print(f"  Speeds: {args.speeds}")
-    print(f"  Episodes: {args.episodes}")
-    print(f"  Output: {args.out}")
-    if args.ci:
-        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-              f"stress>={args.ci_stress_threshold})")
-    print()
+    _json_mode = getattr(args, "output_format", "text") == "json"
 
-    env_factory = lambda: gym.make(args.env)
-    title = args.title or f"CleanRL on {args.env}"
-
-    _verbose = not getattr(args, "quiet", False)
-    t0 = time.time()
-    result = run_full_audit(
-        adapter, env_factory,
-        speeds=args.speeds,
-        n_episodes=args.episodes,
-        sensitivity_episodes=0,
-        device=args.device,
-        seed=getattr(args, "seed", None),
-        n_workers=_resolve_workers(args),
-        verbose=_verbose,
-        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
-        stress_threshold=getattr(args, "stress_threshold", 0.50),
-        adaptive=getattr(args, "adaptive", False),
-        target_ci_width=getattr(args, "target_ci_width", 0.10),
-        max_episodes=getattr(args, "max_episodes", 500),
-    )
-    elapsed = time.time() - t0
-    print(f"\n  Audit completed in {elapsed:.1f}s")
-
-    from .auditor import _print_summary as _aps
-    if not _verbose:
+    with _json_redirect(args):
+        print(f"deltatau-audit v{__version__} — CleanRL Audit")
+        print(f"  Checkpoint: {args.checkpoint}")
+        print(f"  Agent module: {args.agent_module}")
+        print(f"  Agent class: {args.agent_class}")
+        print(f"  Env: {args.env}")
+        print(f"  Speeds: {args.speeds}")
+        print(f"  Episodes: {args.episodes}")
+        print(f"  Output: {args.out}")
+        if args.ci:
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+                  f"stress>={args.ci_stress_threshold})")
         print()
-        _aps(result["summary"])
 
-    print()
-    generate_report(result, args.out, title=title)
-    _maybe_compare(args, args.out)
+        env_factory = lambda: gym.make(args.env)
+        title = args.title or f"CleanRL on {args.env}"
 
-    if getattr(args, "output_format", "text") == "markdown":
+        _verbose = not getattr(args, "quiet", False) and not _json_mode
+        t0 = time.time()
+        result = run_full_audit(
+            adapter, env_factory,
+            speeds=args.speeds,
+            n_episodes=args.episodes,
+            sensitivity_episodes=0,
+            device=args.device,
+            seed=getattr(args, "seed", None),
+            n_workers=_resolve_workers(args),
+            verbose=_verbose,
+            deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+            stress_threshold=getattr(args, "stress_threshold", 0.50),
+            adaptive=getattr(args, "adaptive", False),
+            target_ci_width=getattr(args, "target_ci_width", 0.10),
+            max_episodes=getattr(args, "max_episodes", 500),
+        )
+        elapsed = time.time() - t0
+        print(f"\n  Audit completed in {elapsed:.1f}s")
+
+        from .auditor import _print_summary as _aps
+        if not _verbose:
+            print()
+            _aps(result["summary"])
+
         print()
-        _print_markdown_summary(result, label=title)
+        generate_report(result, args.out, title=title)
+        _maybe_compare(args, args.out)
 
-    from .tracker import maybe_log
-    maybe_log(result, args)
+        if getattr(args, "output_format", "text") == "markdown":
+            print()
+            _print_markdown_summary(result, label=title)
+
+        from .tracker import maybe_log
+        maybe_log(result, args)
+
+    _emit_json(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -863,78 +900,83 @@ def _run_audit_hf(args):
     from .auditor import run_full_audit
     from .report import generate_report
 
-    _n_workers = _resolve_workers(args)
-    print(f"deltatau-audit v{__version__} — HuggingFace Hub Audit")
-    print(f"  Repo:    {args.repo}")
-    print(f"  Algo:    {args.algo}")
-    print(f"  Env:     {args.env}")
-    print(f"  Speeds:  {args.speeds}")
-    print(f"  Episodes: {args.episodes}")
-    print(f"  Workers: {_n_workers}")
-    print(f"  Device:  {args.device}")
-    print(f"  Output:  {args.out}")
-    if args.ci:
-        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-              f"stress>={args.ci_stress_threshold})")
-    print()
+    _json_mode = getattr(args, "output_format", "text") == "json"
 
-    print(f"  Downloading from HuggingFace Hub: {args.repo} ...")
-    try:
-        adapter = SB3Adapter.from_hub(
-            repo_id=args.repo,
-            algo=args.algo,
-            filename=getattr(args, "filename", None),
-            token=getattr(args, "hf_token", None),
+    with _json_redirect(args):
+        _n_workers = _resolve_workers(args)
+        print(f"deltatau-audit v{__version__} — HuggingFace Hub Audit")
+        print(f"  Repo:    {args.repo}")
+        print(f"  Algo:    {args.algo}")
+        print(f"  Env:     {args.env}")
+        print(f"  Speeds:  {args.speeds}")
+        print(f"  Episodes: {args.episodes}")
+        print(f"  Workers: {_n_workers}")
+        print(f"  Device:  {args.device}")
+        print(f"  Output:  {args.out}")
+        if args.ci:
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+                  f"stress>={args.ci_stress_threshold})")
+        print()
+
+        print(f"  Downloading from HuggingFace Hub: {args.repo} ...")
+        try:
+            adapter = SB3Adapter.from_hub(
+                repo_id=args.repo,
+                algo=args.algo,
+                filename=getattr(args, "filename", None),
+                token=getattr(args, "hf_token", None),
+                device=args.device,
+            )
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: Failed to load model from Hub: {e}")
+            sys.exit(1)
+
+        print(f"  Model loaded ({args.algo.upper()} on {args.env})")
+        print()
+
+        env_factory = lambda: gym.make(args.env)
+        title = args.title or f"{args.algo.upper()} on {args.env} (from {args.repo})"
+
+        _verbose = not getattr(args, "quiet", False) and not _json_mode
+        t0 = time.time()
+        result = run_full_audit(
+            adapter, env_factory,
+            speeds=args.speeds,
+            n_episodes=args.episodes,
+            sensitivity_episodes=0,
             device=args.device,
+            seed=getattr(args, "seed", None),
+            n_workers=_n_workers,
+            verbose=_verbose,
+            deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+            stress_threshold=getattr(args, "stress_threshold", 0.50),
+            adaptive=getattr(args, "adaptive", False),
+            target_ci_width=getattr(args, "target_ci_width", 0.10),
+            max_episodes=getattr(args, "max_episodes", 500),
         )
-    except FileNotFoundError as e:
-        print(f"ERROR: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Failed to load model from Hub: {e}")
-        sys.exit(1)
+        elapsed = time.time() - t0
+        print(f"\n  Audit completed in {elapsed:.1f}s")
 
-    print(f"  Model loaded ({args.algo.upper()} on {args.env})")
-    print()
+        from .auditor import _print_summary as _aps
+        if not _verbose:
+            print()
+            _aps(result["summary"])
 
-    env_factory = lambda: gym.make(args.env)
-    title = args.title or f"{args.algo.upper()} on {args.env} (from {args.repo})"
-
-    _verbose = not getattr(args, "quiet", False)
-    t0 = time.time()
-    result = run_full_audit(
-        adapter, env_factory,
-        speeds=args.speeds,
-        n_episodes=args.episodes,
-        sensitivity_episodes=0,
-        device=args.device,
-        seed=getattr(args, "seed", None),
-        n_workers=_n_workers,
-        verbose=_verbose,
-        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
-        stress_threshold=getattr(args, "stress_threshold", 0.50),
-        adaptive=getattr(args, "adaptive", False),
-        target_ci_width=getattr(args, "target_ci_width", 0.10),
-        max_episodes=getattr(args, "max_episodes", 500),
-    )
-    elapsed = time.time() - t0
-    print(f"\n  Audit completed in {elapsed:.1f}s")
-
-    from .auditor import _print_summary as _aps
-    if not _verbose:
         print()
-        _aps(result["summary"])
+        generate_report(result, args.out, title=title)
+        _maybe_compare(args, args.out)
 
-    print()
-    generate_report(result, args.out, title=title)
-    _maybe_compare(args, args.out)
+        if getattr(args, "output_format", "text") == "markdown":
+            print()
+            _print_markdown_summary(result, label=title)
 
-    if getattr(args, "output_format", "text") == "markdown":
-        print()
-        _print_markdown_summary(result, label=title)
+        from .tracker import maybe_log
+        maybe_log(result, args)
 
-    from .tracker import maybe_log
-    maybe_log(result, args)
+    _emit_json(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -1096,6 +1138,7 @@ def main():
     _add_ci_args(audit_parser)
     _add_seed_arg(audit_parser)
     _add_workers_arg(audit_parser)
+    _add_format_arg(audit_parser)
     _add_quiet_arg(audit_parser)
     _add_threshold_args(audit_parser)
     _add_adaptive_args(audit_parser)

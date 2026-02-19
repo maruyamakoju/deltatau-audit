@@ -7,6 +7,29 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.7] — 2026-02-20
+
+### Added
+- **`--format json` output mode** on all four audit subcommands (`audit`, `audit-sb3`, `audit-cleanrl`, `audit-hf`):
+  ```bash
+  # Pipe structured JSON to jq, scripts, or CI systems
+  deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+      --format json | jq '.summary'
+
+  # Combine with CI mode for exit codes + JSON
+  deltatau-audit audit-sb3 ... --format json --ci > result.json
+  ```
+  - All progress/banner output redirected to stderr; stdout contains only valid JSON
+  - Verbose progress suppressed automatically in JSON mode
+  - Report files still generated in `--out` directory
+  - Compatible with `--ci` (exit codes), `--wandb`, and `--mlflow`
+- **`--format` flag added to base `audit` subcommand** (previously only on sb3/cleanrl/hf)
+
+### Tests
+- 11 new tests in `tests/test_v057.py` (318 total): `_add_format_arg` choices, `_json_redirect` stderr routing, `_emit_json` valid JSON output with numpy serialization
+
+---
+
 ## [0.5.6] — 2026-02-20
 
 ### Fixed
