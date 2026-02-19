@@ -24,6 +24,7 @@ def test_from_hub_raises_import_error_without_hf(monkeypatch):
 
 def test_from_hub_calls_hf_hub_download(monkeypatch, tmp_path):
     """from_hub() should call hf_hub_download with the correct repo_id."""
+    pytest.importorskip("stable_baselines3")
     import sys
     import types
 
@@ -62,6 +63,7 @@ def test_from_hub_calls_hf_hub_download(monkeypatch, tmp_path):
 
 def test_from_hub_uses_explicit_filename(monkeypatch, tmp_path):
     """from_hub() with --filename should try that filename directly."""
+    pytest.importorskip("stable_baselines3")
     import sys
     import types
 
