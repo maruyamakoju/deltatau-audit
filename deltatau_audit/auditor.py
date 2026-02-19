@@ -397,6 +397,9 @@ def run_robustness_audit(
     verbose: bool = True,
     seed: Optional[int] = None,
     n_workers: int = 1,
+    adaptive: bool = False,
+    target_ci_width: float = 0.10,
+    max_episodes: int = 500,
 ) -> Dict:
     """Axis 2: Realistic timing perturbations via env wrappers.
 
@@ -404,8 +407,19 @@ def run_robustness_audit(
     environment is perturbed. Measures whether performance holds
     under deployment-realistic timing conditions.
 
+    Args:
+        adaptive: When True, use adaptive sampling: run episodes in batches
+            (pilot size = n_episodes) and keep adding batches until the 95%
+            bootstrap CI width on every scenario's return ratio is below
+            target_ci_width, or until max_episodes per scenario is reached.
+        target_ci_width: Target 95% CI width (ci_upper - ci_lower) for the
+            return ratio. Ignored when adaptive=False. Default: 0.10.
+        max_episodes: Hard cap on episodes per scenario in adaptive mode.
+            Default: 500.
+
     Returns:
         Dict with scenarios, per_scenario_scores, return_score, rating, worst_case.
+        When adaptive=True, also includes 'n_episodes_used' (dict per scenario).
     """
     if scenarios is None:
         scenarios = list(ROBUSTNESS_SCENARIOS.keys())
@@ -414,30 +428,108 @@ def run_robustness_audit(
         scenarios = ["nominal"] + list(scenarios)
 
     if verbose:
-        print("  Robustness Test (env wrappers)")
+        if adaptive:
+            print(f"  Robustness Test (env wrappers) "
+                  f"[adaptive: target CI ±{target_ci_width:.2f}, max {max_episodes} eps]")
+        else:
+            print("  Robustness Test (env wrappers)")
 
     scenario_results = {}
     scenario_episode_returns = {}  # raw per-episode returns for bootstrap
-    for sc_idx, scenario in enumerate(scenarios):
-        label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
+    n_episodes_used: Dict[str, int] = {}
 
-        episodes = _run_episodes_parallel(
-            adapter, env_factory, scenario, "none",
-            n_episodes, gamma, device, seed, n_workers,
-            label, verbose,
-            seed_offset=sc_idx * 1000,
-        )
+    if not adaptive:
+        # ── Fixed episode count (original behaviour) ──────────────────
+        for sc_idx, scenario in enumerate(scenarios):
+            label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
 
-        agg = aggregate_episode_metrics(episodes)
-        scenario_results[scenario] = agg
-        scenario_episode_returns[scenario] = [
-            ep["total_reward"] for ep in episodes
-        ]
+            episodes = _run_episodes_parallel(
+                adapter, env_factory, scenario, "none",
+                n_episodes, gamma, device, seed, n_workers,
+                label, verbose,
+                seed_offset=sc_idx * 1000,
+            )
 
-        if not (_HAS_TQDM and verbose) and verbose:
-            r = agg.get("total_reward_mean", 0)
-            rmse = agg.get("rmse_mean", 0)
-            print(f" R={r:.3f}, RMSE={rmse:.4f}")
+            agg = aggregate_episode_metrics(episodes)
+            scenario_results[scenario] = agg
+            scenario_episode_returns[scenario] = [
+                ep["total_reward"] for ep in episodes
+            ]
+
+            if not (_HAS_TQDM and verbose) and verbose:
+                r = agg.get("total_reward_mean", 0)
+                rmse = agg.get("rmse_mean", 0)
+                print(f" R={r:.3f}, RMSE={rmse:.4f}")
+
+    else:
+        # ── Adaptive sampling ──────────────────────────────────────────
+        # Run all scenarios in lockstep batches until every non-nominal
+        # scenario's return-ratio CI is narrower than target_ci_width.
+        all_ep_lists: Dict[str, List[Dict]] = {sc: [] for sc in scenarios}
+        batch_num = 0
+        batch_size = max(1, n_episodes)  # pilot size per round
+
+        while True:
+            # One batch per scenario
+            for sc_idx, scenario in enumerate(scenarios):
+                current = len(all_ep_lists[scenario])
+                if current >= max_episodes:
+                    continue
+                remaining = max_episodes - current
+                this_batch = min(batch_size, remaining)
+                label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
+                new_eps = _run_episodes_parallel(
+                    adapter, env_factory, scenario, "none",
+                    this_batch, gamma, device, seed, n_workers,
+                    label, verbose if batch_num == 0 else False,
+                    seed_offset=sc_idx * 1000 + batch_num * 100_000,
+                )
+                all_ep_lists[scenario].extend(new_eps)
+
+            batch_num += 1
+            total_eps = len(all_ep_lists.get("nominal", []))
+
+            # Check convergence: every non-nominal scenario CI < target
+            nom_rets = [ep["total_reward"] for ep in all_ep_lists.get("nominal", [])]
+            all_converged = True
+            for scenario in scenarios:
+                if scenario == "nominal":
+                    continue
+                pert_rets = [ep["total_reward"] for ep in all_ep_lists[scenario]]
+                if len(pert_rets) < 5:
+                    all_converged = False
+                    break
+                bci = bootstrap_return_ratio(nom_rets, pert_rets)
+                ci_w = bci["ci_upper"] - bci["ci_lower"]
+                if ci_w > target_ci_width:
+                    all_converged = False
+                    break
+
+            if all_converged:
+                if verbose:
+                    print(f"    [adaptive: converged in {total_eps} eps/scenario]")
+                break
+            if total_eps >= max_episodes:
+                if verbose:
+                    print(f"    [adaptive: max_episodes={max_episodes} reached "
+                          f"(CI may be wider than {target_ci_width:.2f})]")
+                break
+
+        # Build results from accumulated episode pools
+        for sc_idx, scenario in enumerate(scenarios):
+            eps = all_ep_lists[scenario]
+            agg = aggregate_episode_metrics(eps)
+            scenario_results[scenario] = agg
+            scenario_episode_returns[scenario] = [
+                ep["total_reward"] for ep in eps
+            ]
+            n_episodes_used[scenario] = len(eps)
+            if verbose and not (_HAS_TQDM and verbose):
+                r = agg.get("total_reward_mean", 0)
+                rmse = agg.get("rmse_mean", 0)
+                label = ROBUSTNESS_SCENARIOS.get(scenario, scenario)
+                print(f"    {label}: R={r:.3f}, RMSE={rmse:.4f} "
+                      f"(n={len(eps)})")
 
     # Compute robustness scores
     nominal = scenario_results["nominal"]
@@ -533,7 +625,7 @@ def run_robustness_audit(
         print(f"    -> {sig_count}/{total} scenarios with "
               f"statistically significant drop (95% CI)")
 
-    return {
+    result = {
         "scenarios": scenario_results,
         "per_scenario_scores": per_scenario_scores,
         "deployment": deployment,
@@ -547,6 +639,10 @@ def run_robustness_audit(
             "return_drop_pct": (1 - worst_return_ratio) * 100,
         },
     }
+    if adaptive:
+        result["n_episodes_used"] = n_episodes_used
+        result["adaptive"] = True
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -675,6 +771,9 @@ def run_full_audit(
     n_workers: int = 1,
     deploy_threshold: float = 0.80,
     stress_threshold: float = 0.50,
+    adaptive: bool = False,
+    target_ci_width: float = 0.10,
+    max_episodes: int = 500,
 ) -> Dict:
     """Run the complete 2-axis time robustness audit.
 
@@ -716,6 +815,8 @@ def run_full_audit(
         adapter, env_factory, scenarios=robustness_scenarios,
         n_episodes=n_episodes, gamma=gamma, device=device,
         verbose=verbose, seed=seed, n_workers=n_workers,
+        adaptive=adaptive, target_ci_width=target_ci_width,
+        max_episodes=max_episodes,
     )
 
     if verbose:

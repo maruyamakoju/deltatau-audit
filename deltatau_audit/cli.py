@@ -81,6 +81,26 @@ def _add_quiet_arg(parser):
     )
 
 
+def _add_adaptive_args(parser):
+    """Add --adaptive, --target-ci-width, --max-episodes for adaptive sampling."""
+    parser.add_argument(
+        "--adaptive", action="store_true", default=False,
+        help="Use adaptive episode sampling: keep adding episode batches until "
+             "every scenario's 95%% bootstrap CI width on the return ratio is "
+             "below --target-ci-width (or --max-episodes is reached).",
+    )
+    parser.add_argument(
+        "--target-ci-width", type=float, default=0.10, metavar="WIDTH",
+        help="Target 95%% CI width for adaptive sampling (default: 0.10). "
+             "Ignored unless --adaptive is set.",
+    )
+    parser.add_argument(
+        "--max-episodes", type=int, default=500, metavar="N",
+        help="Hard cap on episodes per scenario in adaptive mode (default: 500). "
+             "Ignored unless --adaptive is set.",
+    )
+
+
 def _add_seed_arg(parser):
     """Add --seed for reproducible audits."""
     parser.add_argument("--seed", type=int, default=None,
@@ -300,6 +320,9 @@ def _run_audit(args):
         verbose=_verbose,
         deploy_threshold=getattr(args, "deploy_threshold", 0.80),
         stress_threshold=getattr(args, "stress_threshold", 0.50),
+        adaptive=getattr(args, "adaptive", False),
+        target_ci_width=getattr(args, "target_ci_width", 0.10),
+        max_episodes=getattr(args, "max_episodes", 500),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -559,6 +582,9 @@ def _run_audit_sb3(args):
         verbose=_verbose,
         deploy_threshold=getattr(args, "deploy_threshold", 0.80),
         stress_threshold=getattr(args, "stress_threshold", 0.50),
+        adaptive=getattr(args, "adaptive", False),
+        target_ci_width=getattr(args, "target_ci_width", 0.10),
+        max_episodes=getattr(args, "max_episodes", 500),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -738,6 +764,9 @@ def _run_audit_cleanrl(args):
         verbose=_verbose,
         deploy_threshold=getattr(args, "deploy_threshold", 0.80),
         stress_threshold=getattr(args, "stress_threshold", 0.50),
+        adaptive=getattr(args, "adaptive", False),
+        target_ci_width=getattr(args, "target_ci_width", 0.10),
+        max_episodes=getattr(args, "max_episodes", 500),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -849,6 +878,9 @@ def _run_audit_hf(args):
         verbose=_verbose,
         deploy_threshold=getattr(args, "deploy_threshold", 0.80),
         stress_threshold=getattr(args, "stress_threshold", 0.50),
+        adaptive=getattr(args, "adaptive", False),
+        target_ci_width=getattr(args, "target_ci_width", 0.10),
+        max_episodes=getattr(args, "max_episodes", 500),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -1028,6 +1060,7 @@ def main():
     _add_workers_arg(audit_parser)
     _add_quiet_arg(audit_parser)
     _add_threshold_args(audit_parser)
+    _add_adaptive_args(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
     sb3_parser = subparsers.add_parser(
@@ -1059,6 +1092,7 @@ def main():
     _add_format_arg(sb3_parser)
     _add_quiet_arg(sb3_parser)
     _add_threshold_args(sb3_parser)
+    _add_adaptive_args(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -1124,6 +1158,7 @@ def main():
     _add_format_arg(cleanrl_parser)
     _add_quiet_arg(cleanrl_parser)
     _add_threshold_args(cleanrl_parser)
+    _add_adaptive_args(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
@@ -1194,6 +1229,7 @@ def main():
     _add_format_arg(hf_parser)
     _add_quiet_arg(hf_parser)
     _add_threshold_args(hf_parser)
+    _add_adaptive_args(hf_parser)
 
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(

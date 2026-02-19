@@ -117,9 +117,10 @@ def _make_cartpole_audit(deploy_threshold=0.80, stress_threshold=0.50):
     return run_full_audit(
         adapter, env_factory,
         speeds=[1],
-        n_episodes=5,
+        n_episodes=10,
         sensitivity_episodes=0,
         verbose=False,
+        seed=42,
         deploy_threshold=deploy_threshold,
         stress_threshold=stress_threshold,
     )

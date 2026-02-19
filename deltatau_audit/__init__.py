@@ -10,4 +10,4 @@ time-aware agents) with "the agent breaks under timing changes" (bad for
 deployment).
 """
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"

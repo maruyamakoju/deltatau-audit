@@ -7,6 +7,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.3] — 2026-02-20
+
+### Added
+- **Adaptive episode sampling** (`--adaptive` flag on `audit`, `audit-sb3`, `audit-cleanrl`, `audit-hf`): Instead of a fixed `n_episodes`, run episode batches and keep sampling until every scenario's 95% bootstrap CI width on the return ratio drops below `--target-ci-width` (default: `0.10`), or until `--max-episodes` per scenario is reached (default: `500`).
+  ```bash
+  deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+      --adaptive --target-ci-width 0.05 --max-episodes 300
+  ```
+  - `--adaptive` / `--target-ci-width WIDTH` / `--max-episodes N` added to all four audit subcommands.
+  - `run_robustness_audit()` and `run_full_audit()` accept `adaptive`, `target_ci_width`, `max_episodes`.
+  - When adaptive, result includes `n_episodes_used` dict (per-scenario count) and `adaptive: True`.
+  - Non-adaptive default path unchanged.
+- **Flaky test fix**: `test_run_full_audit_strict_threshold_changes_quadrant` now uses `seed=42` and `n_episodes=10` for deterministic results.
+- 11 new tests in `tests/test_v053.py` (263 total).
+
+---
+
 ## [0.5.2] — 2026-02-19
 
 ### Added
