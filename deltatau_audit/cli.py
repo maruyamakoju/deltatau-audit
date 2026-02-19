@@ -56,6 +56,15 @@ def _add_ci_args(parser):
                         help="Stress return ratio threshold (default: 0.50)")
 
 
+def _add_quiet_arg(parser):
+    """Add --quiet flag to suppress episode-level progress output."""
+    parser.add_argument(
+        "--quiet", "-q", action="store_true", default=False,
+        help="Suppress episode-level progress bars and verbose output. "
+             "Final summary is still shown.",
+    )
+
+
 def _add_seed_arg(parser):
     """Add --seed for reproducible audits."""
     parser.add_argument("--seed", type=int, default=None,
@@ -249,6 +258,7 @@ def _run_audit(args):
 
     from .auditor import run_full_audit
 
+    _verbose = not getattr(args, "quiet", False)
     t0 = time.time()
     result = run_full_audit(
         adapter, env_factory,
@@ -259,11 +269,17 @@ def _run_audit(args):
         device=args.device,
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
+        verbose=_verbose,
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
 
     from .report import generate_report
+    from .auditor import _print_summary
+
+    if not _verbose:
+        print()
+        _print_summary(result["summary"])
 
     print()
     generate_report(result, args.out, title=args.title)
@@ -500,6 +516,7 @@ def _run_audit_sb3(args):
 
     title = args.title or f"{args.algo.upper()} on {args.env}"
 
+    _verbose = not getattr(args, "quiet", False)
     t0 = time.time()
     result = run_full_audit(
         adapter, env_factory,
@@ -509,9 +526,15 @@ def _run_audit_sb3(args):
         device=args.device,
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
+        verbose=_verbose,
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
+
+    from .auditor import _print_summary as _aps
+    if not _verbose:
+        print()
+        _aps(result["summary"])
 
     print()
     generate_report(result, args.out, title=title)
@@ -670,6 +693,7 @@ def _run_audit_cleanrl(args):
     env_factory = lambda: gym.make(args.env)
     title = args.title or f"CleanRL on {args.env}"
 
+    _verbose = not getattr(args, "quiet", False)
     t0 = time.time()
     result = run_full_audit(
         adapter, env_factory,
@@ -679,9 +703,15 @@ def _run_audit_cleanrl(args):
         device=args.device,
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
+        verbose=_verbose,
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
+
+    from .auditor import _print_summary as _aps
+    if not _verbose:
+        print()
+        _aps(result["summary"])
 
     print()
     generate_report(result, args.out, title=title)
@@ -851,6 +881,7 @@ def main():
     _add_ci_args(audit_parser)
     _add_seed_arg(audit_parser)
     _add_workers_arg(audit_parser)
+    _add_quiet_arg(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
     sb3_parser = subparsers.add_parser(
@@ -880,6 +911,7 @@ def main():
     _add_workers_arg(sb3_parser)
     _add_compare_arg(sb3_parser)
     _add_format_arg(sb3_parser)
+    _add_quiet_arg(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -943,6 +975,7 @@ def main():
     _add_workers_arg(cleanrl_parser)
     _add_compare_arg(cleanrl_parser)
     _add_format_arg(cleanrl_parser)
+    _add_quiet_arg(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(

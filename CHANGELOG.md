@@ -7,6 +7,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.9] — 2026-02-19
+
+### Added
+- **`--quiet` / `-q` flag on `audit-sb3`, `audit-cleanrl`, `audit`**: Suppresses episode-level progress bars and verbose mid-audit output. Final PASS/FAIL summary is always shown. Useful for clean CI log output and piped commands.
+- 9 new tests in `tests/test_v049.py` (216 total).
+
+---
+
 ## [0.4.8] — 2026-02-19
 
 ### Added
