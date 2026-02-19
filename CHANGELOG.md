@@ -7,7 +7,38 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
-## [0.5.4] — 2026-02-20
+## [0.5.5] — 2026-02-19
+
+### Added
+- **Experiment tracker integration** (`deltatau_audit/tracker.py`): Push audit metrics to Weights & Biases or MLflow after any audit command.
+  ```bash
+  # W&B
+  deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+      --wandb --wandb-project my-project --wandb-run baseline
+
+  # MLflow
+  deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+      --mlflow --mlflow-experiment my-experiment
+  ```
+  - New flags on all four audit subcommands (`audit`, `audit-sb3`, `audit-cleanrl`, `audit-hf`):
+    `--wandb`, `--wandb-project PROJECT`, `--wandb-run RUN`,
+    `--mlflow`, `--mlflow-experiment EXPERIMENT`
+  - Python API: `log_to_wandb(result)`, `log_to_mlflow(result)` in `deltatau_audit.tracker`
+  - Logged scalars: `deployment_score`, `stress_score`, `robustness_score`, `reliance_score`, `sensitivity_mean`, per-scenario `scenario/<name>/return_ratio`
+  - Logged params: `deployment_rating`, `stress_rating`, `reliance_rating`, `quadrant`, `_deltatau_version`
+  - Graceful degradation: missing `wandb`/`mlflow` package prints a `WARNING` rather than crashing
+- **Optional extras** for tracker dependencies:
+  ```bash
+  pip install "deltatau-audit[wandb]"    # installs wandb>=0.12
+  pip install "deltatau-audit[mlflow]"   # installs mlflow>=2.0
+  ```
+
+### Tests
+- 33 new tests in `tests/test_v055.py` (307 total): cover `_build_metrics`, `_build_params`, `log_to_wandb`/`log_to_mlflow` (mocked), `maybe_log` dispatch, ImportError graceful handling, and all CLI parser flags.
+
+---
+
+## [0.5.4] — 2026-02-19
 
 ### Added
 - **`py.typed` marker** (PEP 561): Package now exports type information for downstream users. Static type checkers (mypy, pyright, pylance) will use the annotations directly.

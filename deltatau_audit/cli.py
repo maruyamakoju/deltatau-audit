@@ -81,6 +81,32 @@ def _add_quiet_arg(parser):
     )
 
 
+def _add_tracker_args(parser):
+    """Add --wandb / --mlflow experiment tracker flags."""
+    parser.add_argument(
+        "--wandb", action="store_true", default=False,
+        help="Log audit metrics to Weights & Biases after the audit. "
+             "Requires: pip install \"deltatau-audit[wandb]\".",
+    )
+    parser.add_argument(
+        "--wandb-project", type=str, default="deltatau-audit", metavar="PROJECT",
+        help="WandB project name (default: deltatau-audit). Used with --wandb.",
+    )
+    parser.add_argument(
+        "--wandb-run", type=str, default=None, metavar="RUN",
+        help="WandB run name (default: audit title). Used with --wandb.",
+    )
+    parser.add_argument(
+        "--mlflow", action="store_true", default=False,
+        help="Log audit metrics to MLflow after the audit. "
+             "Requires: pip install \"deltatau-audit[mlflow]\".",
+    )
+    parser.add_argument(
+        "--mlflow-experiment", type=str, default="deltatau-audit", metavar="EXP",
+        help="MLflow experiment name (default: deltatau-audit). Used with --mlflow.",
+    )
+
+
 def _add_adaptive_args(parser):
     """Add --adaptive, --target-ci-width, --max-episodes for adaptive sampling."""
     parser.add_argument(
@@ -336,6 +362,9 @@ def _run_audit(args):
 
     print()
     generate_report(result, args.out, title=args.title)
+
+    from .tracker import maybe_log
+    maybe_log(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -602,6 +631,9 @@ def _run_audit_sb3(args):
         print()
         _print_markdown_summary(result, label=title)
 
+    from .tracker import maybe_log
+    maybe_log(result, args)
+
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
         sys.exit(exit_code)
@@ -784,6 +816,9 @@ def _run_audit_cleanrl(args):
         print()
         _print_markdown_summary(result, label=title)
 
+    from .tracker import maybe_log
+    maybe_log(result, args)
+
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
         sys.exit(exit_code)
@@ -897,6 +932,9 @@ def _run_audit_hf(args):
     if getattr(args, "output_format", "text") == "markdown":
         print()
         _print_markdown_summary(result, label=title)
+
+    from .tracker import maybe_log
+    maybe_log(result, args)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -1061,6 +1099,7 @@ def main():
     _add_quiet_arg(audit_parser)
     _add_threshold_args(audit_parser)
     _add_adaptive_args(audit_parser)
+    _add_tracker_args(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
     sb3_parser = subparsers.add_parser(
@@ -1093,6 +1132,7 @@ def main():
     _add_quiet_arg(sb3_parser)
     _add_threshold_args(sb3_parser)
     _add_adaptive_args(sb3_parser)
+    _add_tracker_args(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -1159,6 +1199,7 @@ def main():
     _add_quiet_arg(cleanrl_parser)
     _add_threshold_args(cleanrl_parser)
     _add_adaptive_args(cleanrl_parser)
+    _add_tracker_args(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
@@ -1230,6 +1271,7 @@ def main():
     _add_quiet_arg(hf_parser)
     _add_threshold_args(hf_parser)
     _add_adaptive_args(hf_parser)
+    _add_tracker_args(hf_parser)
 
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(
