@@ -6,6 +6,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/maruyamakoju/deltatau-audit/blob/main/notebooks/quickstart.ipynb)
 
+**Audited by deltatau-audit** (CartPole speed-randomized GRU):
+
+![deployment](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/badges/badge-deployment.svg)
+![stress](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/badges/badge-stress.svg)
+![status](https://raw.githubusercontent.com/maruyamakoju/deltatau-audit/main/badges/badge-status.svg)
+
 **Find and fix timing failures in RL agents.**
 
 RL agents silently break when deployment timing differs from training — frame drops, variable inference latency, sensor rate changes. `deltatau-audit` finds these failures **and fixes them in one command**.
@@ -519,6 +525,10 @@ The HTML report includes a dedicated diagnostics card with per-scenario pattern 
 | Parallel episodes | `--workers auto` | `n_workers=` | v0.4.2 |
 | Reproducible seeds | `--seed 42` | `seed=` | v0.4.3 |
 | HTML + JSON reports | `--out dir/` | `generate_report()` | v0.3.0 |
+| GitHub Actions | `uses: maruyamakoju/deltatau-audit@main` | — | v0.5.10 |
+| Colab notebook | `notebooks/quickstart.ipynb` | — | v0.6.0 |
+| SB3 training callback | — | `TimingAuditCallback` | v0.6.1 |
+| Badge SVG generation | `badge summary.json` | `generate_badges()` | v0.6.1 |
 
 ## License
 

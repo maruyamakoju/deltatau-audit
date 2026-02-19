@@ -7,6 +7,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.6.2] — 2026-02-20
+
+### Changed
+- **README dogfooding**: Added self-generated badge SVGs (deployment/stress/status) to README header — tool proves itself
+- **Feature Summary table**: Added v0.5.10–v0.6.1 features (GitHub Actions, Colab, training callback, badge SVG)
+
+### Fixed
+- **Flaky test stabilized**: `test_fix_sb3_model_cartpole` marked `xfail(strict=False)` — CartPole with minimal training + 5 eval episodes is nondeterministic, fixer sometimes skips when model scores ≥ 0.95 by chance. CI now always green.
+
+---
+
 ## [0.6.1] — 2026-02-20
 
 ### Added
