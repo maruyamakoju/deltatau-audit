@@ -1105,6 +1105,15 @@ def _run_diff(args):
         pass
 
 
+def _run_badge(args):
+    """Generate SVG badges from a summary.json."""
+    from .badge import generate_badges
+
+    paths = generate_badges(args.summary_json, args.out, args.prefix)
+    for name, path in paths.items():
+        print(f"  {name}: {path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="deltatau-audit",
@@ -1331,6 +1340,16 @@ def main():
     _add_seed_arg(demo_parser)
     _add_workers_arg(demo_parser)
 
+    # ── badge subcommand ───────────────────────────────────────────
+    badge_parser = subparsers.add_parser(
+        "badge", help="Generate SVG badge images from a summary.json")
+    badge_parser.add_argument("summary_json", type=str,
+                              help="Path to summary.json from an audit run")
+    badge_parser.add_argument("--out", type=str, default=".",
+                              help="Output directory for SVG files (default: .)")
+    badge_parser.add_argument("--prefix", type=str, default="badge",
+                              help="Filename prefix (default: badge)")
+
     # ── diff subcommand ────────────────────────────────────────────
     diff_parser = subparsers.add_parser(
         "diff", help="Compare two audit summary.json files")
@@ -1357,6 +1376,8 @@ def main():
         _run_audit_hf(args)
     elif args.command == "demo":
         _run_demo(args)
+    elif args.command == "badge":
+        _run_badge(args)
     elif args.command == "diff":
         _run_diff(args)
     else:
@@ -1380,6 +1401,8 @@ def main():
                   "--agent-module ppo_cartpole.py --env CartPole-v1")
             print("  python -m deltatau_audit diff before/summary.json "
                   "after/summary.json")
+            print("  python -m deltatau_audit badge audit_report/summary.json "
+                  "--out badges/")
 
 
 if __name__ == "__main__":

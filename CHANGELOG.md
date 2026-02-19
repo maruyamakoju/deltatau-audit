@@ -7,6 +7,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.6.1] — 2026-02-20
+
+### Added
+- **SB3 training callback** (`deltatau_audit/callback.py`):
+  - `TimingAuditCallback` runs periodic timing audits during SB3 training
+  - Logs `audit/deployment_score`, `audit/stress_score`, and per-scenario return ratios to SB3's logger (TensorBoard, WandB, CSV)
+  - Optionally saves HTML reports at each audit step to `{output_dir}/step_{n}/`
+  - `audit_history` property tracks score progression over training
+  - `create_timing_audit_callback()` factory avoids hard SB3 dependency at import time
+- **Badge SVG generation** (`deltatau_audit/badge.py`):
+  - `deltatau-audit badge summary.json --out badges/` CLI subcommand
+  - Generates shields.io-style flat badges: `badge-deployment.svg`, `badge-stress.svg`, `badge-status.svg`
+  - Color-coded by rating (PASS=green, MILD=yellow, DEGRADED=orange, FAIL=red)
+  - Python API: `badge_deployment()`, `badge_stress()`, `badge_status()`, `generate_badges()`
+  - Valid XML with aria-label accessibility attributes
+
+---
+
 ## [0.6.0] — 2026-02-20
 
 ### Added
