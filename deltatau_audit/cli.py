@@ -65,9 +65,22 @@ def _add_seed_arg(parser):
 
 def _add_workers_arg(parser):
     """Add --workers for parallel episode execution."""
-    parser.add_argument("--workers", type=int, default=1,
-                        help="Parallel workers for episode collection "
-                             "(default: 1 = serial). Use 4-8 for speedup.")
+    parser.add_argument("--workers", type=str, default="1",
+                        help="Parallel workers for episode collection. "
+                             "Use an integer (e.g. 4) or 'auto' to use all "
+                             "CPU cores. Default: 1 (serial).")
+
+
+def _resolve_workers(args) -> int:
+    """Parse --workers value, resolving 'auto' to os.cpu_count()."""
+    import os
+    raw = getattr(args, "workers", "1") or "1"
+    if str(raw).strip().lower() in ("auto", "0", "-1"):
+        return max(1, os.cpu_count() or 1)
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 1
 
 
 def _handle_ci(result, out_dir, args):
@@ -138,7 +151,7 @@ def _run_audit(args):
         sensitivity_episodes=args.sensitivity_episodes,
         device=args.device,
         seed=getattr(args, "seed", None),
-        n_workers=getattr(args, "workers", 1),
+        n_workers=_resolve_workers(args),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -204,8 +217,12 @@ def _run_demo(args):
     ]
 
     from . import __version__
+    n_workers = _resolve_workers(args)
     print(f"deltatau-audit v{__version__} — CartPole Demo")
     print(f"  Episodes per condition: {n_episodes}")
+    print(f"  Workers: {n_workers}"
+          + (" (parallel)" if n_workers > 1 else
+             "  — tip: use --workers auto for faster auditing"))
     print(f"  Output: {out_dir}/")
     if args.ci:
         print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
@@ -228,7 +245,7 @@ def _run_demo(args):
             n_episodes=n_episodes,
             sensitivity_episodes=0,
             seed=getattr(args, "seed", None),
-            n_workers=getattr(args, "workers", 1),
+            n_workers=_resolve_workers(args),
         )
         elapsed = time.time() - t0
         print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -342,12 +359,16 @@ def _run_audit_sb3(args):
     from .auditor import run_full_audit
     from .report import generate_report
 
+    _n_workers = _resolve_workers(args)
     print(f"deltatau-audit v{__version__} — SB3 Audit")
     print(f"  Model: {args.model}")
     print(f"  Algo:  {args.algo}")
     print(f"  Env:   {args.env}")
     print(f"  Speeds: {args.speeds}")
     print(f"  Episodes: {args.episodes}")
+    print(f"  Workers: {_n_workers}"
+          + ("" if _n_workers > 1 else
+             "  — tip: --workers auto for faster auditing"))
     print(f"  Device: {args.device}")
     print(f"  Output: {args.out}")
     if args.ci:
@@ -380,7 +401,7 @@ def _run_audit_sb3(args):
         sensitivity_episodes=0,
         device=args.device,
         seed=getattr(args, "seed", None),
-        n_workers=getattr(args, "workers", 1),
+        n_workers=_resolve_workers(args),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -543,7 +564,7 @@ def _run_audit_cleanrl(args):
         sensitivity_episodes=0,
         device=args.device,
         seed=getattr(args, "seed", None),
-        n_workers=getattr(args, "workers", 1),
+        n_workers=_resolve_workers(args),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -822,8 +843,8 @@ def main():
                              help="Demo name (default: cartpole)")
     demo_parser.add_argument("--out", type=str, default="demo_report",
                              help="Output directory (default: demo_report/)")
-    demo_parser.add_argument("--episodes", type=int, default=30,
-                             help="Episodes per condition (default: 30)")
+    demo_parser.add_argument("--episodes", type=int, default=20,
+                             help="Episodes per condition (default: 20)")
     _add_ci_args(demo_parser)
     _add_seed_arg(demo_parser)
     _add_workers_arg(demo_parser)

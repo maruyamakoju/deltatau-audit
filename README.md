@@ -15,6 +15,7 @@ RL agents silently break when deployment timing differs from training — frame 
 ```bash
 pip install "deltatau-audit[demo]"
 python -m deltatau_audit demo cartpole
+# Faster: python -m deltatau_audit demo cartpole --workers auto
 ```
 
 No GPU. No MuJoCo. Just `pip install` and run. You'll see a Before/After comparison:
@@ -122,6 +123,12 @@ Just want the diagnosis? Use `audit-sb3`:
 
 ```bash
 deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --out my_report/
+
+# Faster — use all CPU cores:
+deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --workers auto
+
+# Reproducible:
+deltatau-audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5 --seed 42
 ```
 
 No model handy? Try with a sample:
@@ -151,6 +158,8 @@ result = run_full_audit(
     lambda: gym.make("HalfCheetah-v5"),
     speeds=[1, 2, 3, 5, 8],
     n_episodes=30,
+    n_workers=4,   # parallel episode collection
+    seed=42,       # reproducible results
 )
 generate_report(result, "my_audit/", title="My Agent Audit")
 
@@ -167,9 +176,11 @@ result = fix_sb3_model("my_model.zip", "ppo", "HalfCheetah-v5",
 
 | Badge | What it tests | How |
 |-------|--------------|-----|
-| **Reliance** | Does the agent *use* internal timing? | Tampers with internal Dt, measures value prediction error |
-| **Deployment** | Does the agent *survive* realistic timing changes? | Jitter, observation delay, mid-episode speed spikes |
-| **Stress** | Does the agent *survive* extreme timing changes? | 5x speed (unseen during training) |
+| **Reliance** | Does the agent *use* internal timing? | Tampers with internal Δτ, measures value prediction error |
+| **Deployment** | Does the agent *survive* realistic timing changes? | Speed jitter, observation delay, mid-episode spikes, sensor noise |
+| **Stress** | Does the agent *survive* extreme timing changes? | 5× speed (unseen during training) |
+
+**Deployment scenarios (4):** `jitter` (speed 2±1), `delay` (1-step obs lag), `spike` (1→5→1), `obs_noise` (Gaussian σ=0.1 on observations). All four run automatically.
 
 Agents without internal timing (standard PPO, SAC, etc.) get **Reliance: N/A** — only Deployment and Stress are tested.
 
@@ -183,6 +194,26 @@ Agents without internal timing (standard PPO, SAC, etc.) get **Reliance: N/A** �
 | FAIL | <= 50% | Agent breaks |
 
 All return ratios include bootstrap 95% confidence intervals with significance testing.
+
+## Performance
+
+By default all episodes run serially. Use `--workers` to parallelize:
+
+```bash
+# Auto-detect CPU core count (recommended for local runs)
+deltatau-audit audit-sb3 --algo ppo --model model.zip --env HalfCheetah-v5 --workers auto
+
+# Explicit count
+deltatau-audit demo cartpole --workers 4
+```
+
+| Workers | 30 episodes × 5 scenarios | Speedup |
+|---------|--------------------------|---------|
+| 1 (default) | ~3 min (CartPole) | — |
+| 4 | ~50 sec | ~3.5× |
+| auto (8 cores) | ~30 sec | ~6× |
+
+`--workers auto` maps to `os.cpu_count()`. Works with all `audit-*` and `demo` subcommands. For reproducibility, pair with `--seed 42` (parallel order is non-deterministic but per-episode seeds are fixed).
 
 ## CI Mode
 
@@ -265,7 +296,7 @@ model.save("robust_model")
 
 This is exactly what `fix-sb3` does under the hood. Use the wrapper directly when you want more control over training.
 
-Available wrappers: `JitterWrapper` (random speed), `FixedSpeedWrapper` (constant speed), `PiecewiseSwitchWrapper` (scheduled speed changes), `ObservationDelayWrapper` (sensor delay).
+Available wrappers: `JitterWrapper` (random speed), `FixedSpeedWrapper` (constant speed), `PiecewiseSwitchWrapper` (scheduled speed changes), `ObservationDelayWrapper` (sensor delay), `ObsNoiseWrapper` (Gaussian observation noise).
 
 ## Audit CleanRL Agents
 

@@ -7,6 +7,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.5] — 2026-02-19
+
+### Added
+- **`--workers auto`**: `--workers` now accepts the string `"auto"` (maps to `os.cpu_count()`) in addition to integers. Supported on all `audit-*` and `demo` subcommands.
+- **Workers hint in CLI output**: `audit-sb3` and `demo` print a one-line tip (`— tip: --workers auto for faster auditing`) when running serially, so new users discover the feature naturally.
+- **Performance section in README**: Documents `--workers` speedup table, auto-detect usage, and interaction with `--seed`.
+- **README updates**: `obs_noise` scenario documented in "What It Measures"; `ObsNoiseWrapper` added to wrappers list; Python API example shows `n_workers=4` and `seed=42`; `audit-sb3` example updated.
+
+### Changed
+- Demo default episodes reduced from 30 to 20 (faster first run; use `--episodes 30` to restore).
+
+---
+
 ## [0.4.4] — 2026-02-19
 
 ### Added
