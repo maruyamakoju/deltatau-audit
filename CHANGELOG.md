@@ -7,6 +7,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.10] — 2026-02-20
+
+### Changed
+- **GitHub Actions reusable action** (`action.yml`) enhanced:
+  - Added `--format markdown` by default — audit results automatically appear in GitHub Actions workflow summary
+  - Added `--workers auto` by default — parallel episode collection for faster CI runs
+  - Added `audit-cleanrl` and `audit-hf` command support
+  - Added `workers` input (default: `auto`)
+  - Added `seed` input for reproducible CI results
+  - Added `extra-args` input for additional CLI flags (e.g. `--adaptive --target-ci-width 0.05`)
+  - Refactored to use shared `COMMON_FLAGS` variable (DRY)
+
+---
+
 ## [0.5.9] — 2026-02-20
 
 ### Added

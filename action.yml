@@ -6,18 +6,18 @@ branding:
 
 inputs:
   command:
-    description: "Command to run: audit-sb3, fix-sb3, or demo"
+    description: "Command to run: demo, audit-sb3, audit-cleanrl, audit-hf, fix-sb3"
     required: false
     default: "demo"
   model:
-    description: "Path to SB3 model (.zip)"
+    description: "Path to SB3 model (.zip) — for audit-sb3, audit-hf, fix-sb3"
     required: false
   algo:
     description: "SB3 algorithm (ppo, sac, td3, a2c)"
     required: false
     default: "ppo"
   env:
-    description: "Gymnasium environment ID"
+    description: "Gymnasium environment ID (e.g. CartPole-v1, HalfCheetah-v5)"
     required: false
   episodes:
     description: "Episodes per condition"
@@ -39,6 +39,17 @@ inputs:
     description: "Stress score threshold for warn (0-1)"
     required: false
     default: "0.50"
+  workers:
+    description: "Parallel workers for episode collection (integer or 'auto')"
+    required: false
+    default: "auto"
+  seed:
+    description: "Random seed for reproducible results"
+    required: false
+  extra-args:
+    description: "Additional CLI arguments (e.g. '--adaptive --target-ci-width 0.05')"
+    required: false
+    default: ""
   python-version:
     description: "Python version"
     required: false
@@ -76,13 +87,23 @@ runs:
       run: |
         set +e
 
+        SEED_FLAG=""
+        if [ -n "${{ inputs.seed }}" ]; then
+          SEED_FLAG="--seed ${{ inputs.seed }}"
+        fi
+
+        COMMON_FLAGS="--ci \
+          --episodes ${{ inputs.episodes }} \
+          --workers ${{ inputs.workers }} \
+          --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
+          --ci-stress-threshold ${{ inputs.stress-threshold }} \
+          --format markdown \
+          --out ${{ inputs.output }} \
+          $SEED_FLAG \
+          ${{ inputs.extra-args }}"
+
         if [ "${{ inputs.command }}" = "demo" ]; then
-          python -m deltatau_audit demo cartpole \
-            --ci \
-            --episodes ${{ inputs.episodes }} \
-            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
-            --ci-stress-threshold ${{ inputs.stress-threshold }} \
-            --out ${{ inputs.output }}
+          python -m deltatau_audit demo cartpole $COMMON_FLAGS
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "audit-sb3" ]; then
@@ -90,11 +111,21 @@ runs:
             --algo ${{ inputs.algo }} \
             --model "${{ inputs.model }}" \
             --env "${{ inputs.env }}" \
-            --ci \
-            --episodes ${{ inputs.episodes }} \
-            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
-            --ci-stress-threshold ${{ inputs.stress-threshold }} \
-            --out ${{ inputs.output }}
+            $COMMON_FLAGS
+          EXIT_CODE=$?
+
+        elif [ "${{ inputs.command }}" = "audit-cleanrl" ]; then
+          python -m deltatau_audit audit-cleanrl \
+            --env "${{ inputs.env }}" \
+            $COMMON_FLAGS
+          EXIT_CODE=$?
+
+        elif [ "${{ inputs.command }}" = "audit-hf" ]; then
+          python -m deltatau_audit audit-hf \
+            --algo ${{ inputs.algo }} \
+            --repo "${{ inputs.model }}" \
+            --env "${{ inputs.env }}" \
+            $COMMON_FLAGS
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "fix-sb3" ]; then
@@ -102,11 +133,7 @@ runs:
             --algo ${{ inputs.algo }} \
             --model "${{ inputs.model }}" \
             --env "${{ inputs.env }}" \
-            --ci \
-            --episodes ${{ inputs.episodes }} \
-            --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
-            --ci-stress-threshold ${{ inputs.stress-threshold }} \
-            --out ${{ inputs.output }}
+            $COMMON_FLAGS
           EXIT_CODE=$?
 
         else
