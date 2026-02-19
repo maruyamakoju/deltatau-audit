@@ -7,6 +7,21 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.2] — 2026-02-19
+
+### Added
+- **Failure diagnostics (`diagnose.py`)**: Every audit now includes a structured failure analysis that maps each failing or degraded scenario to a named failure pattern, root cause, and actionable fix recommendation.
+  - 5 named patterns: *Speed Jitter Sensitivity*, *Observation Recency Dependency*, *Frequency Spike Fragility*, *Observation Noise Sensitivity*, *Extreme Frequency Fragility*
+  - Unknown/custom scenarios get a generic pattern automatically
+  - Issues sorted by severity (FAIL first, then DEGRADED)
+- **CLI output**: `_print_summary()` now prints a `Failure Analysis` block after the prescription when issues exist, showing: Pattern, Cause, Fix, and any secondary issues.
+- **Markdown output**: `--format markdown` now includes a `> Failure Analysis` blockquote section with the primary pattern, cause, and fix.
+- **HTML report**: The Prescription section is followed by a styled `Failure Analysis` card when failures are detected, showing the pattern, cause, fix, and secondary issue badges.
+- **`diagnosis` key in audit result**: `run_full_audit()` now returns `diagnosis` dict with `status`, `failing_scenarios`, `issues`, `primary_pattern`, `root_cause`, `fix_recommendation`, `summary_line`.
+- 17 new tests in `tests/test_v052.py` (252 total).
+
+---
+
 ## [0.5.1] — 2026-02-19
 
 ### Added

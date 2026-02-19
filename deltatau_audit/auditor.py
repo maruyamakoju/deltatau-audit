@@ -803,9 +803,13 @@ def run_full_audit(
                 "(jitter/delay/spike augmentation)."
             )
 
+    # Failure diagnosis: pattern → root cause → fix
+    from .diagnose import generate_diagnosis
+    diagnosis = generate_diagnosis(summary, robustness)
+
     if verbose:
         print()
-        _print_summary(summary)
+        _print_summary(summary, diagnosis)
 
     return {
         "speeds": speeds,
@@ -815,11 +819,12 @@ def run_full_audit(
         "robustness": robustness,
         "sensitivity": sensitivity,
         "summary": summary,
+        "diagnosis": diagnosis,
     }
 
 
-def _print_summary(summary: Dict):
-    """Print human-readable 2-axis summary."""
+def _print_summary(summary: Dict, diagnosis: Dict = None):
+    """Print human-readable 2-axis summary, with optional failure diagnosis."""
     from .color import colored_rating, bold, dim
     print("=" * 60)
     rel_r = summary["reliance_rating"]
@@ -844,3 +849,16 @@ def _print_summary(summary: Dict):
     print(f"  Quadrant:    {bold(summary['quadrant'])}")
     print("=" * 60)
     print(f"\n  {summary['prescription']}")
+
+    # Show failure diagnosis when there are issues
+    if diagnosis and diagnosis.get("issues"):
+        print()
+        print(f"  Failure Analysis  ({diagnosis['summary_line']})")
+        print("  " + "─" * 56)
+        primary = diagnosis["issues"][0]
+        print(f"  Pattern:  {bold(primary['pattern'])}  [{colored_rating(primary['rating'], 0)}]")
+        print(f"  Cause:    {dim(primary['cause'])}")
+        print(f"  Fix:      {primary['fix']}")
+        if len(diagnosis["issues"]) > 1:
+            others = [f"{i['scenario']} ({i['rating']})" for i in diagnosis["issues"][1:]]
+            print(f"\n  Other issues: {', '.join(others)}")

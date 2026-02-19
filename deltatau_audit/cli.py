@@ -192,6 +192,18 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
         sig = "⚠️" if info.get("significant") else "—"
         lines.append(f"| `{sc}` | {cat} | {ret:.0f}% | {sig} |")
 
+    # Failure diagnosis block
+    diagnosis = result.get("diagnosis")
+    if diagnosis and diagnosis.get("issues"):
+        lines.extend(["", "**Failure Analysis:**", ""])
+        lines.append(f"> ⚠️ {diagnosis['summary_line']}")
+        lines.append(f">")
+        lines.append(f"> **Pattern:** {diagnosis['primary_pattern']}")
+        lines.append(f">")
+        lines.append(f"> **Cause:** {diagnosis['root_cause']}")
+        lines.append(f">")
+        lines.append(f"> **Fix:** {diagnosis['fix_recommendation']}")
+
     from . import __version__
     lines.extend([
         "",

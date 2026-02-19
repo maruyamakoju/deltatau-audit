@@ -595,6 +595,55 @@ def generate_report(audit_result: Dict, output_dir: str,
 </table>
 """
 
+    # ── Failure diagnosis HTML ────────────────────────────────────────
+    diagnosis = audit_result.get("diagnosis", {})
+    diagnosis_html = ""
+    if diagnosis and diagnosis.get("issues"):
+        primary = diagnosis["issues"][0]
+        rating_colors = {
+            "FAIL": "#dc3545", "DEGRADED": "#fd7e14",
+            "MILD": "#ffc107", "PASS": "#28a745",
+        }
+        p_color = rating_colors.get(primary["rating"], "#888")
+        p_badge = (
+            f'<span style="background:{p_color};color:white;padding:2px 8px;'
+            f'border-radius:4px;font-size:0.85em;font-weight:600;">'
+            f'{primary["rating"]}</span>'
+        )
+        other_rows = ""
+        for issue in diagnosis["issues"][1:]:
+            i_color = rating_colors.get(issue["rating"], "#888")
+            other_rows += (
+                f'<span style="background:{i_color};color:white;padding:1px 6px;'
+                f'border-radius:3px;font-size:0.8em;margin-right:4px;">'
+                f'{issue["scenario"]} {issue["rating"]}</span>'
+            )
+        other_html = (
+            f'<p class="other-issues">Additional issues: {other_rows}</p>'
+            if other_rows else ""
+        )
+        diagnosis_html = f"""
+<div class="diagnosis">
+  <h3>Failure Analysis</h3>
+  <p style="margin:0 0 12px 0;color:#555;">{diagnosis['summary_line']}</p>
+  <div class="diagnosis-grid">
+    <div class="diagnosis-row">
+      <span class="diagnosis-label">Pattern:</span>
+      <span class="diagnosis-pattern">{primary['pattern']}</span>
+      &nbsp;{p_badge}
+    </div>
+    <div class="diagnosis-row">
+      <span class="diagnosis-label">Cause:</span>
+      <span style="color:#555;">{primary['cause']}</span>
+    </div>
+    <div class="diagnosis-row">
+      <span class="diagnosis-label">Fix:</span>
+      <span>{primary['fix']}</span>
+    </div>
+  </div>
+  {other_html}
+</div>"""
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -656,6 +705,15 @@ def generate_report(audit_result: Dict, output_dir: str,
   .prescription {{ background: #e3f2fd; border-left: 4px solid #1565C0;
                    padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0; }}
   .prescription h3 {{ margin-top: 0; color: #1565C0; }}
+  .diagnosis {{ background: #fff8e1; border-left: 4px solid #f57c00;
+                padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0; }}
+  .diagnosis h3 {{ margin-top: 0; color: #e65100; }}
+  .diagnosis-pattern {{ font-size: 1.05em; font-weight: 600; color: #bf360c; }}
+  .diagnosis-label {{ font-weight: 600; color: #555; min-width: 70px;
+                      display: inline-block; }}
+  .diagnosis-grid {{ display: grid; gap: 8px; margin-top: 10px; }}
+  .diagnosis-row {{ padding: 6px 0; border-bottom: 1px solid #ffe082; }}
+  .other-issues {{ margin-top: 10px; font-size: 0.9em; color: #777; }}
 
   .meta {{ color: #999; font-size: 0.85em; margin-top: 30px; }}
 </style>
@@ -697,11 +755,12 @@ def generate_report(audit_result: Dict, output_dir: str,
 
 {sensitivity_html}
 
-<!-- ═══ Prescription ═══ -->
+<!-- ═══ Prescription + Diagnosis ═══ -->
 <div class="prescription">
   <h3>Recommendation</h3>
   <p>{summary['prescription']}</p>
 </div>
+{diagnosis_html}
 
 <div class="meta">
   <p>Speeds tested: {speeds} |
