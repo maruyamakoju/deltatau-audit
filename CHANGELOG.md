@@ -7,6 +7,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.6.0] — 2026-02-20
+
+### Added
+- **Colab quickstart notebook** (`notebooks/quickstart.ipynb`):
+  - One-click Google Colab experience — install, demo, and results in ~2 minutes
+  - Covers: CartPole Before/After demo, per-scenario breakdown table, SB3 audit API, fix pipeline, CI/CD integration
+  - Uses `--workers auto` for parallel episode collection
+  - Commented Python API examples for SB3 audit and fix workflows
+
+---
+
 ## [0.5.10] — 2026-02-20
 
 ### Changed
