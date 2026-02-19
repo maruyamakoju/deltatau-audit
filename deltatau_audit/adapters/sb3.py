@@ -113,3 +113,61 @@ class SB3Adapter(AgentAdapter):
 
         model = algo_cls.load(path, device=device)
         return cls(model, device=device)
+
+    @classmethod
+    def from_hub(
+        cls,
+        repo_id: str,
+        algo: str = "ppo",
+        filename: Optional[str] = None,
+        token: Optional[str] = None,
+        device: str = "cpu",
+    ) -> "SB3Adapter":
+        """Download an SB3 model from HuggingFace Hub and return an adapter.
+
+        Args:
+            repo_id: HuggingFace repo ID (e.g. "sb3/ppo-CartPole-v1").
+            algo:    Algorithm name ("ppo", "sac", "td3", "a2c").
+            filename: Filename inside the repo. Auto-detected if None.
+            token:   HuggingFace token for private repos.
+            device:  Device string.
+
+        Returns:
+            SB3Adapter instance with model loaded from Hub.
+        """
+        try:
+            from huggingface_hub import hf_hub_download
+        except ImportError:
+            raise ImportError(
+                "huggingface_hub is required for Hub downloads. "
+                'Install with: pip install "deltatau-audit[hf]"'
+            )
+
+        # Auto-detect filename: try {algo}-{repo_name}.zip, then model.zip
+        if filename is None:
+            repo_name = repo_id.split("/")[-1]
+            candidates = [f"{repo_name}.zip", "model.zip"]
+        else:
+            candidates = [filename]
+
+        local_path = None
+        last_err = None
+        for fname in candidates:
+            try:
+                local_path = hf_hub_download(
+                    repo_id=repo_id,
+                    filename=fname,
+                    token=token,
+                )
+                break
+            except Exception as e:
+                last_err = e
+
+        if local_path is None:
+            raise FileNotFoundError(
+                f"Could not find model in '{repo_id}'. "
+                f"Tried: {candidates}. Last error: {last_err}\n"
+                "Tip: Use --filename to specify the exact filename."
+            )
+
+        return cls.from_path(local_path, algo=algo, device=device)

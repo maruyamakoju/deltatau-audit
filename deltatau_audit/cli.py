@@ -726,6 +726,115 @@ def _run_audit_cleanrl(args):
         sys.exit(exit_code)
 
 
+def _run_audit_hf(args):
+    """Audit an SB3 model downloaded directly from HuggingFace Hub."""
+    # (1) huggingface_hub dependency
+    try:
+        import huggingface_hub  # noqa: F401
+    except ImportError:
+        print("ERROR: huggingface_hub is required for audit-hf.")
+        print('  pip install "deltatau-audit[hf]"')
+        sys.exit(1)
+
+    # (2) stable-baselines3 dependency
+    try:
+        import stable_baselines3  # noqa: F401
+    except ImportError:
+        print("ERROR: stable-baselines3 is required.")
+        print('  pip install "deltatau-audit[hf]"')
+        sys.exit(1)
+
+    # (3) Gymnasium env check
+    import gymnasium as gym
+    try:
+        test_env = gym.make(args.env)
+        test_env.close()
+    except Exception as e:
+        err = str(e).lower()
+        print(f"ERROR: Cannot create environment '{args.env}'")
+        print(f"  {e}")
+        env_lower = args.env.lower()
+        if any(k in env_lower or k in err for k in
+               ("mujoco", "cheetah", "hopper", "walker", "ant",
+                "humanoid", "swimmer", "reacher", "pusher", "inverted")):
+            print('\n  pip install "deltatau-audit[hf,mujoco]"')
+        sys.exit(1)
+
+    from . import __version__
+    from .adapters.sb3 import SB3Adapter
+    from .auditor import run_full_audit
+    from .report import generate_report
+
+    _n_workers = _resolve_workers(args)
+    print(f"deltatau-audit v{__version__} — HuggingFace Hub Audit")
+    print(f"  Repo:    {args.repo}")
+    print(f"  Algo:    {args.algo}")
+    print(f"  Env:     {args.env}")
+    print(f"  Speeds:  {args.speeds}")
+    print(f"  Episodes: {args.episodes}")
+    print(f"  Workers: {_n_workers}")
+    print(f"  Device:  {args.device}")
+    print(f"  Output:  {args.out}")
+    if args.ci:
+        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
+              f"stress>={args.ci_stress_threshold})")
+    print()
+
+    print(f"  Downloading from HuggingFace Hub: {args.repo} ...")
+    try:
+        adapter = SB3Adapter.from_hub(
+            repo_id=args.repo,
+            algo=args.algo,
+            filename=getattr(args, "filename", None),
+            token=getattr(args, "hf_token", None),
+            device=args.device,
+        )
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Failed to load model from Hub: {e}")
+        sys.exit(1)
+
+    print(f"  Model loaded ({args.algo.upper()} on {args.env})")
+    print()
+
+    env_factory = lambda: gym.make(args.env)
+    title = args.title or f"{args.algo.upper()} on {args.env} (from {args.repo})"
+
+    _verbose = not getattr(args, "quiet", False)
+    t0 = time.time()
+    result = run_full_audit(
+        adapter, env_factory,
+        speeds=args.speeds,
+        n_episodes=args.episodes,
+        sensitivity_episodes=0,
+        device=args.device,
+        seed=getattr(args, "seed", None),
+        n_workers=_n_workers,
+        verbose=_verbose,
+    )
+    elapsed = time.time() - t0
+    print(f"\n  Audit completed in {elapsed:.1f}s")
+
+    from .auditor import _print_summary as _aps
+    if not _verbose:
+        print()
+        _aps(result["summary"])
+
+    print()
+    generate_report(result, args.out, title=title)
+    _maybe_compare(args, args.out)
+
+    if getattr(args, "output_format", "text") == "markdown":
+        print()
+        _print_markdown_summary(result, label=title)
+
+    exit_code = _handle_ci(result, args.out, args)
+    if args.ci:
+        sys.exit(exit_code)
+
+
 def _run_fix_cleanrl(args):
     """Fix a timing-fragile CleanRL agent via speed-randomized retraining."""
     # (1) Dependency check
@@ -1008,6 +1117,44 @@ def main():
     _add_seed_arg(fix_cleanrl_parser)
     _add_workers_arg(fix_cleanrl_parser)
 
+    # ── audit-hf subcommand ───────────────────────────────────────
+    hf_parser = subparsers.add_parser(
+        "audit-hf",
+        help="Audit an SB3 model downloaded directly from HuggingFace Hub")
+    hf_parser.add_argument("--repo", type=str, required=True,
+                           metavar="REPO_ID",
+                           help="HuggingFace repo ID "
+                                "(e.g. sb3/ppo-CartPole-v1)")
+    hf_parser.add_argument("--algo", type=str, required=True,
+                           choices=["ppo", "sac", "td3", "a2c"],
+                           help="SB3 algorithm (ppo, sac, td3, a2c)")
+    hf_parser.add_argument("--env", type=str, required=True,
+                           help="Gymnasium environment ID "
+                                "(e.g. CartPole-v1)")
+    hf_parser.add_argument("--filename", type=str, default=None,
+                           help="Model filename in the repo "
+                                "(auto-detected if not provided)")
+    hf_parser.add_argument("--hf-token", type=str, default=None,
+                           metavar="TOKEN",
+                           help="HuggingFace token for private repos")
+    hf_parser.add_argument("--out", type=str, default="audit_report",
+                           help="Output directory (default: audit_report/)")
+    hf_parser.add_argument("--episodes", type=int, default=30,
+                           help="Episodes per condition (default: 30)")
+    hf_parser.add_argument("--speeds", type=int, nargs="+",
+                           default=[1, 2, 3, 5, 8],
+                           help="Speed multipliers (default: 1 2 3 5 8)")
+    hf_parser.add_argument("--device", type=str, default="cpu",
+                           help="Device (default: cpu)")
+    hf_parser.add_argument("--title", type=str, default=None,
+                           help="Report title (default: auto)")
+    _add_ci_args(hf_parser)
+    _add_seed_arg(hf_parser)
+    _add_workers_arg(hf_parser)
+    _add_compare_arg(hf_parser)
+    _add_format_arg(hf_parser)
+    _add_quiet_arg(hf_parser)
+
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(
         "demo", help="Run a bundled demo (Before/After comparison)")
@@ -1044,6 +1191,8 @@ def main():
         _run_audit_cleanrl(args)
     elif args.command == "fix-cleanrl":
         _run_fix_cleanrl(args)
+    elif args.command == "audit-hf":
+        _run_audit_hf(args)
     elif args.command == "demo":
         _run_demo(args)
     elif args.command == "diff":

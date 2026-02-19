@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.0] — 2026-02-19
+
+### Added
+- **`audit-hf` command — HuggingFace Hub integration**: Audit any SB3 model directly from the HuggingFace Model Hub without downloading manually.
+  ```bash
+  deltatau-audit audit-hf --repo sb3/ppo-CartPole-v1 --algo ppo --env CartPole-v1
+  ```
+  - Auto-detects model filename (`{repo-name}.zip` → `model.zip` fallback)
+  - Supports `--filename` for explicit override, `--hf-token` for private repos
+  - All `audit-sb3` flags available: `--quiet`, `--format markdown`, `--compare`, `--ci`, `--workers`
+- **`SB3Adapter.from_hub()`**: New classmethod for programmatic Hub downloads.
+- **`[hf]` optional extra**: `pip install "deltatau-audit[hf]"` installs `huggingface_hub` + `stable-baselines3`.
+- 10 new tests in `tests/test_v050.py` (226 total).
+
+---
+
 ## [0.4.9] — 2026-02-19
 
 ### Added
