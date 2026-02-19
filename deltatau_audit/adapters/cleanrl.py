@@ -226,8 +226,10 @@ class CleanRLAdapter(AgentAdapter):
         spec = importlib.util.spec_from_file_location(
             "_cleanrl_agent_module", str(module_path)
         )
+        assert spec is not None, f"Cannot create module spec from {module_path}"
         module = importlib.util.module_from_spec(spec)
         sys.modules["_cleanrl_agent_module"] = module
+        assert spec.loader is not None, f"Module spec has no loader: {module_path}"
         spec.loader.exec_module(module)
 
         if not hasattr(module, agent_class_name):

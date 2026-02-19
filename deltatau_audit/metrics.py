@@ -12,7 +12,7 @@ All functions return plain dicts/floats for easy JSON serialization.
 """
 
 import numpy as np
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 # ── Value prediction metrics ──────────────────────────────────────────
@@ -55,7 +55,7 @@ def aggregate_episode_metrics(episode_results: List[Dict]) -> Dict:
         return {"n_episodes": 0}
 
     keys = ["rmse", "mae", "bias", "total_reward", "length"]
-    agg = {"n_episodes": n}
+    agg: Dict[str, Any] = {"n_episodes": n}
 
     for key in keys:
         vals = [ep[key] for ep in episode_results if key in ep]
@@ -124,20 +124,20 @@ def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
     Returns:
         Dict with mean, ci_lower, ci_upper, std, n.
     """
-    data = np.array(data)
-    n = len(data)
+    arr = np.array(data)
+    n = len(arr)
     if n == 0:
         return {"mean": 0.0, "ci_lower": 0.0, "ci_upper": 0.0,
                 "std": 0.0, "n": 0}
     if n == 1:
-        v = float(data[0])
+        v = float(arr[0])
         return {"mean": v, "ci_lower": v, "ci_upper": v,
                 "std": 0.0, "n": 1}
 
     rng = np.random.RandomState(seed)
     means = np.empty(n_bootstrap)
     for i in range(n_bootstrap):
-        sample = data[rng.randint(0, n, size=n)]
+        sample = arr[rng.randint(0, n, size=n)]
         means[i] = sample.mean()
 
     alpha = (1 - ci) / 2
@@ -145,10 +145,10 @@ def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
     upper = float(np.percentile(means, (1 - alpha) * 100))
 
     return {
-        "mean": float(data.mean()),
+        "mean": float(arr.mean()),
         "ci_lower": lower,
         "ci_upper": upper,
-        "std": float(data.std()),
+        "std": float(arr.std()),
         "n": n,
     }
 

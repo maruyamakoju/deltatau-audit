@@ -5,6 +5,8 @@ control frequency varies: frame drops, variable inference latency,
 sensor rate changes, etc.
 """
 
+from typing import Any, List, Optional
+
 import gymnasium as gym
 import numpy as np
 
@@ -45,7 +47,7 @@ class JitterWrapper(gym.Wrapper):
     """
 
     def __init__(self, env: gym.Env, base_speed: int = 1,
-                 jitter: int = 1, seed: int = None):
+                 jitter: int = 1, seed: Optional[int] = None):
         super().__init__(env)
         self.base_speed = max(1, int(base_speed))
         self.jitter = max(0, int(jitter))
@@ -78,7 +80,7 @@ class PiecewiseSwitchWrapper(gym.Wrapper):
     """
 
     def __init__(self, env: gym.Env,
-                 schedule: list = None):
+                 schedule: Optional[List[Any]] = None):
         """
         Args:
             schedule: List of (step, speed) tuples. Speed changes when

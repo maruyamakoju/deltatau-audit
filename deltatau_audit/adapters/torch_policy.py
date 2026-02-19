@@ -76,6 +76,7 @@ class TorchPolicyAdapter(AgentAdapter):
         action, value = self._act_fn(obs)
 
         # Normalize action
+        action_out: Any
         if isinstance(action, torch.Tensor):
             action = action.cpu()
             if action.numel() == 1:

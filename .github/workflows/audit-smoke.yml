@@ -26,9 +26,7 @@ jobs:
         run: python -m pytest tests/ -v
       - name: Type check (mypy)
         run: |
-          python -m mypy deltatau_audit/auditor.py \
-            deltatau_audit/diagnose.py \
-            deltatau_audit/adapters/base.py \
+          python -m mypy deltatau_audit/ \
             --ignore-missing-imports \
             --no-namespace-packages \
             --follow-imports=skip

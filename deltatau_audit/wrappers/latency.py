@@ -5,6 +5,7 @@ network latency, dropped action packets, and noisy sensors.
 """
 
 from collections import deque
+from typing import Any, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -19,7 +20,7 @@ class ObservationDelayWrapper(gym.Wrapper):
     def __init__(self, env: gym.Env, delay: int = 1):
         super().__init__(env)
         self.delay = max(0, int(delay))
-        self._obs_buffer = deque(maxlen=self.delay + 1)
+        self._obs_buffer: deque = deque(maxlen=self.delay + 1)
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
@@ -51,7 +52,7 @@ class ObsNoiseWrapper(gym.Wrapper):
     """
 
     def __init__(self, env: gym.Env, std: float = 0.1,
-                 seed: int = None):
+                 seed: Optional[int] = None):
         super().__init__(env)
         self.std = float(std)
         self._rng = np.random.default_rng(seed)

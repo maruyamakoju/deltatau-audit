@@ -13,7 +13,7 @@ import base64
 import io
 import json
 import os
-from typing import Dict
+from typing import Any, Dict, List, Optional
 
 import matplotlib
 matplotlib.use("Agg")
@@ -233,7 +233,7 @@ def _plot_robustness_bars(robustness: Dict) -> str:
 
 # ── Quadrant scatter ──────────────────────────────────────────────────
 
-def _plot_quadrant(summary: Dict, comparison: list = None) -> str:
+def _plot_quadrant(summary: Dict, comparison: Optional[List[Any]] = None) -> str:
     """2D quadrant scatter: Reliance vs Deployment Robustness.
 
     Returns base64 PNG, or empty string if reliance is N/A.
@@ -350,8 +350,8 @@ def generate_report(audit_result: Dict, output_dir: str,
     for name, b64 in png_list:
         if b64:
             path = os.path.join(output_dir, f"{name}.png")
-            with open(path, "wb") as f:
-                f.write(base64.b64decode(b64))
+            with open(path, "wb") as fb:
+                fb.write(base64.b64decode(b64))
 
     # Save JSON — include version + timestamp for traceability
     import datetime
@@ -359,8 +359,8 @@ def generate_report(audit_result: Dict, output_dir: str,
     json_data["_version"] = _get_report_version()
     json_data["_timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
     json_path = os.path.join(output_dir, "summary.json")
-    with open(json_path, "w") as f:
-        json.dump(json_data, f, indent=2, default=str)
+    with open(json_path, "w") as ft:
+        json.dump(json_data, ft, indent=2, default=str)
 
     # ── Build HTML ────────────────────────────────────────────────
     dep_rating = summary["deployment_rating"]
@@ -772,8 +772,8 @@ def generate_report(audit_result: Dict, output_dir: str,
 </html>"""
 
     html_path = os.path.join(output_dir, "index.html")
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(html)
 
     print(f"Report saved to {output_dir}/")
     print(f"  index.html           -- Full audit report")

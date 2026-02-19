@@ -7,6 +7,21 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.6] — 2026-02-20
+
+### Fixed
+- **Full-package mypy compliance** (26 source files, 0 errors):
+  - `metrics.py`: annotated `agg: Dict[str, Any]`; renamed `data → arr` in `bootstrap_ci` to avoid shadowing the `List[float]` parameter with an ndarray reassignment
+  - `wrappers/speed.py`: `seed: int = None` → `Optional[int]`; `schedule: list = None` → `Optional[List[Any]]`
+  - `wrappers/latency.py`: added `_obs_buffer: deque` type annotation; `seed: int = None` → `Optional[int]`
+  - `adapters/torch_policy.py`: annotated `action_out: Any` to resolve conflicting branch types
+  - `adapters/cleanrl.py`: added `assert spec is not None` / `assert spec.loader is not None` guards before `module_from_spec` / `exec_module`
+  - `report/generator.py`: `comparison: list = None` → `Optional[List[Any]]`; renamed binary/text file handles (`fb`, `ft`, `fh`) to prevent variable-type collision
+  - `fixer.py`: `audit_speeds: list = None` → `Optional[List[Any]]`
+- **CI mypy scope expanded**: `audit-smoke.yml` now runs `mypy deltatau_audit/` (all 26 files) instead of just 3 core files
+
+---
+
 ## [0.5.5] — 2026-02-19
 
 ### Added

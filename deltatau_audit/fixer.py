@@ -16,7 +16,7 @@ Usage (CLI):
 
 import os
 import time
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import gymnasium as gym
 
@@ -56,7 +56,7 @@ def fix_sb3_model(
     speed_min: int = 1,
     speed_max: int = 5,
     n_audit_episodes: int = 30,
-    audit_speeds: list = None,
+    audit_speeds: Optional[List[Any]] = None,
     device: str = "cpu",
     verbose: bool = True,
     n_workers: int = 1,
