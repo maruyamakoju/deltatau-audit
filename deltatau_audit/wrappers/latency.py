@@ -5,7 +5,7 @@ network latency, dropped action packets, and noisy sensors.
 """
 
 from collections import deque
-from typing import Any, Optional
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np

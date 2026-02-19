@@ -15,11 +15,11 @@ Bonus — Temporal Sensitivity:
 
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import numpy as np
-import torch
 from typing import Any, Callable, Dict, List, Optional
 
 import gymnasium as gym
+import numpy as np
+import torch
 
 # Optional tqdm for episode progress bars
 try:
@@ -29,22 +29,21 @@ except ImportError:
     _HAS_TQDM = False
 
 from .adapters.base import AgentAdapter
-from .wrappers.speed import FixedSpeedWrapper, JitterWrapper, PiecewiseSwitchWrapper
-from .wrappers.latency import ObservationDelayWrapper, ObsNoiseWrapper
 from .metrics import (
+    aggregate_episode_metrics,
+    bootstrap_return_ratio,
+    compute_degradation,
     compute_discounted_returns,
-    compute_value_rmse,
+    compute_return_ratio,
     compute_value_bias,
     compute_value_mae,
-    aggregate_episode_metrics,
-    compute_degradation,
-    compute_return_ratio,
-    bootstrap_return_ratio,
+    compute_value_rmse,
     reliance_rating,
     robustness_rating,
     severity_rating,
 )
-
+from .wrappers.latency import ObservationDelayWrapper, ObsNoiseWrapper
+from .wrappers.speed import FixedSpeedWrapper, JitterWrapper, PiecewiseSwitchWrapper
 
 # ── Labels ────────────────────────────────────────────────────────────
 
@@ -793,7 +792,7 @@ def run_full_audit(
         speeds = [1, 2, 3, 5, 8]
 
     if verbose:
-        print(f"Time Robustness Audit (2-axis)")
+        print("Time Robustness Audit (2-axis)")
         print(f"  Speeds: {speeds}")
         print(f"  Episodes per condition: {n_episodes}")
         print(f"  Intervention support: {adapter.supports_intervention}")
@@ -926,7 +925,7 @@ def run_full_audit(
 
 def _print_summary(summary: Dict, diagnosis: Optional[Dict] = None):
     """Print human-readable 2-axis summary, with optional failure diagnosis."""
-    from .color import colored_rating, bold, dim
+    from .color import bold, colored_rating, dim
     print("=" * 60)
     rel_r = summary["reliance_rating"]
     rel_s = summary.get("reliance_score")

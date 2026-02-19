@@ -4,8 +4,7 @@ For each failing or degraded robustness scenario, generate a structured
 diagnosis that explains *why* the agent failed and *how* to fix it.
 """
 
-from typing import Dict, List, Optional
-
+from typing import Dict, List
 
 # ── Scenario pattern taxonomy ────────────────────────────────────────────────
 

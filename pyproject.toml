@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.5.8"
+version = "0.5.9"
 description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -49,7 +49,7 @@ hf = ["huggingface_hub>=0.16", "stable-baselines3>=2.0"]
 mujoco = ["gymnasium[mujoco]>=1.0"]
 wandb = ["wandb>=0.12"]
 mlflow = ["mlflow>=2.0"]
-dev = ["pytest>=7.0", "mypy>=1.0"]
+dev = ["pytest>=7.0", "mypy>=1.0", "ruff>=0.9", "pre-commit>=3.0"]
 
 [project.scripts]
 deltatau-audit = "deltatau_audit.cli:main"
@@ -60,6 +60,20 @@ include = ["deltatau_audit*"]
 
 [tool.setuptools.package-data]
 deltatau_audit = ["demo_data/**/*.pt", "py.typed"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = [
+    "E501",   # line-too-long — enforced by formatter at 120
+    "E731",   # lambda-assignment — used idiomatically in env factories
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["deltatau_audit"]
 
 [tool.mypy]
 ignore_missing_imports = true

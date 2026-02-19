@@ -95,8 +95,8 @@ def write_ci_summary(summary: Dict, robustness: Dict,
     md_lines = [
         f"## {icon} Time Robustness Audit: **{status.upper()}**",
         "",
-        f"| Axis | Rating | Score | Threshold |",
-        f"|------|--------|-------|-----------|",
+        "| Axis | Rating | Score | Threshold |",
+        "|------|--------|-------|-----------|",
         f"| Deployment | **{dep_rating}** | {dep_score:.2f} | {deploy_threshold:.2f} |",
         f"| Stress | **{str_rating}** | {str_score:.2f} | {stress_threshold:.2f} |",
     ]

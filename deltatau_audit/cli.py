@@ -27,8 +27,7 @@ def make_env_factory(env_type: str, speed_hidden: bool = True,
                      chain_length: int = 20):
     """Create an env factory based on env type string."""
     if env_type == "chain":
-        from internal_time_rl.envs.variable_frequency import \
-            VariableFrequencyChainEnv
+        from internal_time_rl.envs.variable_frequency import VariableFrequencyChainEnv
 
         def factory():
             return VariableFrequencyChainEnv(
@@ -176,6 +175,7 @@ def _maybe_compare(args, out_dir: str):
         print(f"  WARNING: --compare path not found: {compare}")
         return
     import os
+
     from .diff import generate_comparison_html
     new_json = os.path.join(out_dir, "summary.json")
     html_path = os.path.join(out_dir, "comparison.html")
@@ -236,8 +236,8 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
 
     lines = [
         header, "",
-        f"| Badge | Rating | Score |",
-        f"|-------|--------|-------|",
+        "| Badge | Rating | Score |",
+        "|-------|--------|-------|",
         f"| **Deployment** | **{dep_r}** | {dep_s:.2f} |",
         f"| **Stress** | **{str_r}** | {str_s:.2f} |",
         "",
@@ -261,11 +261,11 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
     if diagnosis and diagnosis.get("issues"):
         lines.extend(["", "**Failure Analysis:**", ""])
         lines.append(f"> ⚠️ {diagnosis['summary_line']}")
-        lines.append(f">")
+        lines.append(">")
         lines.append(f"> **Pattern:** {diagnosis['primary_pattern']}")
-        lines.append(f">")
+        lines.append(">")
         lines.append(f"> **Cause:** {diagnosis['root_cause']}")
-        lines.append(f">")
+        lines.append(">")
         lines.append(f"> **Fix:** {diagnosis['fix_recommendation']}")
 
     from . import __version__
@@ -284,7 +284,7 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
         try:
             with open(step_summary, "a", encoding="utf-8") as f:
                 f.write(md + "\n\n")
-            print(f"\n  → Written to $GITHUB_STEP_SUMMARY")
+            print("\n  → Written to $GITHUB_STEP_SUMMARY")
         except OSError:
             pass
 
@@ -374,8 +374,8 @@ def _run_audit(args):
         elapsed = time.time() - t0
         print(f"\n  Audit completed in {elapsed:.1f}s")
 
-        from .report import generate_report
         from .auditor import _print_summary
+        from .report import generate_report
 
         if not _verbose:
             print()
@@ -428,7 +428,7 @@ def _run_demo(args):
     for path, name in [(baseline_ckpt, "baseline"), (robust_ckpt, "robust")]:
         if not os.path.exists(path):
             print(f"Checkpoint not found: {path}")
-            print(f"Run training first or install the package with demo data.")
+            print("Run training first or install the package with demo data.")
             sys.exit(1)
 
     from .adapters.simple_gru import SimpleGRUAdapter
@@ -1087,6 +1087,7 @@ def _parse_kwargs(kwargs_str):
 def _run_diff(args):
     """Compare two summary.json files and generate comparison.md + .html."""
     import pathlib
+
     from .diff import generate_comparison, generate_comparison_html
 
     out = pathlib.Path(args.out) if args.out else None

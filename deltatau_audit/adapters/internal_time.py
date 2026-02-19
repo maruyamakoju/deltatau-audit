@@ -68,8 +68,8 @@ class InternalTimeAdapter(AgentAdapter):
                         agent_type: str = "internal_time",
                         device: str = "cpu") -> "InternalTimeAdapter":
         """Load from a saved checkpoint file."""
-        from internal_time_rl.models.policy import InternalTimeAgent
         from internal_time_rl.models.baselines import SkipRNNAgent
+        from internal_time_rl.models.policy import InternalTimeAgent
 
         ckpt = torch.load(checkpoint_path, map_location=device,
                           weights_only=False)

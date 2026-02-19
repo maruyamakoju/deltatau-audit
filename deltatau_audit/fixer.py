@@ -104,12 +104,12 @@ def fix_sb3_model(
 
     os.makedirs(output_dir, exist_ok=True)
 
+    from . import __version__
     from .adapters.sb3 import SB3Adapter
     from .auditor import run_full_audit
-    from .report import generate_report
-    from .diff import generate_comparison, generate_comparison_html
     from .ci import write_ci_summary
-    from . import __version__
+    from .diff import generate_comparison, generate_comparison_html
+    from .report import generate_report
 
     if verbose:
         print(f"deltatau-audit v{__version__} -- fix-sb3")
@@ -184,7 +184,7 @@ def fix_sb3_model(
     if verbose:
         print()
         print("=" * 60)
-        print(f"STEP 2/3: Retraining with speed randomization")
+        print("STEP 2/3: Retraining with speed randomization")
         print(f"          {timesteps:,} timesteps, speed {effective_min}-{effective_max}")
         print("=" * 60)
         print()

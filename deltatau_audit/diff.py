@@ -3,7 +3,6 @@
 import json
 import pathlib
 
-
 # Scenarios that count toward the Deployment badge
 _DEPLOY_SCENARIOS = {"jitter", "delay", "spike", "obs_noise"}
 
@@ -59,8 +58,8 @@ def generate_comparison(before_path, after_path, output_path=None):
     lines = []
     lines.append("# Audit Comparison")
     lines.append("")
-    lines.append(f"| | Before | After | Change |")
-    lines.append(f"|---|---|---|---|")
+    lines.append("| | Before | After | Change |")
+    lines.append("|---|---|---|---|")
 
     # Reliance
     br = bs.get("reliance_rating", "N/A")
@@ -68,7 +67,7 @@ def generate_comparison(before_path, after_path, output_path=None):
     brs = bs.get("reliance_score")
     ars = as_.get("reliance_score")
     if br == "N/A" and ar == "N/A":
-        lines.append(f"| Reliance | N/A | N/A | - |")
+        lines.append("| Reliance | N/A | N/A | - |")
     elif br == "N/A" or ar == "N/A":
         b_val = f"{brs:.2f}x ({br})" if brs is not None else "N/A"
         a_val = f"{ars:.2f}x ({ar})" if ars is not None else "N/A"

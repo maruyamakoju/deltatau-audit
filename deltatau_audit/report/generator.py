@@ -16,12 +16,14 @@ import os
 from typing import Any, Dict, List, Optional
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 
 from ..metrics import (
-    reliance_color, robustness_color, severity_color,
+    reliance_color,
+    robustness_color,
+    severity_color,
 )
 
 
@@ -776,16 +778,16 @@ def generate_report(audit_result: Dict, output_dir: str,
         fh.write(html)
 
     print(f"Report saved to {output_dir}/")
-    print(f"  index.html           -- Full audit report")
-    print(f"  summary.json         -- Machine-readable results")
+    print("  index.html           -- Full audit report")
+    print("  summary.json         -- Machine-readable results")
     if has_reliance:
-        print(f"  return_vs_speed.png  -- Speed generalization")
-        print(f"  reliance_rmse.png    -- Reliance test figure")
+        print("  return_vs_speed.png  -- Speed generalization")
+        print("  reliance_rmse.png    -- Reliance test figure")
         if reliance_bars_img:
-            print(f"  reliance_bars.png    -- Reliance impact bars")
+            print("  reliance_bars.png    -- Reliance impact bars")
         if quadrant_img:
-            print(f"  quadrant.png         -- 2D audit quadrant")
+            print("  quadrant.png         -- 2D audit quadrant")
     if robustness_bars_img:
-        print(f"  robustness_bars.png  -- Robustness scenario bars")
+        print("  robustness_bars.png  -- Robustness scenario bars")
 
     return html_path

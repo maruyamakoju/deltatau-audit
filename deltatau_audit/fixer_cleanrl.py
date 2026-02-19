@@ -26,7 +26,7 @@ Usage (CLI):
 
 import os
 import time
-from typing import Any, Dict, Optional, Type
+from typing import Dict, Optional, Type
 
 import gymnasium as gym
 import numpy as np
@@ -230,12 +230,12 @@ def fix_cleanrl_agent(
     Returns:
         Dict with before/after results, fixed checkpoint path, skipped flag.
     """
-    from .auditor import run_full_audit
-    from .report import generate_report
-    from .diff import generate_comparison, generate_comparison_html
-    from .ci import write_ci_summary
-    from .adapters.cleanrl import CleanRLAdapter
     from . import __version__
+    from .adapters.cleanrl import CleanRLAdapter
+    from .auditor import run_full_audit
+    from .ci import write_ci_summary
+    from .diff import generate_comparison, generate_comparison_html
+    from .report import generate_report
 
     if audit_speeds is None:
         audit_speeds = [1, 2, 3, 5, 8]

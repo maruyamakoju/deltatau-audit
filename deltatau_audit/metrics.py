@@ -11,9 +11,9 @@ Axis 2 — Timing Robustness:
 All functions return plain dicts/floats for easy JSON serialization.
 """
 
-import numpy as np
 from typing import Any, Dict, List
 
+import numpy as np
 
 # ── Value prediction metrics ──────────────────────────────────────────
 

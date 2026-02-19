@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.9] — 2026-02-20
+
+### Added
+- **Ruff linter** configured in `pyproject.toml`: rules E/W/F/I enabled, line-length 120, E501/E731 ignored
+- **Pre-commit config** (`.pre-commit-config.yaml`): `ruff --fix` + `ruff-format` hooks
+- **CI lint step**: `audit-smoke.yml` now runs `ruff check deltatau_audit/` before tests
+- **Dev dependencies**: `ruff>=0.9` and `pre-commit>=3.0` added to `[dev]` extras
+
+### Fixed
+- **38 auto-fixed lint issues**: 21 f-strings without placeholders downgraded to plain strings, 17 unsorted import blocks
+- **5 unused imports removed**: `Optional` in `diagnose.py`, `Any` in `fixer_cleanrl.py` and `wrappers/latency.py`, `numpy` in `report/generator.py`
+- **4 re-export annotations**: `noqa: F401` on `adapters/__init__.py` optional imports, explicit re-export in `report/__init__.py`
+- **0 ruff violations** remaining across all 26 source files
+
+---
+
 ## [0.5.8] — 2026-02-20
 
 ### Changed
