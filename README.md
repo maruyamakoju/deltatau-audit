@@ -113,9 +113,9 @@ BEFORE vs AFTER
   Quadrant:   deployment_fragile -> deployment_ready
 ```
 
-Output: fixed model (`.zip`) + HTML reports + `comparison.md`.
+Output: fixed model (`.zip`) + HTML reports + `comparison.html` (+ `comparison.md`).
 
-Options: `--timesteps` (training budget), `--speed-min`/`--speed-max` (speed range), `--ci` (pipeline gate).
+Options: `--timesteps` (training budget), `--speed-min`/`--speed-max` (speed range), `--workers` (parallel episodes), `--seed` (reproducible), `--ci` (pipeline gate).
 
 ## Audit Your Own SB3 Model
 
@@ -399,7 +399,17 @@ class MyAdapter(AgentAdapter):
 
 Built-in adapters: `SB3Adapter` (PPO/SAC/TD3/A2C), `SB3RecurrentAdapter` (RecurrentPPO), `CleanRLAdapter` (CleanRL MLP/LSTM), `TorchPolicyAdapter` (IsaacLab/RSL-RL/custom), `InternalTimeAdapter` (Dt-GRU models).
 
-## Comparing Results
+## Compare Two Audits
+
+After auditing a fixed model, compare to a previous result in one command:
+
+```bash
+# Generate comparison.html alongside the new audit
+deltatau-audit audit-sb3 --algo ppo --model fixed.zip --env HalfCheetah-v5 \
+  --compare before_audit/summary.json --out after_audit/
+```
+
+Or use the `diff` subcommand directly (writes both `.md` and `.html`):
 
 ```bash
 python -m deltatau_audit diff before/summary.json after/summary.json --out comparison.md

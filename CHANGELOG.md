@@ -7,6 +7,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.7] — 2026-02-19
+
+### Added
+- **`--compare` flag on `audit-sb3` and `audit-cleanrl`**: After any audit, pass `--compare before/summary.json` to automatically generate `comparison.html` comparing the new audit against a previous one. No need to run `fix-sb3` to get a Before/After report — works with any two audits.
+- **`_version` + `_timestamp` in `ci_summary.json`**: CI output now stamped with audit tool version and ISO 8601 UTC timestamp, matching `summary.json` behavior from v0.4.6.
+- README: `--compare` usage, `--workers`/`--seed` added to fix-sb3 options, `comparison.html` references updated.
+- 9 new tests in `tests/test_v047.py` (191 total).
+
+---
+
 ## [0.4.6] — 2026-02-19
 
 ### Fixed

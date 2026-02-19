@@ -83,6 +83,36 @@ def _resolve_workers(args) -> int:
         return 1
 
 
+def _add_compare_arg(parser):
+    """Add --compare for generating a comparison.html against a previous audit."""
+    parser.add_argument(
+        "--compare", type=str, default=None, metavar="SUMMARY_JSON",
+        help="Path to a previous summary.json to compare against. "
+             "Generates comparison.html in the output directory.",
+    )
+
+
+def _maybe_compare(args, out_dir: str):
+    """If --compare was given, generate comparison.html in the output dir."""
+    compare = getattr(args, "compare", None)
+    if not compare:
+        return
+    import pathlib
+    compare_path = pathlib.Path(compare)
+    if not compare_path.exists():
+        print(f"  WARNING: --compare path not found: {compare}")
+        return
+    import os
+    from .diff import generate_comparison_html
+    new_json = os.path.join(out_dir, "summary.json")
+    html_path = os.path.join(out_dir, "comparison.html")
+    try:
+        generate_comparison_html(compare_path, new_json, output_path=html_path)
+        print(f"  Comparison:  {html_path}")
+    except Exception as e:
+        print(f"  WARNING: Could not generate comparison: {e}")
+
+
 def _handle_ci(result, out_dir, args):
     """Write CI summary and return exit code if --ci is set."""
     if not args.ci:
@@ -408,6 +438,7 @@ def _run_audit_sb3(args):
 
     print()
     generate_report(result, args.out, title=title)
+    _maybe_compare(args, args.out)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -573,6 +604,7 @@ def _run_audit_cleanrl(args):
 
     print()
     generate_report(result, args.out, title=title)
+    _maybe_compare(args, args.out)
 
     exit_code = _handle_ci(result, args.out, args)
     if args.ci:
@@ -761,6 +793,7 @@ def main():
     _add_ci_args(sb3_parser)
     _add_seed_arg(sb3_parser)
     _add_workers_arg(sb3_parser)
+    _add_compare_arg(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -822,6 +855,7 @@ def main():
     _add_ci_args(cleanrl_parser)
     _add_seed_arg(cleanrl_parser)
     _add_workers_arg(cleanrl_parser)
+    _add_compare_arg(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
