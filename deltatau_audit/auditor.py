@@ -345,8 +345,9 @@ def run_reliance_audit(
     rating = reliance_rating(worst_ratio)
 
     if verbose:
-        print(f"    -> Reliance: {rating} "
-              f"(worst RMSE ratio: {worst_ratio:.2f}x)")
+        from .color import colored_rating, dim
+        print(f"    -> Reliance: {colored_rating(rating)} "
+              f"{dim(f'(worst RMSE ratio: {worst_ratio:.2f}x)')}")
 
     return {
         "per_speed": per_speed,
@@ -511,15 +512,20 @@ def run_robustness_audit(
     stress = _sub_score(STRESS_SCENARIOS)
 
     if verbose:
+        from .color import colored_rating, dim
         drop = (1 - worst_return_ratio) * 100
-        print(f"    -> Overall:    {rating} "
-              f"(worst return drop: {drop:.1f}%)")
-        print(f"    -> Deployment: {deployment['rating']} "
-              f"(worst: {deployment['worst_case']['scenario']}, "
-              f"drop: {deployment['worst_case']['return_drop_pct']:.1f}%)")
-        print(f"    -> Stress:     {stress['rating']} "
-              f"(worst: {stress['worst_case']['scenario']}, "
-              f"drop: {stress['worst_case']['return_drop_pct']:.1f}%)")
+        dep_wc = deployment["worst_case"]
+        str_wc = stress["worst_case"]
+        print(f"    -> Overall:    {colored_rating(rating)} "
+              f"{dim('(worst return drop: ' + f'{drop:.1f}%)')}")
+        dep_detail = (f"(worst: {dep_wc['scenario']}, "
+                      f"drop: {dep_wc['return_drop_pct']:.1f}%)")
+        print(f"    -> Deployment: {colored_rating(deployment['rating'])} "
+              f"{dim(dep_detail)}")
+        str_detail = (f"(worst: {str_wc['scenario']}, "
+                      f"drop: {str_wc['return_drop_pct']:.1f}%)")
+        print(f"    -> Stress:     {colored_rating(stress['rating'])} "
+              f"{dim(str_detail)}")
         # Show bootstrap CIs
         sig_count = sum(1 for s in per_scenario_scores.values()
                         if s.get("significant"))
@@ -804,19 +810,27 @@ def run_full_audit(
 
 def _print_summary(summary: Dict):
     """Print human-readable 2-axis summary."""
+    from .color import colored_rating, bold, dim
     print("=" * 60)
-    if summary["reliance_rating"] != "N/A":
-        print(f"  Reliance:    {summary['reliance_rating']:>10s}  "
-              f"(RMSE ratio: {summary['reliance_score']:.2f}x)")
+    rel_r = summary["reliance_rating"]
+    rel_s = summary.get("reliance_score")
+    dep_r = summary["deployment_rating"]
+    dep_s = summary["deployment_score"]
+    str_r = summary["stress_rating"]
+    str_s = summary["stress_score"]
+    if rel_r != "N/A" and rel_s is not None:
+        print(f"  Reliance:    {colored_rating(rel_r, 10)}  "
+              f"{dim('(RMSE ratio: ' + f'{rel_s:.2f}x)')}")
     else:
-        print(f"  Reliance:           N/A  (no intervention support)")
-    print(f"  Deployment:  {summary['deployment_rating']:>10s}  "
-          f"(return ratio: {summary['deployment_score']:.2f})")
-    print(f"  Stress:      {summary['stress_rating']:>10s}  "
-          f"(return ratio: {summary['stress_score']:.2f})")
+        print(f"  Reliance:    {colored_rating('N/A', 10)}  "
+              f"{dim('(no intervention support)')}")
+    print(f"  Deployment:  {colored_rating(dep_r, 10)}  "
+          f"{dim('(return ratio: ' + f'{dep_s:.2f})')}")
+    print(f"  Stress:      {colored_rating(str_r, 10)}  "
+          f"{dim('(return ratio: ' + f'{str_s:.2f})')}")
     if summary.get("sensitivity_mean") is not None:
-        print(f"  Sensitivity:   {summary['sensitivity_mean']:.4f}  "
-              f"(|dV/dt|)")
-    print(f"  Quadrant:    {summary['quadrant']}")
+        sens = summary["sensitivity_mean"]
+        print(f"  Sensitivity:  {sens:>9.4f}  {dim('(|dV/dt|)')}")
+    print(f"  Quadrant:    {bold(summary['quadrant'])}")
     print("=" * 60)
     print(f"\n  {summary['prescription']}")

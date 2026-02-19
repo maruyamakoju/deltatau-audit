@@ -7,6 +7,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.8] — 2026-02-19
+
+### Added
+- **Colored terminal output** (`color.py`): New `deltatau_audit.color` module with ANSI color helpers. Ratings are color-coded (`PASS`=bright green, `MILD`=green, `DEGRADED`=yellow, `FAIL`=bold red, `N/A`=gray). Auto-disabled on `NO_COLOR` / `TERM=dumb`; force-enabled with `FORCE_COLOR`. Works in GitHub Actions, standard terminals, and CI pipelines.
+- **`_print_summary()` colored output**: `auditor._print_summary()` now uses colored ratings and dim secondary text for improved readability.
+- **`--format markdown` flag on `audit-sb3` and `audit-cleanrl`**: Prints a PR-ready markdown table instead of the default text summary. When running in GitHub Actions, automatically appends to `$GITHUB_STEP_SUMMARY` for step-level audit cards.
+- 16 new tests in `tests/test_v048.py` (207 total).
+
+---
+
 ## [0.4.7] — 2026-02-19
 
 ### Added
