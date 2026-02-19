@@ -59,6 +59,8 @@ def fix_sb3_model(
     audit_speeds: list = None,
     device: str = "cpu",
     verbose: bool = True,
+    n_workers: int = 1,
+    seed: Optional[int] = None,
 ) -> Dict:
     """Fix a timing-fragile SB3 model via speed-randomized retraining.
 
@@ -80,6 +82,8 @@ def fix_sb3_model(
         audit_speeds: Speed multipliers for audit (default: [1, 2, 3, 5, 8])
         device: Device string (cpu, cuda)
         verbose: Print progress
+        n_workers: Parallel episode workers for audit phases (default: 1)
+        seed: RNG seed for reproducible audit results
 
     Returns:
         Dict with before/after results, fixed model path, comparison.
@@ -103,7 +107,7 @@ def fix_sb3_model(
     from .adapters.sb3 import SB3Adapter
     from .auditor import run_full_audit
     from .report import generate_report
-    from .diff import generate_comparison
+    from .diff import generate_comparison, generate_comparison_html
     from .ci import write_ci_summary
     from . import __version__
 
@@ -140,6 +144,8 @@ def fix_sb3_model(
         sensitivity_episodes=0,
         device=device,
         verbose=verbose,
+        n_workers=n_workers,
+        seed=seed,
     )
     audit_time_before = time.time() - t0
 
@@ -241,6 +247,8 @@ def fix_sb3_model(
         sensitivity_episodes=0,
         device=device,
         verbose=verbose,
+        n_workers=n_workers,
+        seed=seed,
     )
     audit_time_after = time.time() - t0
 
@@ -260,12 +268,12 @@ def fix_sb3_model(
     # ═══════════════════════════════════════════════════════════════
     # COMPARISON
     # ═══════════════════════════════════════════════════════════════
-    comp_path = os.path.join(output_dir, "comparison.md")
-    generate_comparison(
-        os.path.join(before_dir, "summary.json"),
-        os.path.join(after_dir, "summary.json"),
-        output_path=comp_path,
-    )
+    before_json = os.path.join(before_dir, "summary.json")
+    after_json = os.path.join(after_dir, "summary.json")
+    generate_comparison(before_json, after_json,
+                        output_path=os.path.join(output_dir, "comparison.md"))
+    generate_comparison_html(before_json, after_json,
+                             output_path=os.path.join(output_dir, "comparison.html"))
 
     if verbose:
         _print_comparison(before_result, after_result,
@@ -326,4 +334,4 @@ def _print_comparison(before: Dict, after: Dict,
     print(f"  Fixed model:   {fixed_model_path}")
     print(f"  Before report: {output_dir}/before/index.html")
     print(f"  After report:  {output_dir}/after/index.html")
-    print(f"  Comparison:    {output_dir}/comparison.md")
+    print(f"  Comparison:    {output_dir}/comparison.html")

@@ -465,6 +465,8 @@ def _run_fix_sb3(args):
         speed_max=args.speed_max,
         n_audit_episodes=args.episodes,
         device=args.device,
+        n_workers=_resolve_workers(args),
+        seed=getattr(args, "seed", None),
     )
 
     # CI mode: check the "After" model
@@ -634,6 +636,8 @@ def _run_fix_cleanrl(args):
         speed_max=args.speed_max,
         n_audit_episodes=args.episodes,
         device=args.device,
+        n_workers=_resolve_workers(args),
+        seed=getattr(args, "seed", None),
     )
 
     # CI mode
@@ -677,12 +681,23 @@ def _parse_kwargs(kwargs_str):
 
 
 def _run_diff(args):
-    """Compare two summary.json files and generate comparison.md."""
-    from .diff import generate_comparison
+    """Compare two summary.json files and generate comparison.md + .html."""
+    import pathlib
+    from .diff import generate_comparison, generate_comparison_html
 
-    md = generate_comparison(args.before, args.after, args.out)
+    out = pathlib.Path(args.out) if args.out else None
+
+    md = generate_comparison(args.before, args.after, output_path=out)
     print(md)
-    print(f"Written to: {args.out}")
+
+    if out:
+        html_path = out.with_suffix(".html")
+        generate_comparison_html(args.before, args.after, output_path=html_path)
+        print(f"Markdown: {out}")
+        print(f"HTML:     {html_path}")
+    else:
+        # No output file — just print the markdown (already done above)
+        pass
 
 
 def main():
@@ -772,6 +787,8 @@ def main():
     fix_parser.add_argument("--device", type=str, default="cpu",
                             help="Device (default: cpu)")
     _add_ci_args(fix_parser)
+    _add_seed_arg(fix_parser)
+    _add_workers_arg(fix_parser)
 
     # ── audit-cleanrl subcommand ──────────────────────────────────
     cleanrl_parser = subparsers.add_parser(
@@ -834,6 +851,8 @@ def main():
     fix_cleanrl_parser.add_argument("--device", type=str, default="cpu",
                                     help="Device (default: cpu)")
     _add_ci_args(fix_cleanrl_parser)
+    _add_seed_arg(fix_cleanrl_parser)
+    _add_workers_arg(fix_cleanrl_parser)
 
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(

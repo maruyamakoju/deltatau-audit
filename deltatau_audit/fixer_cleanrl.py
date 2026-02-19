@@ -201,6 +201,8 @@ def fix_cleanrl_agent(
     audit_speeds: Optional[list] = None,
     device: str = "cpu",
     verbose: bool = True,
+    n_workers: int = 1,
+    seed: Optional[int] = None,
 ) -> Dict:
     """Fix a timing-fragile CleanRL agent via speed-randomized PPO retraining.
 
@@ -230,7 +232,7 @@ def fix_cleanrl_agent(
     """
     from .auditor import run_full_audit
     from .report import generate_report
-    from .diff import generate_comparison
+    from .diff import generate_comparison, generate_comparison_html
     from .ci import write_ci_summary
     from .adapters.cleanrl import CleanRLAdapter
     from . import __version__
@@ -292,6 +294,8 @@ def fix_cleanrl_agent(
             n_episodes=n_audit_episodes,
             sensitivity_episodes=0,
             device=device,
+            n_workers=n_workers,
+            seed=seed,
         )
         audit_time = time.time() - t0
 
@@ -379,6 +383,8 @@ def fix_cleanrl_agent(
         n_episodes=n_audit_episodes,
         sensitivity_episodes=0,
         device=device,
+        n_workers=n_workers,
+        seed=seed,
     )
     audit_time_after = time.time() - t0
 
@@ -398,13 +404,13 @@ def fix_cleanrl_agent(
     # ═══════════════════════════════════════════════════════════════
     # COMPARISON
     # ═══════════════════════════════════════════════════════════════
-    comp_path = os.path.join(output_dir, "comparison.md")
     if before_result is not None:
-        generate_comparison(
-            os.path.join(before_dir, "summary.json"),
-            os.path.join(after_dir, "summary.json"),
-            output_path=comp_path,
-        )
+        before_json = os.path.join(before_dir, "summary.json")
+        after_json = os.path.join(after_dir, "summary.json")
+        generate_comparison(before_json, after_json,
+                            output_path=os.path.join(output_dir, "comparison.md"))
+        generate_comparison_html(before_json, after_json,
+                                 output_path=os.path.join(output_dir, "comparison.html"))
 
     if verbose:
         _print_summary(before_result, after_result,

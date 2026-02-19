@@ -353,10 +353,14 @@ def generate_report(audit_result: Dict, output_dir: str,
             with open(path, "wb") as f:
                 f.write(base64.b64decode(b64))
 
-    # Save JSON
+    # Save JSON — include version + timestamp for traceability
+    import datetime
+    json_data = dict(audit_result)
+    json_data["_version"] = _get_report_version()
+    json_data["_timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
     json_path = os.path.join(output_dir, "summary.json")
     with open(json_path, "w") as f:
-        json.dump(audit_result, f, indent=2, default=str)
+        json.dump(json_data, f, indent=2, default=str)
 
     # ── Build HTML ────────────────────────────────────────────────
     dep_rating = summary["deployment_rating"]

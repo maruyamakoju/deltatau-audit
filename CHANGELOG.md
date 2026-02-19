@@ -7,6 +7,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.6] — 2026-02-19
+
+### Fixed
+- **`obs_noise` category in diff** (`P1`): `_DEPLOY_SCENARIOS` in `diff.py` now includes `obs_noise`, so `generate_comparison()` and `generate_comparison_html()` correctly label it as a Deployment scenario (not Stress). Previously only `jitter`, `delay`, `spike` were listed.
+
+### Added
+- **HTML comparison report**: `generate_comparison_html()` in `diff.py` generates a rich HTML diff with side-by-side badge cards, color-coded per-scenario delta bars, and verdict pills. The `diff` CLI command now writes both `comparison.md` and `comparison.html`. The `fix-sb3` and `fix-cleanrl` pipelines also generate `comparison.html`.
+- **`_version` + `_timestamp` in `summary.json`**: Every `generate_report()` call now stamps the output JSON with `_version` (e.g. `"0.4.6"`) and `_timestamp` (ISO 8601 UTC). Enables audit traceability and `generate_comparison_html()` shows version/time per audit.
+- **`n_workers` + `seed` in fix pipelines**: `fix_sb3_model()` and `fix_cleanrl_agent()` now accept `n_workers` and `seed` parameters, threaded through to both Before and After `run_full_audit()` calls. `--workers` and `--seed` CLI flags added to `fix-sb3` and `fix-cleanrl` subcommands.
+- 12 new tests in `tests/test_v046.py` (182 total).
+
+---
+
 ## [0.4.5] — 2026-02-19
 
 ### Added
