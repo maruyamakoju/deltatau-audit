@@ -56,6 +56,22 @@ def _add_ci_args(parser):
                         help="Stress return ratio threshold (default: 0.50)")
 
 
+def _add_threshold_args(parser):
+    """Add --deploy-threshold and --stress-threshold flags."""
+    parser.add_argument(
+        "--deploy-threshold", type=float, default=0.80,
+        metavar="RATIO",
+        help="Deployment return ratio threshold for quadrant classification "
+             "(default: 0.80). Below this → deployment_fragile / time_*_fragile.",
+    )
+    parser.add_argument(
+        "--stress-threshold", type=float, default=0.50,
+        metavar="RATIO",
+        help="Stress return ratio threshold for CI pass/warn "
+             "(default: 0.50). Stored in summary for downstream use.",
+    )
+
+
 def _add_quiet_arg(parser):
     """Add --quiet flag to suppress episode-level progress output."""
     parser.add_argument(
@@ -270,6 +286,8 @@ def _run_audit(args):
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
         verbose=_verbose,
+        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+        stress_threshold=getattr(args, "stress_threshold", 0.50),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -527,6 +545,8 @@ def _run_audit_sb3(args):
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
         verbose=_verbose,
+        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+        stress_threshold=getattr(args, "stress_threshold", 0.50),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -704,6 +724,8 @@ def _run_audit_cleanrl(args):
         seed=getattr(args, "seed", None),
         n_workers=_resolve_workers(args),
         verbose=_verbose,
+        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+        stress_threshold=getattr(args, "stress_threshold", 0.50),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -813,6 +835,8 @@ def _run_audit_hf(args):
         seed=getattr(args, "seed", None),
         n_workers=_n_workers,
         verbose=_verbose,
+        deploy_threshold=getattr(args, "deploy_threshold", 0.80),
+        stress_threshold=getattr(args, "stress_threshold", 0.50),
     )
     elapsed = time.time() - t0
     print(f"\n  Audit completed in {elapsed:.1f}s")
@@ -991,6 +1015,7 @@ def main():
     _add_seed_arg(audit_parser)
     _add_workers_arg(audit_parser)
     _add_quiet_arg(audit_parser)
+    _add_threshold_args(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
     sb3_parser = subparsers.add_parser(
@@ -1021,6 +1046,7 @@ def main():
     _add_compare_arg(sb3_parser)
     _add_format_arg(sb3_parser)
     _add_quiet_arg(sb3_parser)
+    _add_threshold_args(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
     fix_parser = subparsers.add_parser(
@@ -1085,6 +1111,7 @@ def main():
     _add_compare_arg(cleanrl_parser)
     _add_format_arg(cleanrl_parser)
     _add_quiet_arg(cleanrl_parser)
+    _add_threshold_args(cleanrl_parser)
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
@@ -1154,6 +1181,7 @@ def main():
     _add_compare_arg(hf_parser)
     _add_format_arg(hf_parser)
     _add_quiet_arg(hf_parser)
+    _add_threshold_args(hf_parser)
 
     # ── demo subcommand ───────────────────────────────────────────
     demo_parser = subparsers.add_parser(

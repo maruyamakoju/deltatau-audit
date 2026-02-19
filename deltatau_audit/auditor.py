@@ -673,12 +673,20 @@ def run_full_audit(
     verbose: bool = True,
     seed: Optional[int] = None,
     n_workers: int = 1,
+    deploy_threshold: float = 0.80,
+    stress_threshold: float = 0.50,
 ) -> Dict:
     """Run the complete 2-axis time robustness audit.
 
     Axis 1 — Reliance: intervention ablation
     Axis 2 — Robustness: env wrappers
     Bonus  — Sensitivity: |dV/dτ| finite difference
+
+    Args:
+        deploy_threshold: Minimum deployment return ratio to classify as
+            "good deployment" in the quadrant (default: 0.80).
+        stress_threshold: Minimum stress return ratio for CI pass
+            (default: 0.50). Stored in summary for downstream use.
 
     Returns structured dict ready for report generation.
     """
@@ -740,7 +748,9 @@ def run_full_audit(
     # Prescription based on quadrant
     reliance_available = reliance["rating"] != "N/A"
     # Use deployment score (not overall) for quadrant classification
-    good_deployment = deploy["return_score"] >= 0.80
+    good_deployment = deploy["return_score"] >= deploy_threshold
+    summary["deploy_threshold"] = deploy_threshold
+    summary["stress_threshold"] = stress_threshold
 
     if reliance_available:
         # Full 2-axis quadrant (internal time agents)

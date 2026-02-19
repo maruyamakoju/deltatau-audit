@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.1] — 2026-02-19
+
+### Added
+- **`--deploy-threshold` and `--stress-threshold` flags** on `audit-sb3`, `audit-cleanrl`, `audit-hf`, and `audit`: Override the default PASS/FAIL thresholds for quadrant classification.
+  ```bash
+  # Stricter standard: require 85% retention to be "deployment_ready"
+  deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+      --deploy-threshold 0.85 --stress-threshold 0.60
+  ```
+  - `--deploy-threshold` (default: 0.80): affects quadrant classification (`deployment_ready` vs `deployment_fragile`, `time_aware_robust` vs `time_aware_fragile`)
+  - `--stress-threshold` (default: 0.50): stored in `summary.json` for downstream use
+  - Both thresholds saved in `summary["deploy_threshold"]` and `summary["stress_threshold"]`
+- 9 new tests in `tests/test_v051.py` (235 total).
+
+---
+
 ## [0.5.0] — 2026-02-19
 
 ### Added
