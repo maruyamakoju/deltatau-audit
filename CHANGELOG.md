@@ -7,6 +7,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.8] — 2026-02-20
+
+### Changed
+- **README refresh**: Updated documentation to cover all v0.5.x features:
+  - Added `--format json` output mode documentation with piping examples
+  - Added Experiment Tracking section (WandB / MLflow) with CLI and Python examples
+  - Added Adaptive Sampling section (`--adaptive`, `--target-ci-width`, `--max-episodes`)
+  - Added Failure Diagnostics section showing automatic root cause analysis
+  - Added comprehensive Feature Summary table (16 features with version history)
+  - Reorganized CI/Pipeline Integration section with all three output formats
+  - Added License section
+
+---
+
 ## [0.5.7] — 2026-02-20
 
 ### Added

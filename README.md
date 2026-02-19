@@ -215,7 +215,7 @@ deltatau-audit demo cartpole --workers 4
 
 `--workers auto` maps to `os.cpu_count()`. Works with all `audit-*` and `demo` subcommands. For reproducibility, pair with `--seed 42` (parallel order is non-deterministic but per-episode seeds are fixed).
 
-## CI Mode
+## CI / Pipeline Integration
 
 ```bash
 python -m deltatau_audit demo cartpole --ci --out ci_report/
@@ -223,6 +223,39 @@ python -m deltatau_audit demo cartpole --ci --out ci_report/
 ```
 
 Outputs `ci_summary.json` and `ci_summary.md` for pipeline gates and PR comments.
+
+### Output formats
+
+```bash
+# PR-ready markdown table (appends to $GITHUB_STEP_SUMMARY in GitHub Actions)
+deltatau-audit audit-sb3 --algo ppo --model model.zip --env CartPole-v1 \
+  --format markdown
+
+# Structured JSON to stdout (pipe to jq, scripts, or downstream tools)
+deltatau-audit audit-sb3 --algo ppo --model model.zip --env CartPole-v1 \
+  --format json | jq '.summary'
+
+# Combine JSON + CI exit codes
+deltatau-audit audit-sb3 ... --format json --ci > result.json
+```
+
+JSON mode redirects all progress output to stderr so stdout contains only valid, parseable JSON. Reports are still generated in `--out`.
+
+### Markdown PR comment example
+
+```markdown
+## Time Robustness Audit: PASS
+
+| Badge | Rating | Score |
+|-------|--------|-------|
+| **Deployment** | **PASS** | 0.92 |
+| **Stress** | **MILD** | 0.81 |
+
+| Scenario | Category | Return | Significant |
+|----------|----------|--------|-------------|
+| jitter | Deployment | 95% | — |
+...
+```
 
 ### GitHub Action (one line)
 
@@ -414,3 +447,79 @@ Or use the `diff` subcommand directly (writes both `.md` and `.html`):
 ```bash
 python -m deltatau_audit diff before/summary.json after/summary.json --out comparison.md
 ```
+
+## Experiment Tracking
+
+Push audit metrics to Weights & Biases or MLflow after any audit:
+
+```bash
+pip install "deltatau-audit[wandb]"
+deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+    --wandb --wandb-project my-project --wandb-run baseline
+
+pip install "deltatau-audit[mlflow]"
+deltatau-audit audit-sb3 --model m.zip --algo ppo --env CartPole-v1 \
+    --mlflow --mlflow-experiment my-experiment
+```
+
+Or from Python:
+
+```python
+from deltatau_audit.tracker import log_to_wandb, log_to_mlflow
+
+result = run_full_audit(adapter, env_factory)
+log_to_wandb(result, project="my-project")
+log_to_mlflow(result, experiment_name="my-experiment")
+```
+
+Logged scalars: `deployment_score`, `stress_score`, `reliance_score`, per-scenario `return_ratio`. Logged params: `deployment_rating`, `stress_rating`, `quadrant`. Missing tracker packages print a warning instead of crashing.
+
+## Adaptive Sampling
+
+For high-confidence results, use adaptive episode sampling:
+
+```bash
+deltatau-audit audit-sb3 --model m.zip --algo ppo --env HalfCheetah-v5 \
+    --adaptive --target-ci-width 0.05 --max-episodes 300
+```
+
+Instead of a fixed episode count, this keeps sampling until every scenario's 95% bootstrap CI width on the return ratio drops below `--target-ci-width` (default: 0.10), or until `--max-episodes` is reached (default: 500).
+
+## Failure Diagnostics
+
+When scenarios fail, the audit automatically diagnoses the root cause:
+
+```
+Failure Analysis
+  FAIL  jitter — Speed Jitter Sensitivity
+        The agent cannot handle variable-frequency control.
+        Root cause: Policy overfits to fixed dt → breaks when step timing varies.
+        Fix: Train with JitterWrapper(base_speed=3, jitter=2).
+```
+
+The HTML report includes a dedicated diagnostics card with per-scenario pattern matching, root cause analysis, and actionable fix recommendations.
+
+## Feature Summary
+
+| Feature | CLI | Python API | Since |
+|---------|-----|-----------|-------|
+| SB3 model audit | `audit-sb3` | `SB3Adapter` | v0.3.0 |
+| CleanRL audit | `audit-cleanrl` | `CleanRLAdapter` | v0.4.0 |
+| HuggingFace Hub audit | `audit-hf` | `SB3Adapter.from_hub()` | v0.5.0 |
+| IsaacLab / custom PyTorch | — | `TorchPolicyAdapter` | v0.4.5 |
+| One-command fix | `fix-sb3`, `fix-cleanrl` | `fix_sb3_model()` | v0.3.8 |
+| Before/After comparison | `--compare`, `diff` | `generate_comparison()` | v0.4.0 |
+| CI pipeline gates | `--ci` | exit codes 0/1/2 | v0.3.0 |
+| Markdown PR comments | `--format markdown` | `_print_markdown_summary()` | v0.3.9 |
+| JSON output | `--format json` | `json.dumps(result)` | v0.5.7 |
+| Failure diagnostics | automatic | `generate_diagnosis()` | v0.5.2 |
+| Adaptive sampling | `--adaptive` | `adaptive=True` | v0.5.3 |
+| Type annotations (PEP 561) | — | `py.typed` | v0.5.4 |
+| WandB / MLflow tracking | `--wandb`, `--mlflow` | `log_to_wandb()` | v0.5.5 |
+| Parallel episodes | `--workers auto` | `n_workers=` | v0.4.2 |
+| Reproducible seeds | `--seed 42` | `seed=` | v0.4.3 |
+| HTML + JSON reports | `--out dir/` | `generate_report()` | v0.3.0 |
+
+## License
+
+MIT
