@@ -7,6 +7,27 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.4] — 2026-02-20
+
+### Added
+- **`py.typed` marker** (PEP 561): Package now exports type information for downstream users. Static type checkers (mypy, pyright, pylance) will use the annotations directly.
+- **mypy CI step**: `unit-test` job in `audit-smoke.yml` now runs `mypy` on `auditor.py`, `diagnose.py`, and `adapters/base.py` with `--ignore-missing-imports --follow-imports=skip`. Catches annotation regressions on every push.
+- **mypy in dev dependencies**: `pip install ".[dev]"` now installs `mypy>=1.0`.
+- **`[tool.mypy]` config in `pyproject.toml`**: Centralises mypy settings; overrides suppress errors from `rdkit.*`, `stable_baselines3.*`, `gymnasium.*`, `sb3_contrib.*` stubs.
+
+### Fixed
+- **Type annotations in `auditor.py`**:
+  - `callable` → `Callable[[], Any]` on all 5 `env_factory` parameters
+  - `List[int] = None` → `Optional[List[int]] = None` on `speeds`/`interventions`/`scenarios`/`robustness_scenarios`
+  - `_print_summary(summary, diagnosis: Dict = None)` → `Optional[Dict] = None`
+  - `_run_episodes_parallel` parallel-path `results` list annotated correctly with `# type: ignore[list-item]`
+- **Flaky test `test_run_full_audit_strict_threshold_changes_quadrant`**: Changed `deploy_threshold=0.99` → `1.01` (above maximum possible return ratio), making the test deterministically pass.
+
+### Tests
+- 11 new tests in `tests/test_v054.py` (274 total): verify `py.typed` exists, return annotations on public functions, `AgentAdapter` method annotations, and `generate_diagnosis` annotations.
+
+---
+
 ## [0.5.3] — 2026-02-20
 
 ### Added

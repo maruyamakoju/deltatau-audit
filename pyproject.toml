@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.5.3"
+version = "0.5.4"
 description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -47,7 +47,7 @@ demo = ["gymnasium[classic-control]>=0.29"]
 sb3 = ["stable-baselines3>=2.0", "sb3-contrib>=2.0"]
 hf = ["huggingface_hub>=0.16", "stable-baselines3>=2.0"]
 mujoco = ["gymnasium[mujoco]>=1.0"]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "mypy>=1.0"]
 
 [project.scripts]
 deltatau-audit = "deltatau_audit.cli:main"
@@ -57,4 +57,15 @@ where = ["."]
 include = ["deltatau_audit*"]
 
 [tool.setuptools.package-data]
-deltatau_audit = ["demo_data/**/*.pt"]
+deltatau_audit = ["demo_data/**/*.pt", "py.typed"]
+
+[tool.mypy]
+ignore_missing_imports = true
+no_namespace_packages = true
+follow_imports = "skip"
+# Suppress errors from third-party stubs in the environment
+exclude = ["rdkit"]
+
+[[tool.mypy.overrides]]
+module = ["rdkit.*", "stable_baselines3.*", "gymnasium.*", "sb3_contrib.*"]
+ignore_errors = true

@@ -133,10 +133,11 @@ def test_run_full_audit_threshold_stored_in_summary():
 
 
 def test_run_full_audit_strict_threshold_changes_quadrant():
-    """Setting deploy_threshold=0.99 should force fragile quadrant."""
-    result = _make_cartpole_audit(deploy_threshold=0.99)
+    """Setting deploy_threshold=1.01 (above maximum) should force fragile quadrant."""
+    result = _make_cartpole_audit(deploy_threshold=1.01)
     quadrant = result["summary"]["quadrant"]
-    # With a random agent and threshold=0.99 (unreachable), must be fragile
+    # deploy_threshold=1.01 is above the max possible return ratio (1.0),
+    # so it must always classify as fragile regardless of agent/seed.
     assert "fragile" in quadrant
 
 

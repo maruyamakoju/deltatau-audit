@@ -17,7 +17,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 import torch
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import gymnasium as gym
 
@@ -74,7 +74,7 @@ STRESS_SCENARIOS = ["speed_5x"]
 
 def _run_episodes_parallel(
     adapter: "AgentAdapter",
-    env_factory: callable,
+    env_factory: Callable[[], Any],
     scenario: str,
     intervention: str,
     n_episodes: int,
@@ -125,7 +125,7 @@ def _run_episodes_parallel(
     elif verbose:
         print(f"    {label}...", end="", flush=True)
 
-    results = [None] * n_episodes
+    results = [None] * n_episodes  # type: ignore[list-item]
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {executor.submit(_one, i): i
                    for i in range(n_episodes)}
@@ -240,10 +240,10 @@ def _run_single_episode(
 
 def run_reliance_audit(
     adapter: AgentAdapter,
-    env_factory: callable,
-    speeds: List[int] = None,
+    env_factory: Callable[[], Any],
+    speeds: Optional[List[int]] = None,
     n_episodes: int = 50,
-    interventions: List[str] = None,
+    interventions: Optional[List[str]] = None,
     gamma: float = 0.99,
     device: str = "cpu",
     verbose: bool = True,
@@ -295,9 +295,9 @@ def run_reliance_audit(
 
             # Build a factory that also applies the speed wrapper
             if speed > 1:
-                def _speed_factory(s=speed):
+                def _speed_factory(s: int = speed) -> Any:
                     return FixedSpeedWrapper(env_factory(), speed=s)
-                _factory = _speed_factory
+                _factory: Callable[[], Any] = _speed_factory
             else:
                 _factory = env_factory
 
@@ -389,8 +389,8 @@ def _make_wrapped_env(env_factory, scenario: str):
 
 def run_robustness_audit(
     adapter: AgentAdapter,
-    env_factory: callable,
-    scenarios: List[str] = None,
+    env_factory: Callable[[], Any],
+    scenarios: Optional[List[str]] = None,
     n_episodes: int = 50,
     gamma: float = 0.99,
     device: str = "cpu",
@@ -651,8 +651,8 @@ def run_robustness_audit(
 
 def compute_temporal_sensitivity(
     adapter: AgentAdapter,
-    env_factory: callable,
-    speeds: List[int] = None,
+    env_factory: Callable[[], Any],
+    speeds: Optional[List[int]] = None,
     n_episodes: int = 20,
     epsilon: float = 0.1,
     gamma: float = 0.99,
@@ -758,11 +758,11 @@ def compute_temporal_sensitivity(
 
 def run_full_audit(
     adapter: AgentAdapter,
-    env_factory: callable,
-    speeds: List[int] = None,
+    env_factory: Callable[[], Any],
+    speeds: Optional[List[int]] = None,
     n_episodes: int = 50,
-    interventions: List[str] = None,
-    robustness_scenarios: List[str] = None,
+    interventions: Optional[List[str]] = None,
+    robustness_scenarios: Optional[List[str]] = None,
     sensitivity_episodes: int = 20,
     gamma: float = 0.99,
     device: str = "cpu",
@@ -924,7 +924,7 @@ def run_full_audit(
     }
 
 
-def _print_summary(summary: Dict, diagnosis: Dict = None):
+def _print_summary(summary: Dict, diagnosis: Optional[Dict] = None):
     """Print human-readable 2-axis summary, with optional failure diagnosis."""
     from .color import colored_rating, bold, dim
     print("=" * 60)

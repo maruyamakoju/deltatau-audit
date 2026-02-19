@@ -24,6 +24,14 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run unit tests
         run: python -m pytest tests/ -v
+      - name: Type check (mypy)
+        run: |
+          python -m mypy deltatau_audit/auditor.py \
+            deltatau_audit/diagnose.py \
+            deltatau_audit/adapters/base.py \
+            --ignore-missing-imports \
+            --no-namespace-packages \
+            --follow-imports=skip
 
   smoke-test:
     runs-on: ubuntu-latest
