@@ -31,6 +31,9 @@ badges/
 *.pt
 dummy.pt
 
+# Experiment results (regenerable)
+results/
+
 # Generated reports & temp files
 adversarial_report/
 deliberative_audit_report/
