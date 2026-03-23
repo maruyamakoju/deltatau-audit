@@ -1,143 +1,168 @@
 # deltatau-audit
 
 [![PyPI version](https://img.shields.io/pypi/v/deltatau-audit)](https://pypi.org/project/deltatau-audit/)
-[![Temporal Safety Gate](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/safety-gate.yml/badge.svg)](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/safety-gate.yml)
+[![Tests](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/audit-smoke.yml/badge.svg)](https://github.com/maruyamakoju/deltatau-audit/actions/workflows/audit-smoke.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 
-`deltatau-audit` audits timing robustness in reinforcement-learning agents. It focuses on timing shifts such as jitter, delay, spikes, and speed changes, and it emits contract-tested artifacts for local analysis, CI gates, benchmark runs, and submission prep.
+**Find timing bugs in your RL agents before deployment breaks them.**
 
-## What is stable today
+`deltatau-audit` tests whether your trained RL agent breaks when timing changes — speed shifts, observation delays, jitter, and mid-episode spikes. One command, full report.
 
-- Audit outputs: `summary.json`, `index.html`, `ci_summary.json`, and SVG badges
-- Submission outputs: `suite_summary.json`, `suite_summary.md`, `bench_summary.json`, `submission_table.csv`, and `submission_table.md`
-- Supervisor outputs: `active_jobs.json`, `monitor_snapshot.json`, `supervisor_state.json`, and `supervisor_events.jsonl`
-- Contract-focused gate: `python scripts/check_contracts.py`
+```
+$ deltatau-audit audit-sb3 my_model.zip --env CartPole-v1
 
-## Install
+Robustness Test
+  Nominal (speed=1):              reward = 487.2
+  5x speed (unseen):              reward =  24.1  ↓ 95%
+  Speed jitter (2 ± 1):           reward = 289.5  ↓ 41%
+  Observation delay (1 step):     reward = 412.8  ↓ 15%
+  Mid-episode spike (1→5→1):      reward =  87.6  ↓ 82%
 
-For local development:
-
-```bash
-pip install -e ".[dev]"
+  Deployment: FAIL (worst drop: 95%)
+  Fix: retrain with speed augmentation
 ```
 
-For package usage:
+## Install
 
 ```bash
 pip install deltatau-audit
 ```
 
-Optional extras include `demo`, `sb3`, `dm_control`, `mujoco`, and `hf`.
+Extras: `pip install deltatau-audit[sb3]` for Stable-Baselines3, `[demo]` for bundled demos.
 
-## Quick start
-
-Generate a small demo audit report:
+## 30-Second Quick Start
 
 ```bash
-python -m deltatau_audit demo cartpole --episodes 5 --out audit_report
+# See it in action — no model needed
+deltatau-audit demo
+
+# Audit your own SB3 model
+deltatau-audit audit-sb3 path/to/model.zip --env CartPole-v1
+
+# Audit a CleanRL checkpoint
+deltatau-audit audit-cleanrl path/to/agent.pt --env CartPole-v1
+
+# Audit directly from HuggingFace Hub
+deltatau-audit audit-hf sb3/ppo-CartPole-v1 --env CartPole-v1
 ```
 
-This writes:
+Every command writes a `summary.json` + `index.html` report.
 
-- `audit_report/baseline/summary.json`
-- `audit_report/baseline/index.html`
-- `audit_report/robust_wide/summary.json`
-- `audit_report/robust_wide/index.html`
+## What It Tests
 
-Generate CI gate artifacts from the demo:
+| Scenario | What Breaks | Real-World Cause |
+|----------|-------------|------------------|
+| **Speed change** (2x, 5x, 8x) | Agent trained at one frequency fails at another | Servo loop running faster/slower than training |
+| **Observation delay** (1-3 steps) | Agent acts on stale data | Network latency, sensor lag |
+| **Speed jitter** (±random) | Inconsistent timing | OS scheduling, garbage collection |
+| **Mid-episode spike** (1→5→1) | Sudden speed burst destroys state | CPU throttling, competing processes |
+| **Observation noise** (σ=0.1) | Noisy sensor readings | Hardware degradation |
+| **Adversarial jitter** | Worst-case timing | Deliberate attack on timing channel |
+
+## Auto-Fix
+
+Found a timing-fragile model? Fix it:
 
 ```bash
-python -m deltatau_audit demo cartpole --ci --episodes 5 --out ci_report
+# Retrain SB3 model with timing augmentation
+deltatau-audit fix-sb3 fragile_model.zip --env CartPole-v1 --out fixed_model/
+
+# Retrain CleanRL agent
+deltatau-audit fix-cleanrl agent.pt --env CartPole-v1 --out fixed_agent/
 ```
 
-This adds:
+Before/after comparison is automatic.
 
-- `ci_report/robust_wide/ci_summary.json`
-- `ci_report/robust_wide/ci_summary.md`
+## CI Integration
 
-## Stable contracts
+### GitHub Actions (1 line)
 
-The repository now documents its stable output surface explicitly:
+```yaml
+- uses: maruyamakoju/deltatau-audit@v1
+  with:
+    model: models/agent.zip
+    env: CartPole-v1
+    threshold-deploy: 0.80
+    threshold-stress: 0.50
+```
 
-- [Core output contract](docs/core_output_contract.md)
-- [Submission artifact contract](docs/submission_artifact_contract.md)
-- [Pipeline artifact contract](docs/pipeline_artifact_contract.md)
+Fails the build if your agent isn't timing-robust. Generates a badge:
 
-If you change those artifact formats, update the corresponding contract docs and golden tests.
+![Timing Robust](https://img.shields.io/badge/timing-robust-brightgreen)
 
-## Quality gates
-
-Run the fast contract gate:
+### Any CI
 
 ```bash
-python scripts/check_contracts.py
+deltatau-audit audit-sb3 model.zip --env CartPole-v1 --ci
+# Writes ci_summary.json with pass/fail for your pipeline
 ```
 
-Run the full test suite:
+## Formal Verification
+
+Go beyond empirical testing with mathematical guarantees:
 
 ```bash
-python -m pytest -q
+# Generate a formal safety certificate
+deltatau-audit certify model.zip --env CartPole-v1
+
+# 6 verification levels:
+#   L1: Empirical sampling
+#   L2: Statistical bounds (Clopper-Pearson)
+#   L3: Interval Bound Propagation (IBP)
+#   L4: Spectral norm Lipschitz bound
+#   L5: CROWN linear relaxation
 ```
 
-Run the strict submission readiness gate:
+## Supported Frameworks
 
-```bash
-python scripts/prepare_submission.py --check-only --strict-check
+| Framework | Command | Model Format |
+|-----------|---------|--------------|
+| **Stable-Baselines3** | `audit-sb3` | `.zip` |
+| **CleanRL** | `audit-cleanrl` | `.pt` |
+| **HuggingFace Hub** | `audit-hf` | Hub ID |
+| **Any PyTorch** | `audit` | `.pt` checkpoint |
+| **Custom** | Python API | Any `nn.Module` |
+
+## Python API
+
+```python
+from deltatau_audit import run_full_audit
+from deltatau_audit.adapters.sb3 import SB3Adapter
+
+adapter = SB3Adapter.from_path("model.zip", env_id="CartPole-v1")
+result = adapter.audit(episodes=50)
+
+print(result["deployment_rating"])  # "PASS" or "FAIL"
+print(result["robustness_score"])   # 0.0 - 1.0
 ```
 
-## Research and submission workflows
+## Advanced Features
 
-Run the staged research suite:
+- **Stress analysis**: `deltatau-audit stress analyze summary.json` — identifies failure mechanisms
+- **Seed sweep**: Multi-seed statistical evaluation with bootstrap confidence intervals
+- **Benchmarking**: `deltatau-audit bench run --manifest bench/manifest.yaml` — matrix evaluation
+- **Diff**: `deltatau-audit diff before.json after.json` — compare two audits
+- **Badges**: `deltatau-audit badge summary.json` — generate SVG status badges
 
-```bash
-python -m deltatau_audit research-full \
-  --env CartPole-v1 \
-  --episodes 10 \
-  --speeds 1 2 5 \
-  --out research_full_report \
-  --fail-fast
-```
+## Who Needs This
 
-Key outputs:
-
-- `research_full_report/suite_summary.json`
-- `research_full_report/suite_summary.md`
-- stage directories under `deliberative/`, `ltc/`, and `bridge/`
-
-Run a paper-grade benchmark manifest:
-
-```bash
-python -m deltatau_audit bench run \
-  --manifest bench/high_rigor_10seed_manifest.yaml \
-  --protocol paper
-```
-
-This writes:
-
-- `bench_runs/.../bench_summary.json`
-- `bench_runs/.../submission_table.csv`
-- `bench_runs/.../submission_table.md`
-
-For the longer operational path, use:
-
-```bash
-python scripts/run_submission_pipeline.py --mode autopilot --preflight --auto-recover
-```
-
-See [docs/submission_checklist.md](docs/submission_checklist.md) for the current paper-prep and operations checklist.
-
-## Project status
-
-- Code quality: the artifact boundaries above are contract-tested and wired into CI/release gates.
-- Research status: the paper-grade experimental program is still `PREPARING`.
-- Current strongest claim: the repository can audit timing fragility, generate reproducible artifacts, and support repair/benchmark workflows; not all target benchmark claims are final yet.
+- **Robotics teams** deploying learned controllers on hardware with variable loop rates
+- **Autonomous driving** where sensor timing is never perfectly consistent
+- **Trading systems** where execution speed determines profit/loss
+- **Any RL deployment** where training and production timing differ
 
 ## Citation
 
 ```bibtex
 @software{deltatau_audit2026,
   author = {maruyamakoju},
-  title = {deltatau-audit},
-  version = {0.8.0},
-  year = {2026}
+  title = {deltatau-audit: Timing Robustness Audit for RL Agents},
+  version = {1.0.0},
+  year = {2026},
+  url = {https://github.com/maruyamakoju/deltatau-audit}
 }
 ```
+
+## License
+
+MIT
