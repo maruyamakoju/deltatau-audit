@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional
 
 import gymnasium as gym
 
+from ._fixer_utils import estimate_timesteps as _estimate_timesteps_shared
+
 
 def _make_robust_env(env_id: str, base_speed: int = 3, jitter: int = 2):
     """Create env with speed randomization for robust training."""
@@ -30,21 +32,7 @@ def _make_robust_env(env_id: str, base_speed: int = 3, jitter: int = 2):
 
 def _estimate_timesteps(env_id: str, algo: str) -> int:
     """Estimate reasonable training timesteps based on env complexity."""
-    env_lower = env_id.lower()
-
-    # Simple envs
-    if any(k in env_lower for k in ("cartpole", "mountaincar", "acrobot",
-                                     "lunarlander", "pendulum")):
-        return 100_000
-
-    # MuJoCo
-    if any(k in env_lower for k in ("cheetah", "hopper", "walker",
-                                     "ant", "humanoid", "swimmer",
-                                     "reacher", "pusher", "inverted")):
-        return 500_000
-
-    # Default
-    return 200_000
+    return _estimate_timesteps_shared(env_id, default=200_000)
 
 
 def fix_sb3_model(

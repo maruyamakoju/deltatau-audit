@@ -2,8 +2,6 @@
 
 import inspect
 import pathlib
-import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. py.typed marker exists (PEP 561)

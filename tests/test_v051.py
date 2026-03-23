@@ -1,8 +1,8 @@
 """Tests for v0.5.1: --deploy-threshold / --stress-threshold flags."""
 
 import argparse
-import pytest
 
+import pytest
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. _add_threshold_args helper
@@ -51,9 +51,13 @@ def test_threshold_args_both_custom():
 
 def _make_sb3_parser():
     from deltatau_audit.cli import (
-        _add_ci_args, _add_seed_arg, _add_workers_arg,
-        _add_compare_arg, _add_format_arg, _add_quiet_arg,
+        _add_ci_args,
+        _add_compare_arg,
+        _add_format_arg,
+        _add_quiet_arg,
+        _add_seed_arg,
         _add_threshold_args,
+        _add_workers_arg,
     )
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")
@@ -102,8 +106,9 @@ def test_sb3_threshold_custom():
 
 def _make_cartpole_audit(deploy_threshold=0.80, stress_threshold=0.50):
     import gymnasium as gym
-    from deltatau_audit.auditor import run_full_audit
+
     from deltatau_audit.adapters.simple_gru import SimpleGRUAdapter, SimpleGRUPolicy
+    from deltatau_audit.auditor import run_full_audit
 
     env_factory = lambda: gym.make("CartPole-v1")
     sample_env = env_factory()

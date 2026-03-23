@@ -1,0 +1,16 @@
+{
+  "generated_at_utc": "2026-03-02T00:00:00+00:00",
+  "jobs": [
+    {
+      "name": "mini",
+      "manifest": "bench/mini.yaml",
+      "output_root": "bench_runs/mini",
+      "protocol": "paper",
+      "no_resume": false,
+      "out_log": "_status_demo/long_runs/mini.out.log",
+      "err_log": "_status_demo/long_runs/mini.err.log",
+      "pid": 111,
+      "started_at_utc": "2026-03-01T23:59:00+00:00"
+    }
+  ]
+}

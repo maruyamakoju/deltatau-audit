@@ -35,6 +35,11 @@ class TimingAuditCallback:
 
     _base_resolved = False
 
+    # Set by SB3's BaseCallback in the runtime-mixed subclass.
+    num_timesteps: int
+    model: Any
+    logger: Any
+
     def __init__(
         self,
         env_id: str,
@@ -160,7 +165,7 @@ class TimingAuditCallback:
             )
 
 
-def _resolve_base() -> type:
+def _resolve_base() -> type[Any]:
     """Dynamically inherit from SB3 BaseCallback when SB3 is available."""
     try:
         from stable_baselines3.common.callbacks import BaseCallback
@@ -172,14 +177,14 @@ def _resolve_base() -> type:
     return BaseCallback
 
 
-def _make_callback_class() -> type:
+def _make_callback_class() -> type[Any]:
     """Create a TimingAuditCallback that inherits from SB3's BaseCallback."""
     BaseCallback = _resolve_base()
 
-    class _TimingAuditCallback(TimingAuditCallback, BaseCallback):  # type: ignore[misc]
+    class _TimingAuditCallback(TimingAuditCallback, BaseCallback):  # type: ignore[misc, valid-type]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             TimingAuditCallback.__init__(self, *args, **kwargs)
-            BaseCallback.__init__(self, verbose=self._verbose_level)
+            BaseCallback.__init__(self, verbose=self._verbose_level)  # type: ignore[misc]
 
     _TimingAuditCallback.__name__ = "TimingAuditCallback"
     _TimingAuditCallback.__qualname__ = "TimingAuditCallback"

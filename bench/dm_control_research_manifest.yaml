@@ -1,0 +1,109 @@
+name: dm_control_timing_robustness
+description: dm_control suite timing robustness evaluation
+protocol: research
+output_dir: bench_runs/dm_control
+
+jobs:
+  - name: walker_walk_standard
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/walker_walk_standard.zip
+      env: dm_control/walker-walk-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/walker_walk_standard/
+      protocol: research
+      explain_fail: true
+
+  - name: walker_walk_robust
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/walker_walk_robust.zip
+      env: dm_control/walker-walk-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/walker_walk_robust/
+      protocol: research
+      explain_fail: true
+
+  - name: cheetah_run_standard
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/cheetah_run_standard.zip
+      env: dm_control/cheetah-run-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/cheetah_run_standard/
+      protocol: research
+      explain_fail: true
+
+  - name: cheetah_run_robust
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/cheetah_run_robust.zip
+      env: dm_control/cheetah-run-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/cheetah_run_robust/
+      protocol: research
+      explain_fail: true
+
+  - name: reacher_easy_standard
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/reacher_easy_standard.zip
+      env: dm_control/reacher-easy-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/reacher_easy_standard/
+      protocol: research
+      explain_fail: true
+
+  - name: reacher_easy_robust
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/reacher_easy_robust.zip
+      env: dm_control/reacher-easy-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/reacher_easy_robust/
+      protocol: research
+      explain_fail: true
+
+  - name: humanoid_stand_standard
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/humanoid_stand_standard.zip
+      env: dm_control/humanoid-stand-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/humanoid_stand_standard/
+      protocol: research
+      explain_fail: true
+
+  - name: humanoid_stand_robust
+    command: audit-sb3
+    args:
+      algo: ppo
+      model: checkpoints/dm_control/humanoid_stand_robust.zip
+      env: dm_control/humanoid-stand-v0
+      episodes: 50
+      seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      speeds: [1, 2, 3, 5, 8]
+      out: bench_runs/dm_control/humanoid_stand_robust/
+      protocol: research
+      explain_fail: true

@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
+from deltatau_audit.adapters.cleanrl import CleanRLAdapter
 
 # ── Minimal CleanRL Agent fixtures ─────────────────────────────────────────────
 
@@ -45,11 +46,6 @@ class MinimalLSTMAgent(nn.Module):
         action = probs.sample()
         return (action, probs.log_prob(action), probs.entropy(),
                 self.critic_head(x), (h_new, c_new))
-
-
-# ── Import adapter ─────────────────────────────────────────────────────────────
-
-from deltatau_audit.adapters.cleanrl import CleanRLAdapter
 
 
 # ── Tests: MLP ─────────────────────────────────────────────────────────────────

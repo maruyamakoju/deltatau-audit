@@ -15,6 +15,15 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+from ._theme import (
+    DEGRADED_THRESHOLD,
+    MILD_THRESHOLD,
+    PASS_THRESHOLD,
+    RATING_COLORS,
+    RELIANCE_COLORS,
+    RELIANCE_THRESHOLD,
+)
+
 # ── Value prediction metrics ──────────────────────────────────────────
 
 def compute_value_rmse(values: List[float], returns: List[float]) -> float:
@@ -115,6 +124,71 @@ def compute_return_ratio(nominal_return: float,
         return 1.0 + (perturbed_return - nominal_return) / abs(nominal_return)
 
 
+def compute_cohens_d(nominal_returns: List[float],
+                     perturbed_returns: List[float]) -> float:
+    """Compute Cohen's d for perturbed-vs-nominal return distributions.
+
+    Positive d means perturbed > nominal (improvement).
+    Negative d means perturbed < nominal (degradation).
+    """
+    nom = np.array(nominal_returns, dtype=float)
+    pert = np.array(perturbed_returns, dtype=float)
+
+    if len(nom) == 0 or len(pert) == 0:
+        return 0.0
+
+    nom_var = float(np.var(nom, ddof=1)) if len(nom) > 1 else 0.0
+    pert_var = float(np.var(pert, ddof=1)) if len(pert) > 1 else 0.0
+
+    dof = len(nom) + len(pert) - 2
+    if dof <= 0:
+        return 0.0
+
+    pooled_var = (((len(nom) - 1) * nom_var) +
+                  ((len(pert) - 1) * pert_var)) / dof
+    if pooled_var <= 1e-12:
+        return 0.0
+
+    pooled_std = float(np.sqrt(pooled_var))
+    return float((np.mean(pert) - np.mean(nom)) / pooled_std)
+
+
+def compute_cliffs_delta(nominal_returns: List[float],
+                         perturbed_returns: List[float]) -> float:
+    """Compute Cliff's delta for perturbed-vs-nominal return distributions.
+
+    Range: [-1, 1].
+    Positive delta means perturbed tends to be larger than nominal.
+    """
+    nom = np.array(nominal_returns, dtype=float)
+    pert = np.array(perturbed_returns, dtype=float)
+
+    if len(nom) == 0 or len(pert) == 0:
+        return 0.0
+
+    # Pairwise comparison matrix: pert rows, nominal cols.
+    diff = pert[:, None] - nom[None, :]
+    wins = int(np.sum(diff > 0))
+    losses = int(np.sum(diff < 0))
+    total = diff.size
+
+    if total == 0:
+        return 0.0
+    return float((wins - losses) / total)
+
+
+def effect_size_magnitude(cohens_d: float) -> str:
+    """Qualitative label for absolute Cohen's d."""
+    ad = abs(cohens_d)
+    if ad < 0.2:
+        return "NEGLIGIBLE"
+    if ad < 0.5:
+        return "SMALL"
+    if ad < 0.8:
+        return "MEDIUM"
+    return "LARGE"
+
+
 # ── Bootstrap confidence intervals ────────────────────────────────────
 
 def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
@@ -173,15 +247,34 @@ def bootstrap_return_ratio(nominal_returns: List[float],
     Uses sign-aware ratio so negative nominal returns are handled correctly.
 
     Returns:
-        Dict with ratio, ci_lower, ci_upper, significant (bool).
-        significant=True means CI excludes 1.0 (statistically significant drop).
+        Dict with ratio/CI significance and effect-size diagnostics.
+        `significant=True` means CI excludes 1.0 on the drop side (upper < 1.0).
     """
     nom = np.array(nominal_returns)
     pert = np.array(perturbed_returns)
 
-    if len(nom) == 0 or len(pert) == 0 or abs(nom.mean()) < 1e-10:
-        return {"ratio": 0.0, "ci_lower": 0.0, "ci_upper": 0.0,
-                "significant": False}
+    mean_nom = float(nom.mean()) if len(nom) > 0 else 0.0
+    mean_pert = float(pert.mean()) if len(pert) > 0 else 0.0
+    mean_diff = float(mean_pert - mean_nom)
+    cohens_d = compute_cohens_d(nominal_returns, perturbed_returns)
+    cliffs_delta = compute_cliffs_delta(nominal_returns, perturbed_returns)
+    cles = (cliffs_delta + 1.0) / 2.0  # Common-language effect size in [0,1]
+
+    if len(nom) == 0 or len(pert) == 0 or abs(mean_nom) < 1e-10:
+        return {
+            "ratio": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "significant": False,
+            "significant_change": False,
+            "mean_nominal": mean_nom,
+            "mean_perturbed": mean_pert,
+            "mean_difference": mean_diff,
+            "cohens_d": cohens_d,
+            "cohens_d_magnitude": effect_size_magnitude(cohens_d),
+            "cliffs_delta": cliffs_delta,
+            "common_language_effect": cles,
+        }
 
     rng = np.random.RandomState(seed)
     ratios = np.empty(n_bootstrap)
@@ -193,13 +286,23 @@ def bootstrap_return_ratio(nominal_returns: List[float],
     alpha = (1 - ci) / 2
     lower = float(np.percentile(ratios, alpha * 100))
     upper = float(np.percentile(ratios, (1 - alpha) * 100))
-    ratio = _safe_return_ratio(float(nom.mean()), float(pert.mean()))
+    ratio = _safe_return_ratio(mean_nom, mean_pert)
+    sig_drop = upper < 1.0
+    sig_change = (upper < 1.0) or (lower > 1.0)
 
     return {
         "ratio": ratio,
         "ci_lower": lower,
         "ci_upper": upper,
-        "significant": upper < 1.0,  # CI entirely below 1.0 = real drop
+        "significant": sig_drop,  # Backward-compatible: statistically significant drop
+        "significant_change": sig_change,
+        "mean_nominal": mean_nom,
+        "mean_perturbed": mean_pert,
+        "mean_difference": mean_diff,
+        "cohens_d": cohens_d,
+        "cohens_d_magnitude": effect_size_magnitude(cohens_d),
+        "cliffs_delta": cliffs_delta,
+        "common_language_effect": cles,
     }
 
 
@@ -216,11 +319,15 @@ def reliance_rating(rmse_ratio: float) -> str:
     HIGH reliance = the agent's value function depends on Δτ.
     This is INFORMATIONAL — high reliance on a time-aware agent is expected.
     """
-    if rmse_ratio < 1.05:
+    # Preserve historical 4-band semantics around RELIANCE_THRESHOLD=2.0.
+    low = 1.05
+    moderate = 1.20
+
+    if rmse_ratio < low:
         return "LOW"
-    elif rmse_ratio < 1.20:
+    elif rmse_ratio < moderate:
         return "MODERATE"
-    elif rmse_ratio < 2.0:
+    elif rmse_ratio < RELIANCE_THRESHOLD:
         return "HIGH"
     else:
         return "VERY_HIGH"
@@ -228,13 +335,7 @@ def reliance_rating(rmse_ratio: float) -> str:
 
 def reliance_color(rating: str) -> str:
     """Color for reliance badge (informational blue spectrum)."""
-    return {
-        "N/A": "#BDBDBD",
-        "LOW": "#9E9E9E",
-        "MODERATE": "#42A5F5",
-        "HIGH": "#1E88E5",
-        "VERY_HIGH": "#1565C0",
-    }.get(rating, "#9E9E9E")
+    return RELIANCE_COLORS.get(rating, RELIANCE_COLORS["LOW"])
 
 
 # ── Axis 2: Robustness ───────────────────────────────────────────────
@@ -246,11 +347,11 @@ def robustness_rating(return_ratio: float) -> str:
     PASS = performance maintained under realistic timing perturbations.
     FAIL = significant performance loss in deployment conditions.
     """
-    if return_ratio > 0.95:
+    if return_ratio > PASS_THRESHOLD:
         return "PASS"
-    elif return_ratio > 0.80:
+    elif return_ratio > MILD_THRESHOLD:
         return "MILD"
-    elif return_ratio > 0.50:
+    elif return_ratio > DEGRADED_THRESHOLD:
         return "DEGRADED"
     else:
         return "FAIL"
@@ -258,12 +359,7 @@ def robustness_rating(return_ratio: float) -> str:
 
 def robustness_color(rating: str) -> str:
     """Color for robustness badge (green=good, red=bad)."""
-    return {
-        "PASS": "#28a745",
-        "MILD": "#ffc107",
-        "DEGRADED": "#fd7e14",
-        "FAIL": "#dc3545",
-    }.get(rating, "#6c757d")
+    return RATING_COLORS.get(rating, "#6c757d")
 
 
 # ── Legacy single-axis (kept for backward compat) ────────────────────

@@ -1,8 +1,8 @@
 """Tests for v0.5.2: Richer failure diagnostics."""
 
 import pytest
-from deltatau_audit.diagnose import generate_diagnosis, _return_ratio_to_rating
 
+from deltatau_audit.diagnose import _return_ratio_to_rating, generate_diagnosis
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. _return_ratio_to_rating helper
@@ -21,10 +21,12 @@ def test_rating_mild():
 def test_rating_degraded():
     assert _return_ratio_to_rating(0.79) == "DEGRADED"
     assert _return_ratio_to_rating(0.60) == "DEGRADED"
+    assert _return_ratio_to_rating(0.59) == "DEGRADED"
+    assert _return_ratio_to_rating(0.50) == "DEGRADED"
 
 
 def test_rating_fail():
-    assert _return_ratio_to_rating(0.59) == "FAIL"
+    assert _return_ratio_to_rating(0.49) == "FAIL"
     assert _return_ratio_to_rating(0.00) == "FAIL"
 
 
@@ -161,9 +163,9 @@ def test_degraded_deployment_gives_warn_status():
 def test_run_full_audit_result_has_diagnosis_key():
     """run_full_audit() result dict must include a 'diagnosis' key."""
     import gymnasium as gym
-    from deltatau_audit.auditor import run_full_audit
+
     from deltatau_audit.adapters.base import AgentAdapter
-    import numpy as np
+    from deltatau_audit.auditor import run_full_audit
 
     class _ConstAdapter(AgentAdapter):
         supports_intervention = False

@@ -13,6 +13,8 @@ import base64
 import io
 import json
 import os
+from datetime import datetime, timezone
+from html import escape
 from typing import Any, Dict, List, Optional
 
 import matplotlib
@@ -25,6 +27,7 @@ from ..metrics import (
     robustness_color,
     severity_color,
 )
+from ..schema import prepare_audit_result, validate_audit_result
 
 
 def _get_report_version() -> str:
@@ -39,6 +42,13 @@ def _fig_to_base64(fig) -> str:
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode("utf-8")
+
+
+def _safe_text(value: Any) -> str:
+    """Escape text before embedding it into HTML."""
+    if value is None:
+        return ""
+    return escape(str(value), quote=True)
 
 
 # ── Reliance figures ──────────────────────────────────────────────────
@@ -317,6 +327,14 @@ def generate_report(audit_result: Dict, output_dir: str,
     """
     os.makedirs(output_dir, exist_ok=True)
 
+    report_timestamp = datetime.now(timezone.utc).isoformat()
+    audit_result = prepare_audit_result(
+        audit_result,
+        report_version=_get_report_version(),
+        report_timestamp=report_timestamp,
+    )
+    validate_audit_result(audit_result)
+
     speeds = audit_result["speeds"]
     reliance = audit_result["reliance"]
     robustness = audit_result["robustness"]
@@ -352,17 +370,14 @@ def generate_report(audit_result: Dict, output_dir: str,
     for name, b64 in png_list:
         if b64:
             path = os.path.join(output_dir, f"{name}.png")
+            os.makedirs(output_dir, exist_ok=True)
             with open(path, "wb") as fb:
                 fb.write(base64.b64decode(b64))
 
-    # Save JSON — include version + timestamp for traceability
-    import datetime
-    json_data = dict(audit_result)
-    json_data["_version"] = _get_report_version()
-    json_data["_timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
     json_path = os.path.join(output_dir, "summary.json")
-    with open(json_path, "w") as ft:
-        json.dump(json_data, ft, indent=2, default=str)
+    os.makedirs(output_dir, exist_ok=True)
+    with open(json_path, "w", encoding="utf-8") as ft:
+        json.dump(audit_result, ft, indent=2, default=str)
 
     # ── Build HTML ────────────────────────────────────────────────
     dep_rating = summary["deployment_rating"]
@@ -380,10 +395,12 @@ def generate_report(audit_result: Dict, output_dir: str,
         "deployment_fragile": "Deployment Fragile",
     }
     quadrant_label = quadrant_labels.get(quadrant, quadrant)
+    title_html = _safe_text(title)
+    prescription_html = _safe_text(summary["prescription"])
+    speeds_html = _safe_text(speeds)
 
     # Verdict pill color: green for good quadrants, orange/red for fragile
     _good_quadrants = {"time_aware_robust", "time_blind_robust", "deployment_ready"}
-    _warn_quadrants = {"time_aware_fragile", "time_blind_robust"}
     if quadrant in _good_quadrants:
         verdict_color = "#28a745"
     elif quadrant in {"time_blind_fragile", "deployment_fragile"}:
@@ -479,11 +496,11 @@ def generate_report(audit_result: Dict, output_dir: str,
                 col_i = severity_color(sev_i)
                 label = interv_labels.get(interv, interv)
                 deg_rows += (
-                    f'<tr><td>{label}</td><td>{s_str}</td>'
+                    f'<tr><td>{_safe_text(label)}</td><td>{_safe_text(s_str)}</td>'
                     f'<td>{deg["baseline_rmse"]:.4f}</td>'
                     f'<td>{deg["intervention_rmse"]:.4f}</td>'
                     f'<td>+{pct:.0f}%</td>'
-                    f'<td style="color:{col_i};font-weight:bold">{sev_i}</td></tr>\n'
+                    f'<td style="color:{col_i};font-weight:bold">{_safe_text(sev_i)}</td></tr>\n'
                 )
 
         reliance_html = f"""
@@ -554,9 +571,9 @@ def generate_report(audit_result: Dict, output_dir: str,
                 ci_str = "–"
                 sig_str = ""
             rows += (
-                f'<tr><td>{category_label}</td><td>{label}</td>'
+                f'<tr><td>{_safe_text(category_label)}</td><td>{_safe_text(label)}</td>'
                 f'<td style="color:{r_col};font-weight:bold">{ret_r:.0f}%</td>'
-                f'<td>{ci_str}{sig_str}</td>'
+                f'<td>{_safe_text(ci_str + sig_str)}</td>'
                 f'<td>{rmse_r:.2f}x</td>'
                 f'<td>{sc["return_drop_pct"]:+.1f}%</td></tr>\n'
             )
@@ -575,7 +592,7 @@ def generate_report(audit_result: Dict, output_dir: str,
         sens_rows = ""
         for s_str, sv in sens_per_speed.items():
             sens_rows += (
-                f'<tr><td>{s_str}</td>'
+                f'<tr><td>{_safe_text(s_str)}</td>'
                 f'<td>{sv["mean"]:.4f}</td>'
                 f'<td>{sv["std"]:.4f}</td>'
                 f'<td>{sv["n_samples"]}</td></tr>\n'
@@ -610,7 +627,7 @@ def generate_report(audit_result: Dict, output_dir: str,
         p_badge = (
             f'<span style="background:{p_color};color:white;padding:2px 8px;'
             f'border-radius:4px;font-size:0.85em;font-weight:600;">'
-            f'{primary["rating"]}</span>'
+            f'{_safe_text(primary["rating"])}</span>'
         )
         other_rows = ""
         for issue in diagnosis["issues"][1:]:
@@ -618,7 +635,7 @@ def generate_report(audit_result: Dict, output_dir: str,
             other_rows += (
                 f'<span style="background:{i_color};color:white;padding:1px 6px;'
                 f'border-radius:3px;font-size:0.8em;margin-right:4px;">'
-                f'{issue["scenario"]} {issue["rating"]}</span>'
+                f'{_safe_text(issue["scenario"])} {_safe_text(issue["rating"])}</span>'
             )
         other_html = (
             f'<p class="other-issues">Additional issues: {other_rows}</p>'
@@ -627,20 +644,20 @@ def generate_report(audit_result: Dict, output_dir: str,
         diagnosis_html = f"""
 <div class="diagnosis">
   <h3>Failure Analysis</h3>
-  <p style="margin:0 0 12px 0;color:#555;">{diagnosis['summary_line']}</p>
+  <p style="margin:0 0 12px 0;color:#555;">{_safe_text(diagnosis['summary_line'])}</p>
   <div class="diagnosis-grid">
     <div class="diagnosis-row">
       <span class="diagnosis-label">Pattern:</span>
-      <span class="diagnosis-pattern">{primary['pattern']}</span>
+      <span class="diagnosis-pattern">{_safe_text(primary['pattern'])}</span>
       &nbsp;{p_badge}
     </div>
     <div class="diagnosis-row">
       <span class="diagnosis-label">Cause:</span>
-      <span style="color:#555;">{primary['cause']}</span>
+      <span style="color:#555;">{_safe_text(primary['cause'])}</span>
     </div>
     <div class="diagnosis-row">
       <span class="diagnosis-label">Fix:</span>
-      <span>{primary['fix']}</span>
+      <span>{_safe_text(primary['fix'])}</span>
     </div>
   </div>
   {other_html}
@@ -651,7 +668,7 @@ def generate_report(audit_result: Dict, output_dir: str,
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title}</title>
+<title>{title_html}</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          max-width: 950px; margin: 0 auto; padding: 20px; background: #fafafa; color: #333; }}
@@ -721,7 +738,7 @@ def generate_report(audit_result: Dict, output_dir: str,
 </style>
 </head>
 <body>
-<h1>{title}</h1>
+<h1>{title_html}</h1>
 
 <!-- ═══ Badge Header ═══ -->
 <div class="headline">
@@ -729,7 +746,7 @@ def generate_report(audit_result: Dict, output_dir: str,
     {badge_html}
   </div>
   {verdict_pill}
-  <div class="interpretation">{summary['prescription']}</div>
+  <div class="interpretation">{prescription_html}</div>
 </div>
 
 {quadrant_html}
@@ -760,12 +777,12 @@ def generate_report(audit_result: Dict, output_dir: str,
 <!-- ═══ Prescription + Diagnosis ═══ -->
 <div class="prescription">
   <h3>Recommendation</h3>
-  <p>{summary['prescription']}</p>
+  <p>{prescription_html}</p>
 </div>
 {diagnosis_html}
 
 <div class="meta">
-  <p>Speeds tested: {speeds} |
+  <p>Speeds tested: {speeds_html} |
      Episodes per condition: {audit_result['n_episodes']} |
      Intervention support: {audit_result['supports_intervention']}</p>
   <p>Generated by <code>deltatau-audit</code> v{_get_report_version()}</p>
@@ -774,6 +791,7 @@ def generate_report(audit_result: Dict, output_dir: str,
 </html>"""
 
     html_path = os.path.join(output_dir, "index.html")
+    os.makedirs(output_dir, exist_ok=True)
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
 

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maruyamakoju.github.io/deltatau-audit/schemas/audit_result.schema.json",
+  "title": "deltatau-audit result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "speeds",
+    "n_episodes",
+    "supports_intervention",
+    "reliance",
+    "robustness",
+    "summary",
+    "diagnosis",
+    "manifest"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "_version": { "type": "string" },
+    "_timestamp": { "type": "string" },
+    "speeds": {
+      "type": "array",
+      "items": { "type": "number" }
+    },
+    "n_episodes": { "type": "integer", "minimum": 0 },
+    "supports_intervention": { "type": "boolean" },
+    "reliance": { "type": "object" },
+    "robustness": {
+      "type": "object",
+      "required": ["deployment", "stress", "per_scenario_scores"],
+      "properties": {
+        "deployment": { "type": "object" },
+        "stress": { "type": "object" },
+        "per_scenario_scores": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "sensitivity": {},
+    "summary": {
+      "type": "object",
+      "required": [
+        "reliance_rating",
+        "deployment_rating",
+        "deployment_score",
+        "stress_rating",
+        "stress_score",
+        "quadrant",
+        "prescription"
+      ],
+      "properties": {
+        "reliance_rating": { "type": "string" },
+        "reliance_score": { "type": ["number", "null"] },
+        "deployment_rating": { "type": "string" },
+        "deployment_score": { "type": "number" },
+        "stress_rating": { "type": "string" },
+        "stress_score": { "type": "number" },
+        "quadrant": { "type": "string" },
+        "prescription": { "type": "string" },
+        "deploy_threshold": { "type": "number" },
+        "stress_threshold": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "diagnosis": { "type": "object" },
+    "seed_sweep": { "type": "object" },
+    "manifest": {
+      "type": "object",
+      "required": ["protocol", "experiment", "runtime", "git", "dependencies", "cli"],
+      "properties": {
+        "created_at": { "type": "string" },
+        "protocol": { "type": "object" },
+        "experiment": { "type": "object" },
+        "runtime": { "type": "object" },
+        "git": { "type": "object" },
+        "dependencies": { "type": "object" },
+        "cli": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+

@@ -1,0 +1,215 @@
+{
+  "_timestamp": "<timestamp>",
+  "_version": "<version>",
+  "diagnosis": {
+    "failing_scenarios": [
+      "speed_5x"
+    ],
+    "fix_recommendation": "Train with wide speed randomization (e.g., Uniform[0.5, 5.0]). For maximum robustness, pair with an internal time module (delta-tau / d_tau) that explicitly encodes execution frequency so the policy generalizes beyond training speeds.",
+    "issues": [
+      {
+        "cause": "The agent fails at 5x its training frequency. The temporal assumptions baked into the policy do not extrapolate beyond the training speed distribution.",
+        "fix": "Train with wide speed randomization (e.g., Uniform[0.5, 5.0]). For maximum robustness, pair with an internal time module (delta-tau / d_tau) that explicitly encodes execution frequency so the policy generalizes beyond training speeds.",
+        "pattern": "Extreme Frequency Fragility",
+        "rating": "DEGRADED",
+        "return_drop_pct": 40.0,
+        "return_ratio": 0.6,
+        "scenario": "speed_5x"
+      }
+    ],
+    "primary_pattern": "Extreme Frequency Fragility",
+    "root_cause": "The agent fails at 5x its training frequency. The temporal assumptions baked into the policy do not extrapolate beyond the training speed distribution.",
+    "status": "warn",
+    "summary_line": "1 DEGRADED scenario: speed_5x"
+  },
+  "manifest": {
+    "cli": {
+      "argv": [],
+      "command": null
+    },
+    "created_at": "<timestamp>",
+    "dependencies": {
+      "available": "<bool>",
+      "keys": [
+        "available",
+        "lockfile_hashes",
+        "pip_freeze_count",
+        "pip_freeze_sample",
+        "pip_freeze_sha256"
+      ],
+      "lockfile_names": [
+        "pyproject.toml",
+        "requirements.txt"
+      ]
+    },
+    "experiment": {},
+    "git": {
+      "available": "<bool>",
+      "keys": [
+        "available",
+        "branch",
+        "commit",
+        "dirty",
+        "short_commit"
+      ]
+    },
+    "protocol": {
+      "config": {},
+      "name": "custom"
+    },
+    "runtime": {
+      "keys": [
+        "cwd",
+        "executable",
+        "machine",
+        "platform",
+        "processor",
+        "python_implementation",
+        "python_version"
+      ]
+    }
+  },
+  "n_episodes": 50,
+  "reliance": {
+    "degradation": {},
+    "per_speed": {},
+    "rating": "N/A",
+    "score": null,
+    "worst_case": {
+      "intervention": null,
+      "percent": null,
+      "rmse_ratio": null,
+      "speed": null
+    }
+  },
+  "robustness": {
+    "adaptive": false,
+    "deployment": {
+      "rating": "MILD",
+      "return_score": 0.88,
+      "rmse_score": 1.0,
+      "worst_case": {
+        "return_drop_pct": 12.0,
+        "return_ratio": 0.88,
+        "scenario": "spike"
+      }
+    },
+    "n_episodes_used": {
+      "delay": 50,
+      "jitter": 50,
+      "nominal": 50,
+      "obs_noise": 50,
+      "speed_5x": 50,
+      "spike": 50
+    },
+    "per_scenario_scores": {
+      "delay": {
+        "ci_lower": 0.85,
+        "ci_upper": 0.95,
+        "return_drop_pct": 10.0,
+        "return_ratio": 0.9,
+        "rmse_increase_pct": 0.0,
+        "rmse_ratio": 1.0,
+        "significant": true
+      },
+      "jitter": {
+        "ci_lower": 0.9,
+        "ci_upper": 1.0,
+        "return_drop_pct": 5.0,
+        "return_ratio": 0.95,
+        "rmse_increase_pct": 0.0,
+        "rmse_ratio": 1.0,
+        "significant": false
+      },
+      "obs_noise": {
+        "ci_lower": 0.94,
+        "ci_upper": 1.04,
+        "return_drop_pct": 1.0,
+        "return_ratio": 0.99,
+        "rmse_increase_pct": 0.0,
+        "rmse_ratio": 1.0,
+        "significant": false
+      },
+      "speed_5x": {
+        "ci_lower": 0.55,
+        "ci_upper": 0.65,
+        "return_drop_pct": 40.0,
+        "return_ratio": 0.6,
+        "rmse_increase_pct": 0.0,
+        "rmse_ratio": 1.0,
+        "significant": true
+      },
+      "spike": {
+        "ci_lower": 0.83,
+        "ci_upper": 0.93,
+        "return_drop_pct": 12.0,
+        "return_ratio": 0.88,
+        "rmse_increase_pct": 0.0,
+        "rmse_ratio": 1.0,
+        "significant": true
+      }
+    },
+    "rating": "DEGRADED",
+    "return_score": 0.6,
+    "rmse_score": 1.0,
+    "scenarios": {
+      "nominal": {
+        "bias_mean": 0.5,
+        "bias_se": 0.02,
+        "bias_std": 0.2,
+        "length_mean": 1000.0,
+        "length_se": 0.0,
+        "length_std": 0.0,
+        "mae_mean": 9.0,
+        "mae_se": 0.09,
+        "mae_std": 0.9,
+        "n_episodes": 50,
+        "rmse_mean": 10.0,
+        "rmse_se": 0.1,
+        "rmse_std": 1.0,
+        "total_reward_mean": 500.0,
+        "total_reward_se": 2.0,
+        "total_reward_std": 20.0
+      }
+    },
+    "stress": {
+      "rating": "DEGRADED",
+      "return_score": 0.6,
+      "rmse_score": 1.0,
+      "worst_case": {
+        "return_drop_pct": 40.0,
+        "return_ratio": 0.6,
+        "scenario": "speed_5x"
+      }
+    },
+    "worst_case": {
+      "scenario": "speed_5x"
+    }
+  },
+  "schema_version": "1.0.0",
+  "sensitivity": null,
+  "speeds": [
+    1,
+    2,
+    3,
+    5,
+    8
+  ],
+  "summary": {
+    "deploy_threshold": 0.8,
+    "deployment_rating": "PASS",
+    "deployment_score": 0.9,
+    "prescription": "Test prescription text.",
+    "quadrant": "deployment_ready",
+    "reliance_rating": "N/A",
+    "reliance_score": null,
+    "robustness_rating": "PASS",
+    "robustness_rmse_score": 1.0,
+    "robustness_score": 0.9,
+    "sensitivity_mean": null,
+    "stress_rating": "MILD",
+    "stress_score": 0.8,
+    "stress_threshold": 0.5
+  },
+  "supports_intervention": false
+}

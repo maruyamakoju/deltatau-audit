@@ -11,6 +11,25 @@ import gymnasium as gym
 import numpy as np
 
 
+def _set_speed_metadata(env: gym.Env, speed: float) -> None:
+    """Expose effective speed on the unwrapped env for downstream wrappers."""
+    try:
+        root = getattr(env, "unwrapped", env)
+        setattr(root, "actual_speed", float(speed))
+        setattr(root, "current_speed", float(speed))
+    except Exception:
+        # Best-effort metadata; wrapper logic must not fail if env blocks attrs.
+        return
+
+
+def _with_speed_info(info: Any, speed: float) -> dict:
+    """Return info dict with normalized speed fields."""
+    out = dict(info) if isinstance(info, dict) else {}
+    out["actual_speed"] = float(speed)
+    out["current_speed"] = float(speed)
+    return out
+
+
 class FixedSpeedWrapper(gym.Wrapper):
     """Run the underlying env at a fixed speed multiplier.
 
@@ -30,6 +49,7 @@ class FixedSpeedWrapper(gym.Wrapper):
         terminated = False
         truncated = False
         info = {}
+        _set_speed_metadata(self.env, self.speed)
 
         for _ in range(self.speed):
             obs, reward, terminated, truncated, info = self.env.step(action)
@@ -37,7 +57,9 @@ class FixedSpeedWrapper(gym.Wrapper):
             if terminated or truncated:
                 break
 
-        return obs, total_reward, terminated, truncated, info
+        return obs, total_reward, terminated, truncated, _with_speed_info(
+            info, self.speed
+        )
 
 
 class JitterWrapper(gym.Wrapper):
@@ -61,6 +83,7 @@ class JitterWrapper(gym.Wrapper):
         terminated = False
         truncated = False
         info = {}
+        _set_speed_metadata(self.env, actual_speed)
 
         for _ in range(actual_speed):
             obs, reward, terminated, truncated, info = self.env.step(action)
@@ -68,8 +91,9 @@ class JitterWrapper(gym.Wrapper):
             if terminated or truncated:
                 break
 
-        info["actual_speed"] = actual_speed
-        return obs, total_reward, terminated, truncated, info
+        return obs, total_reward, terminated, truncated, _with_speed_info(
+            info, actual_speed
+        )
 
 
 class PiecewiseSwitchWrapper(gym.Wrapper):
@@ -108,6 +132,7 @@ class PiecewiseSwitchWrapper(gym.Wrapper):
         terminated = False
         truncated = False
         info = {}
+        _set_speed_metadata(self.env, speed)
 
         for _ in range(speed):
             obs, reward, terminated, truncated, info = self.env.step(action)
@@ -115,6 +140,7 @@ class PiecewiseSwitchWrapper(gym.Wrapper):
             if terminated or truncated:
                 break
 
-        info["current_speed"] = speed
         self.agent_step += 1
-        return obs, total_reward, terminated, truncated, info
+        return obs, total_reward, terminated, truncated, _with_speed_info(
+            info, speed
+        )

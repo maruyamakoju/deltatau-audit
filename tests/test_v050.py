@@ -1,8 +1,8 @@
 """Tests for v0.5.0: audit-hf command and SB3Adapter.from_hub()."""
 
 import argparse
-import pytest
 
+import pytest
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. SB3Adapter.from_hub() — missing huggingface_hub raises ImportError
@@ -28,9 +28,10 @@ def test_from_hub_calls_hf_hub_download(monkeypatch, tmp_path):
     import sys
     import types
 
+    import gymnasium as gym
+
     # Create a fake CartPole PPO model .zip
     import stable_baselines3 as sb3
-    import gymnasium as gym
     env = gym.make("CartPole-v1")
     model = sb3.PPO("MlpPolicy", env, n_steps=32, batch_size=16)
     model_path = str(tmp_path / "ppo-CartPole-v1.zip")
@@ -48,6 +49,7 @@ def test_from_hub_calls_hf_hub_download(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
 
     from importlib import reload
+
     from deltatau_audit.adapters import sb3 as sb3_mod
     reload(sb3_mod)
 
@@ -67,8 +69,8 @@ def test_from_hub_uses_explicit_filename(monkeypatch, tmp_path):
     import sys
     import types
 
-    import stable_baselines3 as sb3
     import gymnasium as gym
+    import stable_baselines3 as sb3
     env = gym.make("CartPole-v1")
     model = sb3.PPO("MlpPolicy", env, n_steps=32, batch_size=16)
     model_path = str(tmp_path / "custom_model.zip")
@@ -86,6 +88,7 @@ def test_from_hub_uses_explicit_filename(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
 
     from importlib import reload
+
     from deltatau_audit.adapters import sb3 as sb3_mod
     reload(sb3_mod)
 
@@ -109,6 +112,7 @@ def test_from_hub_raises_file_not_found_on_all_404(monkeypatch):
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
 
     from importlib import reload
+
     from deltatau_audit.adapters import sb3 as sb3_mod
     reload(sb3_mod)
 
@@ -124,8 +128,12 @@ def test_from_hub_raises_file_not_found_on_all_404(monkeypatch):
 
 def _make_hf_parser():
     from deltatau_audit.cli import (
-        _add_ci_args, _add_seed_arg, _add_workers_arg,
-        _add_compare_arg, _add_format_arg, _add_quiet_arg,
+        _add_ci_args,
+        _add_compare_arg,
+        _add_format_arg,
+        _add_quiet_arg,
+        _add_seed_arg,
+        _add_workers_arg,
     )
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")

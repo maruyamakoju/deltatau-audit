@@ -2,8 +2,7 @@
 
 import argparse
 import sys
-import types
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,7 +13,6 @@ from deltatau_audit.tracker import (
     log_to_wandb,
     maybe_log,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

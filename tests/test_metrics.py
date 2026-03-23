@@ -1,24 +1,24 @@
 """Tests for deltatau_audit.metrics — rating boundaries & compute functions."""
 
 import math
+
 import pytest
 
 from deltatau_audit.metrics import (
-    reliance_rating,
-    robustness_rating,
-    severity_rating,
-    reliance_color,
-    robustness_color,
-    severity_color,
-    compute_value_rmse,
+    aggregate_episode_metrics,
+    compute_degradation,
+    compute_discounted_returns,
+    compute_return_ratio,
     compute_value_bias,
     compute_value_mae,
-    compute_discounted_returns,
-    compute_degradation,
-    compute_return_ratio,
-    aggregate_episode_metrics,
+    compute_value_rmse,
+    reliance_color,
+    reliance_rating,
+    robustness_color,
+    robustness_rating,
+    severity_color,
+    severity_rating,
 )
-
 
 # ── Reliance rating boundaries ───────────────────────────────────────
 

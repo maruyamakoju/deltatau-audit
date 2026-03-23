@@ -1,0 +1,56 @@
+{
+  "config": {
+    "bridge_actuator_alpha": 0.35,
+    "bridge_delay_ms": 120.0,
+    "bridge_delay_std_ms": 15.0,
+    "bridge_dt_ms": 20.0,
+    "deliberative_max_thinking_steps": 4,
+    "env": "CartPole-v1",
+    "episodes": 8,
+    "fail_fast": false,
+    "out": "<suite_root>",
+    "resume": true,
+    "seed": 7,
+    "speeds": [
+      1,
+      2,
+      5
+    ]
+  },
+  "generated_at_utc": "<timestamp>",
+  "recommendations": [
+    "Resolve skipped stages (bridge) by adding prerequisites or choosing a compatible env/action space."
+  ],
+  "stages": [
+    {
+      "deployment_score": 0.91,
+      "duration_sec": 12.5,
+      "name": "deliberative",
+      "output_dir": "<suite_root>/deliberative",
+      "reason": null,
+      "status": "success",
+      "stress_score": 0.64,
+      "traceback_text": null
+    },
+    {
+      "deployment_score": 0.88,
+      "duration_sec": 0.0,
+      "name": "ltc",
+      "output_dir": "<suite_root>/ltc",
+      "reason": "existing summary.json reused (--resume)",
+      "status": "cached",
+      "stress_score": 0.58,
+      "traceback_text": null
+    },
+    {
+      "deployment_score": null,
+      "duration_sec": 0.0,
+      "name": "bridge",
+      "output_dir": "<suite_root>/bridge",
+      "reason": "Bridge stage needs a successful deliberative or ltc stage.",
+      "status": "skipped",
+      "stress_score": null,
+      "traceback_text": null
+    }
+  ]
+}

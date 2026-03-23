@@ -1,0 +1,73 @@
+{
+  "artifacts": {
+    "submission_csv": "<bench_root>/submission_table.csv",
+    "submission_md": "<bench_root>/submission_table.md",
+    "submission_rows": "2"
+  },
+  "counts": {
+    "failed": 0,
+    "passed": 2,
+    "skipped": 0
+  },
+  "duration_sec": 300.0,
+  "finished_at_utc": "2026-03-14T00:05:00+00:00",
+  "jobs": [
+    {
+      "args": {
+        "algo": "ppo",
+        "variant": "baseline"
+      },
+      "command": "audit-sb3",
+      "id": "cartpole_seed0",
+      "result": {
+        "deployment_rating": "MILD",
+        "deployment_score": 0.88,
+        "diagnosis_pattern": "Extreme Frequency Fragility",
+        "protocol": "research",
+        "quadrant": "deployment_ready",
+        "stress_ci_gate_pass": true,
+        "stress_rating": "DEGRADED",
+        "stress_score": 0.56,
+        "stress_worst_ci_lower": 0.51,
+        "stress_worst_return_ratio": 0.56,
+        "stress_worst_scenario": "speed_5x"
+      },
+      "status": "passed",
+      "summary_path": "<bench_root>/cartpole_seed0/summary.json",
+      "vars": {
+        "env": "CartPole-v1",
+        "seed": 0
+      }
+    },
+    {
+      "args": {
+        "algo": "ppo",
+        "variant": "time_feature"
+      },
+      "command": "audit-cleanrl",
+      "id": "acrobot_seed1",
+      "result": {
+        "deployment_rating": "PASS",
+        "deployment_score": 0.93,
+        "diagnosis_pattern": "Observation Recency Dependency",
+        "protocol": "paper",
+        "quadrant": "time_aware_robust",
+        "stress_ci_gate_pass": true,
+        "stress_rating": "MILD",
+        "stress_score": 0.72,
+        "stress_worst_ci_lower": 0.68,
+        "stress_worst_return_ratio": 0.72,
+        "stress_worst_scenario": "delay"
+      },
+      "status": "passed",
+      "summary_path": "<bench_root>/acrobot_seed1/summary.json",
+      "vars": {
+        "env": "Acrobot-v1",
+        "seed": 1
+      }
+    }
+  ],
+  "output_root": "<bench_root>",
+  "started_at_utc": "2026-03-14T00:00:00+00:00",
+  "status": "passed"
+}

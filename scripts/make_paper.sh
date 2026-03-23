@@ -19,21 +19,21 @@ echo "============================================"
 # ── Tier A: Figures + Statistics (from existing runs) ──
 echo ""
 echo "[Tier A] Generating figures and statistics..."
-python generate_paper.py
+python scripts/generate_paper.py
 echo "[Tier A] Done."
 
 # ── Tier B: Value ablation (multi-seed, no retraining) ──
 if [[ "${1:-}" == "--ablation" || "${1:-}" == "--full" ]]; then
     echo ""
     echo "[Tier B] Running multi-seed value ablation..."
-    python run_ablation.py \
+    python experiments/run_ablation.py \
         --results-dir "$RESULTS_DIR" \
         --speed-hidden \
         --multi-seed \
         --n-seeds 5 \
         --n-episodes 50
     # Regenerate figures with updated ablation data
-    python generate_paper.py
+    python scripts/generate_paper.py
     echo "[Tier B] Done."
 fi
 
@@ -42,13 +42,13 @@ if [[ "${1:-}" == "--full" ]]; then
     echo ""
     echo "[Tier C] Full training (this takes a long time)..."
     echo "  Training speed_gen_hidden_5seed..."
-    python run_speed_generalization.py \
+    python experiments/run_speed_generalization.py \
         --output-dir runs/speed_gen_hidden_5seed_repro \
         --speed-hidden \
-        --n-seeds 5
+        --seeds 5
 
     echo "  Running ablation on new results..."
-    python run_ablation.py \
+    python experiments/run_ablation.py \
         --results-dir runs/speed_gen_hidden_5seed_repro \
         --speed-hidden \
         --multi-seed \

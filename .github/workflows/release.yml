@@ -9,7 +9,7 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+  contract-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -19,7 +19,32 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+
+      - name: Install package + dev deps
+        run: pip install -e ".[dev]"
+
+      - name: Validate release version metadata
+        run: python scripts/check_release_consistency.py --expected-version "${GITHUB_REF_NAME#v}"
+
+      - name: Run contract suites
+        run: python scripts/check_contracts.py
+
+      - name: Run full test suite
+        run: python -m pytest tests/ -v --tb=short
+
+  build:
+    needs: contract-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Build wheel & sdist
         run: |
@@ -46,7 +71,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install from wheel
         run: pip install dist/*.whl
@@ -101,7 +126,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Twine check
         run: |

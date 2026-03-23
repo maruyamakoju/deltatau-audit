@@ -11,11 +11,6 @@ import json
 import pathlib
 import tempfile
 
-import pytest
-import torch
-import numpy as np
-
-
 # ─────────────────────────────────────────────────────────────────────
 # 1. obs_noise in _DEPLOY_SCENARIOS
 # ─────────────────────────────────────────────────────────────────────
@@ -144,7 +139,7 @@ def test_generate_comparison_md_obs_noise_category():
         md = generate_comparison(before, after)
         # Find obs_noise line in the markdown
         lines = md.splitlines()
-        obs_noise_lines = [l for l in lines if "obs_noise" in l]
+        obs_noise_lines = [line for line in lines if "obs_noise" in line]
         assert obs_noise_lines, "obs_noise should appear in comparison.md"
         # It must be categorized as Deployment, not Stress
         assert "Deployment" in obs_noise_lines[0], (
@@ -231,8 +226,8 @@ def _make_mock_audit_result():
 
 
 def test_generate_report_writes_version_to_json():
-    from deltatau_audit.report import generate_report
     import deltatau_audit
+    from deltatau_audit.report import generate_report
     with tempfile.TemporaryDirectory() as tmp:
         audit_result = _make_mock_audit_result()
         generate_report(audit_result, tmp, title="Test")
@@ -261,13 +256,9 @@ def test_generate_report_writes_timestamp_to_json():
 
 def _get_main_parser():
     """Build the argparse parser by calling main with a mock sys.argv."""
-    import argparse
     # We need to introspect the parser — import cli internals
-    import importlib
-    import sys
     # Temporarily replace sys.argv and capture parser
     # Simpler: import and call the parser setup
-    from deltatau_audit import cli as _cli
     # Rebuild parser by calling main with --help captured
     # Instead, directly test via argparse by parsing known args
     return None
@@ -275,8 +266,8 @@ def _get_main_parser():
 
 def test_fix_sb3_cli_accepts_workers_and_seed():
     """fix-sb3 subparser must accept --workers and --seed."""
-    from deltatau_audit.cli import main
     import argparse
+
     # We can't easily call main() without env setup, but we can parse directly
     # by importing the module and using parse_known_args
     import sys
@@ -288,7 +279,6 @@ def test_fix_sb3_cli_accepts_workers_and_seed():
             "--workers", "auto", "--seed", "42",
         ]
         # Import parser internals via the module
-        from deltatau_audit.cli import main as _main
         import argparse
         # We can't easily run main() without the env present,
         # so test that _add_workers_arg and _add_seed_arg are called on fix_parser
@@ -300,7 +290,7 @@ def test_fix_sb3_cli_accepts_workers_and_seed():
         fix_p.add_argument("--model", required=True)
         fix_p.add_argument("--algo", required=True)
         fix_p.add_argument("--env", required=True)
-        from deltatau_audit.cli import _add_workers_arg, _add_seed_arg
+        from deltatau_audit.cli import _add_seed_arg, _add_workers_arg
         _add_workers_arg(fix_p)
         _add_seed_arg(fix_p)
         args = parser.parse_args([
@@ -316,7 +306,8 @@ def test_fix_sb3_cli_accepts_workers_and_seed():
 def test_fix_cleanrl_cli_accepts_workers_and_seed():
     """fix-cleanrl subparser must accept --workers and --seed."""
     import argparse
-    from deltatau_audit.cli import _add_workers_arg, _add_seed_arg
+
+    from deltatau_audit.cli import _add_seed_arg, _add_workers_arg
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     fix_p = subparsers.add_parser("fix-cleanrl")

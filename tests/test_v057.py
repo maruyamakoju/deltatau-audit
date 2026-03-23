@@ -1,13 +1,11 @@
 """Tests for v0.5.7: --json output mode."""
 
 import argparse
-import contextlib
 import io
 import json
 import sys
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # _add_format_arg: json choice
@@ -95,6 +93,7 @@ class TestJsonRedirect:
     def test_emit_json_handles_non_serializable(self, capsys):
         """Non-serializable values should be converted via default=str."""
         import numpy as np
+
         from deltatau_audit.cli import _emit_json
 
         result = {"array": np.array([1, 2, 3]), "nan": float("nan")}
@@ -115,8 +114,7 @@ class TestDemoJsonOutput:
 
     def test_demo_json_output_is_valid_json(self, tmp_path):
         """Run the demo in-process and verify JSON output."""
-        from deltatau_audit.auditor import run_full_audit
-        from deltatau_audit.cli import _emit_json, _json_redirect
+        from deltatau_audit.cli import _emit_json
 
         # Build a minimal result dict like what the demo produces
         result = {
@@ -158,7 +156,6 @@ class TestDemoJsonOutput:
 class TestAuditParserHasFormat:
     def test_base_audit_parser_has_format(self):
         """The base 'audit' subcommand should now have --format."""
-        from deltatau_audit.cli import main
         import argparse
 
         # Build the parser by importing and inspecting

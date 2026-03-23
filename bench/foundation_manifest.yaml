@@ -1,0 +1,28 @@
+# Foundation Level Robustness Benchmark (v0.9.0)
+# Covers 4 architectures across Classic and Robotics tasks.
+
+output_dir: bench_runs/foundation_v1
+protocol: research  # Use strict research protocol (CI-lower bound gating)
+
+matrix:
+  env: 
+    - CartPole-v1
+    - Acrobot-v1
+    - chain
+  agent_type:
+    - baseline
+    - skip_rnn
+    - internal_time
+    - ltc
+  seed: [0, 1, 2]
+
+# Job template for the auditor
+job_template:
+  command: audit
+  args:
+    checkpoint: "checkpoints/{env}/{agent_type}/seed_{seed}/final.pt"
+    agent_type: "{agent_type}"
+    env: "{env}"
+    episodes: 50
+    speeds: [1, 2, 3, 5]
+    out: "{job_dir}"

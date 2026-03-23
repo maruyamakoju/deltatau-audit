@@ -6,11 +6,6 @@
 """
 
 import argparse
-import os
-import sys
-
-import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. color.py
@@ -20,6 +15,7 @@ def test_colorize_returns_text_when_no_color_set(monkeypatch):
     monkeypatch.setenv("NO_COLOR", "1")
     # Re-import after env change forces re-evaluation
     import importlib
+
     import deltatau_audit.color as c
     importlib.reload(c)
     result = c.colorize("PASS", "bright_green")
@@ -31,6 +27,7 @@ def test_colorize_wraps_with_ansi_when_force_color(monkeypatch):
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("FORCE_COLOR", "1")
     import importlib
+
     import deltatau_audit.color as c
     importlib.reload(c)
     result = c.colorize("PASS", "bright_green")
@@ -43,6 +40,7 @@ def test_colored_rating_contains_rating_text(monkeypatch):
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("NO_COLOR", raising=False)
     import importlib
+
     import deltatau_audit.color as c
     importlib.reload(c)
     for rating in ("PASS", "MILD", "DEGRADED", "FAIL", "N/A"):
@@ -53,7 +51,7 @@ def test_colored_rating_contains_rating_text(monkeypatch):
 
 def test_colored_rating_width_pads_correctly():
     """colored_rating with width should right-pad without ANSI affecting alignment."""
-    from deltatau_audit.color import colored_rating, _rj
+    from deltatau_audit.color import _rj
     # _rj should right-justify based on text length, not ANSI length
     padded = _rj("PASS", 10)
     assert len(padded) == 10
@@ -167,7 +165,7 @@ def test_add_format_arg_markdown():
 
 
 def test_audit_sb3_parser_accepts_format_markdown():
-    from deltatau_audit.cli import _add_format_arg, _add_workers_arg, _add_seed_arg
+    from deltatau_audit.cli import _add_format_arg
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")
     sb3 = sub.add_parser("audit-sb3")
@@ -212,8 +210,10 @@ def test_print_summary_no_crash(capsys, monkeypatch):
 
 def test_print_summary_with_reliance(capsys, monkeypatch):
     monkeypatch.setenv("NO_COLOR", "1")  # plain text for easy assertion
+    import importlib
+
+    import deltatau_audit.color as c
     from deltatau_audit.auditor import _print_summary
-    import importlib, deltatau_audit.color as c
     importlib.reload(c)
     summary = {
         "reliance_rating": "HIGH",

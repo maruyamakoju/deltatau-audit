@@ -16,6 +16,12 @@ inputs:
     description: "SB3 algorithm (ppo, sac, td3, a2c)"
     required: false
     default: "ppo"
+  checkpoint:
+    description: "Path to agent checkpoint (.pt file) — for audit-cleanrl, fix-cleanrl"
+    required: false
+  agent-module:
+    description: "Python module path for CleanRL agent class (e.g. 'my_pkg.agent:Agent') — for audit-cleanrl"
+    required: false
   env:
     description: "Gymnasium environment ID (e.g. CartPole-v1, HalfCheetah-v5)"
     required: false
@@ -46,6 +52,18 @@ inputs:
   seed:
     description: "Random seed for reproducible results"
     required: false
+  seeds:
+    description: "Multi-seed sweep list (space/comma separated, e.g. '0 1 2 3 4')"
+    required: false
+    default: ""
+  ci-min-deployment-pass-rate:
+    description: "Multi-seed gate: minimum deployment pass rate (0-1)"
+    required: false
+    default: "0.80"
+  ci-min-stress-pass-rate:
+    description: "Multi-seed gate: minimum stress pass rate (0-1)"
+    required: false
+    default: "0.50"
   extra-args:
     description: "Additional CLI arguments (e.g. '--adaptive --target-ci-width 0.05')"
     required: false
@@ -77,6 +95,15 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-deltatau-${{ inputs.extras }}-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-deltatau-${{ inputs.extras }}-
+          ${{ runner.os }}-pip-deltatau-
+
     - name: Install deltatau-audit
       shell: bash
       run: pip install "deltatau-audit[${{ inputs.extras }}]"
@@ -87,9 +114,20 @@ runs:
       run: |
         set +e
 
-        SEED_FLAG=""
+        SINGLE_SEED_FLAG=""
         if [ -n "${{ inputs.seed }}" ]; then
-          SEED_FLAG="--seed ${{ inputs.seed }}"
+          SINGLE_SEED_FLAG="--seed ${{ inputs.seed }}"
+        fi
+
+        SWEEP_SEEDS_FLAG=""
+        if [ -n "${{ inputs.seeds }}" ]; then
+          CLEAN_SEEDS=$(echo "${{ inputs.seeds }}" | tr ',' ' ')
+          SWEEP_SEEDS_FLAG="--seeds $CLEAN_SEEDS"
+        fi
+
+        AUDIT_SEED_FLAGS="$SINGLE_SEED_FLAG"
+        if [ -n "$SWEEP_SEEDS_FLAG" ]; then
+          AUDIT_SEED_FLAGS="$SWEEP_SEEDS_FLAG"
         fi
 
         COMMON_FLAGS="--ci \
@@ -97,13 +135,14 @@ runs:
           --workers ${{ inputs.workers }} \
           --ci-deploy-threshold ${{ inputs.deploy-threshold }} \
           --ci-stress-threshold ${{ inputs.stress-threshold }} \
+          --ci-min-deployment-pass-rate ${{ inputs.ci-min-deployment-pass-rate }} \
+          --ci-min-stress-pass-rate ${{ inputs.ci-min-stress-pass-rate }} \
           --format markdown \
           --out ${{ inputs.output }} \
-          $SEED_FLAG \
           ${{ inputs.extra-args }}"
 
         if [ "${{ inputs.command }}" = "demo" ]; then
-          python -m deltatau_audit demo cartpole $COMMON_FLAGS
+          python -m deltatau_audit demo cartpole $COMMON_FLAGS $SINGLE_SEED_FLAG
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "audit-sb3" ]; then
@@ -111,13 +150,23 @@ runs:
             --algo ${{ inputs.algo }} \
             --model "${{ inputs.model }}" \
             --env "${{ inputs.env }}" \
-            $COMMON_FLAGS
+            $COMMON_FLAGS $AUDIT_SEED_FLAGS
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "audit-cleanrl" ]; then
+          CHECKPOINT_FLAG=""
+          if [ -n "${{ inputs.checkpoint }}" ]; then
+            CHECKPOINT_FLAG="--checkpoint ${{ inputs.checkpoint }}"
+          fi
+          AGENT_MODULE_FLAG=""
+          if [ -n "${{ inputs.agent-module }}" ]; then
+            AGENT_MODULE_FLAG="--agent-module ${{ inputs.agent-module }}"
+          fi
           python -m deltatau_audit audit-cleanrl \
             --env "${{ inputs.env }}" \
-            $COMMON_FLAGS
+            $CHECKPOINT_FLAG \
+            $AGENT_MODULE_FLAG \
+            $COMMON_FLAGS $AUDIT_SEED_FLAGS
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "audit-hf" ]; then
@@ -125,7 +174,7 @@ runs:
             --algo ${{ inputs.algo }} \
             --repo "${{ inputs.model }}" \
             --env "${{ inputs.env }}" \
-            $COMMON_FLAGS
+            $COMMON_FLAGS $AUDIT_SEED_FLAGS
           EXIT_CODE=$?
 
         elif [ "${{ inputs.command }}" = "fix-sb3" ]; then
@@ -133,7 +182,7 @@ runs:
             --algo ${{ inputs.algo }} \
             --model "${{ inputs.model }}" \
             --env "${{ inputs.env }}" \
-            $COMMON_FLAGS
+            $COMMON_FLAGS $SINGLE_SEED_FLAG
           EXIT_CODE=$?
 
         else
@@ -149,9 +198,7 @@ runs:
         fi
 
         if [ -f "$CI_JSON" ]; then
-          STATUS=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['status'])")
-          DEP=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['deployment_score'])")
-          STR=$(python -c "import json; d=json.load(open('$CI_JSON')); print(d['stress_score'])")
+          read -r STATUS DEP STR <<< $(python -c "import json; d=json.load(open('$CI_JSON')); print(d['status'], d.get('deployment_score', 0), d.get('stress_score', 0))")
           echo "status=$STATUS" >> $GITHUB_OUTPUT
           echo "deployment_score=$DEP" >> $GITHUB_OUTPUT
           echo "stress_score=$STR" >> $GITHUB_OUTPUT

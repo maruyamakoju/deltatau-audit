@@ -10,4 +10,21 @@ time-aware agents) with "the agent breaks under timing changes" (bad for
 deployment).
 """
 
-__version__ = "0.6.2"
+from .schema import SCHEMA_VERSION as __schema_version__
+from .seed_sweep import run_seed_sweep, summarize_seed_sweep
+
+__version__ = "1.0.0"
+
+__all__ = [
+    "__version__",
+    "__schema_version__",
+    "run_seed_sweep",
+    "summarize_seed_sweep",
+]
+
+# Optional dm_control adapter (requires shimmy + dm-control)
+try:
+    from .adapters.dm_control import DMControlSB3Adapter, make_dm_control_env
+    __all__ += ["DMControlSB3Adapter", "make_dm_control_env"]
+except ImportError:
+    pass  # dm_control/shimmy not installed

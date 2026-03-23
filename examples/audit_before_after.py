@@ -95,14 +95,20 @@ ASSETS = {
 }
 
 
+def _download(url: str, dest: str) -> None:
+    """Download a file from URL to dest path."""
+    import urllib.request
+    with urllib.request.urlopen(url) as resp, open(dest, "wb") as f:  # noqa: S310
+        f.write(resp.read())
+
+
 def _try_download(local_path: Path, asset_name: str) -> bool:
     """Try to download a model from GitHub Releases. Returns True on success."""
     url = RELEASE_URL + asset_name
     try:
-        import urllib.request
         local_path.parent.mkdir(parents=True, exist_ok=True)
         print(f"  Downloading {asset_name} from GitHub Releases...")
-        urllib.request.urlretrieve(url, str(local_path))
+        _download(url, str(local_path))
         print(f"  Saved: {local_path}")
         return True
     except Exception as e:

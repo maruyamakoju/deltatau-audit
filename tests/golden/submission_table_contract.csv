@@ -1,0 +1,3 @@
+job_id,status,command,env,algo,seed,variant,protocol,deployment_score,deployment_rating,stress_score,stress_rating,stress_worst_scenario,stress_worst_return_ratio,stress_worst_ci_lower,stress_ci_gate_pass,quadrant,diagnosis_pattern,summary_path
+cartpole_seed0,passed,audit-sb3,CartPole-v1,ppo,0,baseline,research,0.8800,MILD,0.5600,DEGRADED,speed_5x,0.5600,0.5100,true,deployment_ready,Extreme Frequency Fragility,<bench_root>/cartpole_seed0/summary.json
+acrobot_seed1,passed,audit-cleanrl,Acrobot-v1,ppo,1,time_feature,paper,0.9300,PASS,0.7200,MILD,delay,0.7200,0.6800,true,time_aware_robust,Observation Recency Dependency,<bench_root>/acrobot_seed1/summary.json

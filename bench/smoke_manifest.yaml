@@ -1,0 +1,18 @@
+output_dir: bench_runs_smoke
+jobs:
+  - name: smoke_cartpole_baseline
+    command: audit-sb3
+    matrix:
+      seed: [0]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints/baseline/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      allow_protocol_override: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"

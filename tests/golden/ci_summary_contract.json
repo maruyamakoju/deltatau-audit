@@ -1,0 +1,47 @@
+{
+  "_timestamp": "<timestamp>",
+  "_version": "<version>",
+  "deploy_pass": true,
+  "deployment_rating": "PASS",
+  "deployment_score": 0.9,
+  "deployment_worst": "spike",
+  "exit_code": 0,
+  "gate_mode": "score",
+  "gate_scores": {
+    "deployment": 0.9,
+    "stress": 0.8
+  },
+  "scenario_effect_sizes": {
+    "delay": {
+      "cohens_d": null,
+      "magnitude": null
+    },
+    "jitter": {
+      "cohens_d": null,
+      "magnitude": null
+    },
+    "obs_noise": {
+      "cohens_d": null,
+      "magnitude": null
+    },
+    "speed_5x": {
+      "cohens_d": null,
+      "magnitude": null
+    },
+    "spike": {
+      "cohens_d": null,
+      "magnitude": null
+    }
+  },
+  "significant_change_count": 0,
+  "significant_drop_count": 3,
+  "status": "pass",
+  "stress_pass": true,
+  "stress_rating": "MILD",
+  "stress_score": 0.8,
+  "stress_worst": "speed_5x",
+  "thresholds": {
+    "deployment": 0.8,
+    "stress": 0.5
+  }
+}

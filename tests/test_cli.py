@@ -11,6 +11,61 @@ def test_help_shows_audit_sb3():
         capture_output=True, text=True,
     )
     assert "audit-sb3" in result.stdout
+    assert "bench" in result.stdout
+    assert "stress" in result.stdout
+
+
+def test_audit_sb3_help_includes_seed_sweep_flags():
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "audit-sb3", "--help"],
+        capture_output=True, text=True,
+    )
+    assert "--seeds" in result.stdout
+    assert "--ci-min-deployment-pass-rate" in result.stdout
+    assert "--protocol" in result.stdout
+    assert "--ci-gate-mode" in result.stdout
+    assert "--explain-fail" in result.stdout
+    assert "--env-wrap-time-feature" in result.stdout
+
+
+def test_bench_run_help():
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "bench", "run", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "--manifest" in result.stdout
+    assert "--no-resume" in result.stdout
+    assert "--protocol" in result.stdout
+
+
+def test_bench_table_help():
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "bench", "table", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "--summary" in result.stdout
+
+
+def test_stress_analyze_help():
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "stress", "analyze", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "--summary" in result.stdout
+    assert "--stress-threshold" in result.stdout
+
+
+def test_stress_train_sb3_help():
+    result = subprocess.run(
+        [sys.executable, "-m", "deltatau_audit", "stress", "train-sb3", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "--out-root" in result.stdout
+    assert "--variants" in result.stdout
 
 
 def test_audit_sb3_missing_args():

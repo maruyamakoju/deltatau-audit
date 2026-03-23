@@ -3,9 +3,7 @@
 import pytest
 import torch
 
-from deltatau_audit.adapters.base import AgentAdapter
 from deltatau_audit.adapters.generic import GenericRecurrentAdapter
-
 
 # ── Base adapter property detection ───────────────────────────────────
 

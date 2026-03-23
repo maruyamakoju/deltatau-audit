@@ -9,13 +9,13 @@
 """
 
 import warnings
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
-from deltatau_audit.metrics import compute_return_ratio, bootstrap_return_ratio
 from deltatau_audit.auditor import _run_single_episode, run_robustness_audit
-
+from deltatau_audit.metrics import bootstrap_return_ratio, compute_return_ratio
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures / helpers
@@ -65,7 +65,7 @@ class TestEpisodeTimeout:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            result = _run_single_episode(
+            _run_single_episode(
                 adapter, env, intervention="none",
                 max_steps=10,
             )
@@ -312,6 +312,7 @@ class TestObsNoiseWrapper:
     def test_noise_applied_on_step(self):
         """Step must return a perturbed observation (not identical to clean)."""
         import gymnasium as gym
+
         from deltatau_audit.wrappers.latency import ObsNoiseWrapper
 
         base = gym.make("CartPole-v1")
@@ -336,6 +337,7 @@ class TestObsNoiseWrapper:
     def test_reset_is_clean(self):
         """Reset must return obs without noise (initial state is clean)."""
         import gymnasium as gym
+
         from deltatau_audit.wrappers.latency import ObsNoiseWrapper
 
         base_env = gym.make("CartPole-v1")
@@ -356,6 +358,7 @@ class TestObsNoiseWrapper:
     def test_noise_info_key(self):
         """Step info must contain obs_noise_std key."""
         import gymnasium as gym
+
         from deltatau_audit.wrappers.latency import ObsNoiseWrapper
 
         env = ObsNoiseWrapper(gym.make("CartPole-v1"), std=0.05, seed=0)
@@ -367,13 +370,14 @@ class TestObsNoiseWrapper:
 
     def test_obs_noise_scenario_in_auditor(self):
         """obs_noise must be a valid robustness scenario in ROBUSTNESS_SCENARIOS."""
-        from deltatau_audit.auditor import ROBUSTNESS_SCENARIOS, DEPLOYMENT_SCENARIOS
+        from deltatau_audit.auditor import DEPLOYMENT_SCENARIOS, ROBUSTNESS_SCENARIOS
         assert "obs_noise" in ROBUSTNESS_SCENARIOS
         assert "obs_noise" in DEPLOYMENT_SCENARIOS
 
     def test_make_wrapped_env_obs_noise(self):
         """_make_wrapped_env must create ObsNoiseWrapper for obs_noise scenario."""
         import gymnasium as gym
+
         from deltatau_audit.auditor import _make_wrapped_env
         from deltatau_audit.wrappers.latency import ObsNoiseWrapper
 

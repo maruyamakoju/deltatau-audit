@@ -1,0 +1,1 @@
+{"time_utc": "2026-03-02T00:00:00+00:00", "cycle": 1, "job": "mini", "event": "diagnosis", "diagnosis_code": "running", "diagnosis_recoverable": false, "done": 2, "total": 10, "pid": 111, "no_progress_cycles": 0, "no_progress_seconds": 0, "forced_recovery_reason": null}

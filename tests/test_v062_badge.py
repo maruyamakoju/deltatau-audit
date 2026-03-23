@@ -3,9 +3,6 @@
 import json
 import os
 
-import pytest
-
-
 # ── Badge rendering tests ──────────────────────────────────────────
 
 def test_badge_module_importable():
@@ -136,7 +133,7 @@ def test_generate_badges_flat_summary(tmp_path):
         json.dump(_sample_summary(), f)
 
     paths = generate_badges(summary_path, str(tmp_path))
-    assert len(paths) == 3
+    assert len(paths) == 4  # deployment, stress, reliance, status
     for path in paths.values():
         assert os.path.exists(path)
 
@@ -146,6 +143,7 @@ def test_generate_badges_flat_summary(tmp_path):
 def test_svg_valid_xml():
     """Badge SVGs are valid XML."""
     import xml.etree.ElementTree as ET
+
     from deltatau_audit.badge import badge_deployment
     svg = badge_deployment(_sample_summary())
     # Should parse without errors
@@ -163,7 +161,6 @@ def test_svg_has_aria_label():
 
 def test_badge_cli_subcommand(tmp_path):
     """deltatau-audit badge runs successfully."""
-    from deltatau_audit.badge import generate_badges
 
     summary_path = str(tmp_path / "summary.json")
     with open(summary_path, "w") as f:

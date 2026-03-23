@@ -1,0 +1,20 @@
+{
+  "updated_at_utc": "2026-03-02T00:00:00+00:00",
+  "jobs": {
+    "mini": {
+      "restart_count": 0,
+      "consecutive_recoverable": 0,
+      "consecutive_signature_hits": 0,
+      "no_progress_cycles": 0,
+      "last_done": 2,
+      "last_progress_ts": 100.0,
+      "last_restart_ts": -1.0,
+      "last_reason": "",
+      "last_diagnosis": "running",
+      "last_signature": "",
+      "restarts_by_reason": {},
+      "restarts_by_signature": {},
+      "restart_times_s": []
+    }
+  }
+}

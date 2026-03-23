@@ -1,8 +1,6 @@
 """Tests for v0.4.9: --quiet flag on audit-sb3, audit-cleanrl, audit."""
 
 import argparse
-import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. _add_quiet_arg helper
@@ -38,8 +36,12 @@ def test_add_quiet_arg_short_flag():
 
 def _make_sb3_parser():
     from deltatau_audit.cli import (
-        _add_ci_args, _add_seed_arg, _add_workers_arg,
-        _add_compare_arg, _add_format_arg, _add_quiet_arg,
+        _add_ci_args,
+        _add_compare_arg,
+        _add_format_arg,
+        _add_quiet_arg,
+        _add_seed_arg,
+        _add_workers_arg,
     )
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")
@@ -93,8 +95,12 @@ def test_audit_sb3_quiet_short_flag():
 
 def _make_cleanrl_parser():
     from deltatau_audit.cli import (
-        _add_ci_args, _add_seed_arg, _add_workers_arg,
-        _add_compare_arg, _add_format_arg, _add_quiet_arg,
+        _add_ci_args,
+        _add_compare_arg,
+        _add_format_arg,
+        _add_quiet_arg,
+        _add_seed_arg,
+        _add_workers_arg,
     )
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")
@@ -145,10 +151,10 @@ def test_audit_cleanrl_quiet_flag():
 
 def test_run_full_audit_verbose_false_no_output(capsys):
     """run_full_audit with verbose=False should produce no stdout."""
-    import torch
     import gymnasium as gym
-    from deltatau_audit.auditor import run_full_audit
+
     from deltatau_audit.adapters.simple_gru import SimpleGRUAdapter
+    from deltatau_audit.auditor import run_full_audit
 
     env_factory = lambda: gym.make("CartPole-v1")
     sample_env = env_factory()

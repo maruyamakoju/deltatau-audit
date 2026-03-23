@@ -5,7 +5,6 @@ import sys
 
 import pytest
 
-
 # ── CLI argument parsing tests ───────────────────────────────────
 
 def test_help_shows_fix_sb3():
@@ -58,7 +57,7 @@ def test_estimate_timesteps():
 
     assert _estimate_timesteps("CartPole-v1", "ppo") == 100_000
     assert _estimate_timesteps("HalfCheetah-v5", "ppo") == 500_000
-    assert _estimate_timesteps("LunarLander-v3", "ppo") == 100_000
+    assert _estimate_timesteps("LunarLander-v3", "ppo") == 300_000
     assert _estimate_timesteps("SomeCustomEnv-v0", "ppo") == 200_000
 
 

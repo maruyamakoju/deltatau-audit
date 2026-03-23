@@ -80,17 +80,23 @@ class SB3Adapter(AgentAdapter):
 
     @classmethod
     def from_path(cls, path: str, algo: str = "ppo",
-                  device: str = "cpu") -> "SB3Adapter":
+                  device: str = "cpu",
+                  vec_normalize_path: Optional[str] = None) -> "SB3Adapter":
         """Load an SB3 model from a .zip file.
 
         Args:
             path: Path to the saved model (.zip)
             algo: Algorithm name ("ppo", "sac", "td3", "a2c")
             device: Device string
+            vec_normalize_path: Optional path to VecNormalize stats .pkl file.
+                               Required if the model was trained with VecNormalize.
 
         Returns:
             SB3Adapter instance
         """
+        import os
+        import warnings
+
         try:
             import stable_baselines3
         except ImportError:
@@ -112,6 +118,31 @@ class SB3Adapter(AgentAdapter):
             )
 
         model = algo_cls.load(path, device=device)
+
+        # Check for VecNormalize stats file (common SB3 pattern)
+        zip_dir = os.path.dirname(os.path.abspath(path))
+        zip_stem = os.path.splitext(os.path.basename(path))[0]
+        possible_vec_norm = os.path.join(zip_dir, f"{zip_stem}_vecnormalize.pkl")
+        alt_vec_norm = os.path.join(zip_dir, "vecnormalize.pkl")
+
+        if vec_normalize_path is None:
+            if os.path.exists(possible_vec_norm):
+                warnings.warn(
+                    f"Found VecNormalize stats at '{possible_vec_norm}'. "
+                    f"Pass vec_normalize_path='{possible_vec_norm}' to SB3Adapter.from_path() "
+                    f"or your audit results will be incorrect (observations won't be normalized).",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            elif os.path.exists(alt_vec_norm):
+                warnings.warn(
+                    f"Found VecNormalize stats at '{alt_vec_norm}'. "
+                    f"Pass vec_normalize_path='{alt_vec_norm}' to SB3Adapter.from_path() "
+                    f"or your audit results will be incorrect.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
         return cls(model, device=device)
 
     @classmethod

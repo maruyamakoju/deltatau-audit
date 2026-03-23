@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deltatau-audit"
-version = "0.6.2"
-description = "Time Robustness Audit for RL agents — measures timing reliance, deployment robustness, and stress resilience"
+version = "1.0.0"
+description = "Universal Standard for Temporal Intelligence and Robustness in RL"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -13,31 +13,59 @@ license-files = ["LICENSE"]
 authors = [
     { name = "maruyamakoju" },
 ]
-keywords = ["reinforcement-learning", "robustness", "audit", "timing", "rl", "mujoco", "stable-baselines3", "deployment", "gymnasium", "testing", "ci"]
+keywords = [
+    "reinforcement-learning",
+    "robustness",
+    "audit",
+    "timing",
+    "rl",
+    "mujoco",
+    "stable-baselines3",
+    "deployment",
+    "gymnasium",
+    "testing",
+    "ci",
+    "dreamer",
+    "world-model",
+    "formal-verification",
+    "mcts",
+    "adaptive-computation",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Framework :: Pytest",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
 ]
 dependencies = [
     "torch>=2.0",
     "gymnasium>=0.29",
     "numpy>=1.24",
     "matplotlib>=3.7",
+    "pyyaml>=6.0",
     "tqdm>=4.60",
+    "scipy>=1.10",
+    "jsonschema>=4.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/maruyamakoju/deltatau-audit"
 Repository = "https://github.com/maruyamakoju/deltatau-audit"
 Documentation = "https://maruyamakoju.github.io/deltatau-audit/"
-Issues = "https://github.com/maruyamakoju/deltatau-audit/issues"
+"Bug Tracker" = "https://github.com/maruyamakoju/deltatau-audit/issues"
 Changelog = "https://github.com/maruyamakoju/deltatau-audit/blob/main/CHANGELOG.md"
 "Sample Reports" = "https://maruyamakoju.github.io/deltatau-audit/"
 "Models & Reports" = "https://github.com/maruyamakoju/deltatau-audit/releases/tag/assets"
@@ -49,7 +77,24 @@ hf = ["huggingface_hub>=0.16", "stable-baselines3>=2.0"]
 mujoco = ["gymnasium[mujoco]>=1.0"]
 wandb = ["wandb>=0.12"]
 mlflow = ["mlflow>=2.0"]
-dev = ["pytest>=7.0", "mypy>=1.0", "ruff>=0.9", "pre-commit>=3.0"]
+bench = ["pyyaml>=6.0"]
+dm_control = ["shimmy[dm-control]>=1.0", "dm-control>=1.0", "stable-baselines3>=2.0"]
+jax = ["jax>=0.4", "jaxlib>=0.4", "flax>=0.7"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-timeout>=2.1",
+    "mypy>=1.0",
+    "ruff>=0.9",
+    "pre-commit>=3.0",
+    "jsonschema>=4.0",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-timeout>=2.1",
+    "jsonschema>=4.0",
+]
 
 [project.scripts]
 deltatau-audit = "deltatau_audit.cli:main"
@@ -59,7 +104,7 @@ where = ["."]
 include = ["deltatau_audit*"]
 
 [tool.setuptools.package-data]
-deltatau_audit = ["demo_data/**/*.pt", "py.typed"]
+deltatau_audit = ["demo_data/**/*.pt", "py.typed", "schemas/*.json"]
 
 [tool.ruff]
 line-length = 120
@@ -78,10 +123,21 @@ known-first-party = ["deltatau_audit"]
 [tool.mypy]
 ignore_missing_imports = true
 no_namespace_packages = true
-follow_imports = "skip"
-# Suppress errors from third-party stubs in the environment
-exclude = ["rdkit"]
+follow_imports = "silent"
 
 [[tool.mypy.overrides]]
-module = ["rdkit.*", "stable_baselines3.*", "gymnasium.*", "sb3_contrib.*"]
+module = ["stable_baselines3.*", "gymnasium.*", "sb3_contrib.*", "wandb.*", "mlflow.*", "huggingface_hub.*"]
 ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "slow: marks tests that require training (deselect with '-m not slow')",
+    "integration: marks integration tests that need external env installs",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:gymnasium",
+    "ignore::UserWarning:stable_baselines3",
+]
+addopts = "-v --tb=short"

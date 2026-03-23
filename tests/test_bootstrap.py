@@ -79,3 +79,21 @@ class TestBootstrapReturnRatio:
     def test_empty_inputs(self):
         result = bootstrap_return_ratio([], [100.0])
         assert result["significant"] is False
+
+    def test_returns_effect_size_fields(self):
+        nom = [100.0, 105.0, 98.0, 102.0]
+        pert = [80.0, 82.0, 79.0, 81.0]
+        result = bootstrap_return_ratio(nom, pert)
+        assert "cohens_d" in result
+        assert "cohens_d_magnitude" in result
+        assert "cliffs_delta" in result
+        assert "common_language_effect" in result
+        assert result["cohens_d"] < 0  # perturbation is worse than nominal
+        assert 0.0 <= result["common_language_effect"] <= 1.0
+
+    def test_significant_change_for_improvement(self):
+        nom = [100.0] * 40
+        pert = [140.0] * 40
+        result = bootstrap_return_ratio(nom, pert)
+        assert result["significant"] is False  # backward-compat: drop only
+        assert result["significant_change"] is True

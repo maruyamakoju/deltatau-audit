@@ -15,9 +15,33 @@ test_fix_output/
 halfcheetah_audit/
 halfcheetah_before_after/
 halfcheetah_audit_report*.zip
+bench_runs*/
+_status_demo/
+stress_artifacts*/
+ablation_runs*/
+_external_smoke*/
 
-# Test models
+# Test models & artifacts
 test_*.zip
+checkpoints/
+checkpoints_cartpole_ppo/
+demo_dogfood/
+badges/
+*.onnx
+*.pt
+dummy.pt
+
+# Generated reports & temp files
+adversarial_report/
+deliberative_audit_report/
+jax_audit_report/
+vla_audit_report/
+cert_jax.html
+meta_calibration_results.png
+.tmp/
+tmp_debug_health/
+atlas_demo/
+research_test/
 
 # IDE / OS / Tools
 .vscode/

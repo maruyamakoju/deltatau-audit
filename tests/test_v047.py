@@ -10,9 +10,6 @@ import json
 import pathlib
 import tempfile
 
-import pytest
-
-
 # ─────────────────────────────────────────────────────────────────────
 # 1. ci_summary.json _version + _timestamp
 # ─────────────────────────────────────────────────────────────────────
@@ -53,8 +50,8 @@ def _make_minimal_robustness() -> dict:
 
 
 def test_ci_summary_json_has_version():
-    from deltatau_audit.ci import write_ci_summary
     import deltatau_audit
+    from deltatau_audit.ci import write_ci_summary
     with tempfile.TemporaryDirectory() as tmp:
         write_ci_summary(_make_minimal_summary(), _make_minimal_robustness(), tmp)
         data = json.loads((pathlib.Path(tmp) / "ci_summary.json").read_text())

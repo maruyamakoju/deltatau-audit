@@ -1,0 +1,36 @@
+site_name: deltatau-audit
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: deep orange
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Theory: theory.md
+  - Advanced Features:
+      - VLA Transformers: vla.md
+      - Liquid Time-Constants: ltc.md
+      - Deliberative Reasoning: deliberative.md
+      - Sim-to-Real Bridge: bridge.md
+  - Deployment:
+      - ROS2 Integration: ros2.md
+      - Certification: certification.md
+  - API Reference: api.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - admonition
+  - footnotes
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

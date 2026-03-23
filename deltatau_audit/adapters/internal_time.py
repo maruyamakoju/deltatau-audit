@@ -70,6 +70,7 @@ class InternalTimeAdapter(AgentAdapter):
         """Load from a saved checkpoint file."""
         from internal_time_rl.models.baselines import SkipRNNAgent
         from internal_time_rl.models.policy import InternalTimeAgent
+        from internal_time_rl.models.continuous import LTCAgent
 
         ckpt = torch.load(checkpoint_path, map_location=device,
                           weights_only=False)
@@ -80,6 +81,8 @@ class InternalTimeAdapter(AgentAdapter):
             agent = InternalTimeAgent(obs_dim, act_dim, use_internal_time=True)
         elif agent_type == "skip_rnn":
             agent = SkipRNNAgent(obs_dim, act_dim)
+        elif agent_type == "ltc":
+            agent = LTCAgent(obs_dim, act_dim)
         else:
             raise ValueError(f"Unknown agent type: {agent_type}")
 

@@ -5,7 +5,7 @@ network latency, dropped action packets, and noisy sensors.
 """
 
 from collections import deque
-from typing import Optional
+from typing import Any, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -43,6 +43,7 @@ class ObsNoiseWrapper(gym.Wrapper):
     Models sensor imperfections, quantization noise, or partial observability.
     The noise is re-sampled at every step; the initial reset observation is
     returned clean so the agent starts from a known state.
+    Supports nested Dict and Tuple observation spaces.
 
     Args:
         env:  The base gymnasium env.
@@ -57,15 +58,32 @@ class ObsNoiseWrapper(gym.Wrapper):
         self.std = float(std)
         self._rng = np.random.default_rng(seed)
 
+    def _add_noise(self, obs: Any) -> Any:
+        if isinstance(obs, dict):
+            return {k: self._add_noise(v) for k, v in obs.items()}
+        elif isinstance(obs, tuple):
+            return tuple(self._add_noise(v) for v in obs)
+        elif isinstance(obs, np.ndarray):
+            if not np.issubdtype(obs.dtype, np.floating):
+                return obs  # Don't add noise to discrete/categorical observations
+            noise = self._rng.normal(0.0, self.std, size=obs.shape).astype(obs.dtype)
+            return obs + noise
+        else:
+            # Fallback for scalars or unrecognized types
+            try:
+                return obs + self._rng.normal(0.0, self.std)
+            except Exception:
+                return obs
+
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         return obs, info  # Clean observation on reset
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        noise = self._rng.normal(0.0, self.std, size=obs.shape).astype(obs.dtype)
+        noisy_obs = self._add_noise(obs)
         info["obs_noise_std"] = self.std
-        return obs + noise, reward, terminated, truncated, info
+        return noisy_obs, reward, terminated, truncated, info
 
 
 class ActionRepeatWrapper(gym.Wrapper):

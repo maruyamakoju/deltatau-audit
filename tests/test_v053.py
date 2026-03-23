@@ -1,8 +1,6 @@
 """Tests for v0.5.3: Adaptive episode sampling."""
 
 import argparse
-import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. CLI parser: --adaptive, --target-ci-width, --max-episodes
@@ -10,8 +8,14 @@ import pytest
 
 def _make_sb3_parser():
     from deltatau_audit.cli import (
-        _add_ci_args, _add_seed_arg, _add_workers_arg, _add_compare_arg,
-        _add_format_arg, _add_quiet_arg, _add_threshold_args, _add_adaptive_args,
+        _add_adaptive_args,
+        _add_ci_args,
+        _add_compare_arg,
+        _add_format_arg,
+        _add_quiet_arg,
+        _add_seed_arg,
+        _add_threshold_args,
+        _add_workers_arg,
     )
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command")
@@ -80,6 +84,7 @@ def test_max_episodes_custom():
 
 def _make_simple_adapter_and_factory():
     import gymnasium as gym
+
     from deltatau_audit.adapters.base import AgentAdapter
 
     class _ConstAdapter(AgentAdapter):

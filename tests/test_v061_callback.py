@@ -1,11 +1,9 @@
 """Tests for v0.6.1: SB3 TimingAuditCallback."""
 
-import importlib
 import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── Import tests (no SB3 required) ─────────────────────────────────
 

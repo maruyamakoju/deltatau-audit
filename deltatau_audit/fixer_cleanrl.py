@@ -34,6 +34,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from ._fixer_utils import estimate_timesteps as _estimate_timesteps_shared
+
 
 def _ppo_train_cleanrl(
     agent: nn.Module,
@@ -429,14 +431,7 @@ def fix_cleanrl_agent(
 
 def _estimate_timesteps_cleanrl(env_id: str) -> int:
     """Estimate PPO training budget based on environment."""
-    env_lower = env_id.lower()
-    if any(k in env_lower for k in ("cartpole", "mountaincar", "acrobot",
-                                     "pendulum", "lunar")):
-        return 100_000
-    if any(k in env_lower for k in ("cheetah", "hopper", "walker", "ant",
-                                     "humanoid", "swimmer", "mujoco")):
-        return 1_000_000
-    return 300_000
+    return _estimate_timesteps_shared(env_id, default=300_000)
 
 
 def _print_summary(before, after, fixed_path, output_dir, train_time):

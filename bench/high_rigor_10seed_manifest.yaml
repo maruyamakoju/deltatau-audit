@@ -1,0 +1,99 @@
+name: cartpole_high_rigor_10seed
+description: CartPole high-rigor benchmark (5 variants x 10 seeds, paper protocol)
+protocol: paper
+output_dir: bench_runs/cartpole_high_rigor_10seed
+
+jobs:
+  - name: cartpole_baseline
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/baseline/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      explain_fail: true
+      out: "bench_runs/cartpole_high_rigor_10seed/baseline/seed_{seed}"
+
+  - name: cartpole_intervention1_curriculum
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_curriculum/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      explain_fail: true
+      out: "bench_runs/cartpole_high_rigor_10seed/intervention1_curriculum/seed_{seed}"
+
+  - name: cartpole_intervention2_time_feature
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention2_time_feature/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      explain_fail: true
+      env_wrap_time_feature: true
+      out: "bench_runs/cartpole_high_rigor_10seed/intervention2_time_feature/seed_{seed}"
+
+  - name: cartpole_intervention1_plus_2
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_plus_2/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      explain_fail: true
+      env_wrap_time_feature: true
+      out: "bench_runs/cartpole_high_rigor_10seed/intervention1_plus_2/seed_{seed}"
+
+  - name: cartpole_intervention3_memory
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention3_memory/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      explain_fail: true
+      env_wrap_frame_stack: 4
+      env_wrap_flatten_obs: true
+      out: "bench_runs/cartpole_high_rigor_10seed/intervention3_memory/seed_{seed}"

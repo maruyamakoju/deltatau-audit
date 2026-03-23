@@ -1,0 +1,100 @@
+output_dir: bench_runs/cartpole_research
+jobs:
+  - name: cartpole_baseline
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/baseline/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      workers: "auto"
+      protocol: "research"
+      allow_protocol_override: true
+      explain_fail: true
+      out: "bench_runs/cartpole_research/baseline/seed_{seed}"
+
+  - name: cartpole_intervention1_curriculum
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_curriculum/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      workers: "auto"
+      protocol: "research"
+      allow_protocol_override: true
+      explain_fail: true
+      out: "bench_runs/cartpole_research/intervention1_curriculum/seed_{seed}"
+
+  - name: cartpole_intervention2_time_feature
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention2_time_feature/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      workers: "auto"
+      protocol: "research"
+      allow_protocol_override: true
+      explain_fail: true
+      env_wrap_time_feature: true
+      out: "bench_runs/cartpole_research/intervention2_time_feature/seed_{seed}"
+
+  - name: cartpole_intervention1_plus_2
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_plus_2/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      workers: "auto"
+      protocol: "research"
+      allow_protocol_override: true
+      explain_fail: true
+      env_wrap_time_feature: true
+      out: "bench_runs/cartpole_research/intervention1_plus_2/seed_{seed}"
+
+  - name: cartpole_intervention3_memory
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention3_memory/seed_{seed}/model.zip"
+      seed: "{seed}"
+      seeds: ["{seed}"]
+      episodes: 30
+      speeds: [1, 2, 3, 5, 8]
+      adaptive: false
+      workers: "auto"
+      protocol: "research"
+      allow_protocol_override: true
+      explain_fail: true
+      env_wrap_frame_stack: 4
+      env_wrap_flatten_obs: true
+      out: "bench_runs/cartpole_research/intervention3_memory/seed_{seed}"

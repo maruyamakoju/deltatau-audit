@@ -70,7 +70,8 @@ _SCENARIO_PATTERNS: Dict[str, Dict[str, str]] = {
         ),
         "fix": (
             "Train with wide speed randomization (e.g., Uniform[0.5, 5.0]). "
-            "For maximum robustness, pair with an internal time module (Δτ) that "
+            "For maximum robustness, pair with an internal time module "
+            "(delta-tau / d_tau) that "
             "explicitly encodes execution frequency so the policy generalizes "
             "beyond training speeds."
         ),
@@ -82,12 +83,15 @@ _RATING_ORDER = {"FAIL": 0, "DEGRADED": 1, "MILD": 2, "PASS": 3, "N/A": 4}
 
 
 def _return_ratio_to_rating(ratio: float) -> str:
-    """Map a return ratio to a rating string (mirrors auditor.robustness_rating)."""
+    """Map a return ratio to a rating string.
+
+    Thresholds must match metrics.robustness_rating() exactly.
+    """
     if ratio >= 0.95:
         return "PASS"
     elif ratio >= 0.80:
         return "MILD"
-    elif ratio >= 0.60:
+    elif ratio >= 0.50:
         return "DEGRADED"
     else:
         return "FAIL"

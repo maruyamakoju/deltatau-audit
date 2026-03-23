@@ -1,0 +1,250 @@
+# Paper Submission Benchmark Manifest
+# Covers ALL experiments needed for the NeurIPS/ICLR paper.
+# Run with: deltatau-audit bench run bench/paper_submission_manifest.yaml --protocol paper
+
+name: paper_submission_full
+description: "Complete benchmark suite for paper submission (10 seeds, 100 episodes)"
+protocol: paper
+output_dir: bench_runs/paper_submission
+
+# ── CartPole Ablation (5 variants × 10 seeds) ────────────────────────────────
+jobs:
+  # Baseline: standard GRU, no speed randomization
+  - name: cartpole_baseline_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/baseline/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      explain_fail: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      out: "bench_runs/paper_submission/cartpole/baseline/seed_{seed}"
+
+  # Intervention 1: speed-randomized training (curriculum)
+  - name: cartpole_intervention1_curriculum_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_curriculum/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      explain_fail: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      out: "bench_runs/paper_submission/cartpole/intervention1_curriculum/seed_{seed}"
+
+  # Intervention 2: explicit time feature (dt injected as observation)
+  - name: cartpole_intervention2_time_feature_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention2_time_feature/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      explain_fail: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      env_wrap_time_feature: true
+      out: "bench_runs/paper_submission/cartpole/intervention2_time_feature/seed_{seed}"
+
+  # Intervention 1+2: combined (curriculum + time feature)
+  - name: cartpole_intervention1_plus_2_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention1_plus_2/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      explain_fail: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      env_wrap_time_feature: true
+      out: "bench_runs/paper_submission/cartpole/intervention1_plus_2/seed_{seed}"
+
+  # Intervention 3: frame stacking (memory baseline)
+  - name: cartpole_intervention3_memory_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "CartPole-v1"
+      model: "checkpoints_cartpole_ppo/intervention3_memory/seed_{seed}/model.zip"
+      seed: "{seed}"
+      episodes: 100
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      explain_fail: true
+      ci: true
+      ci_gate_mode: "worst_ci_lower"
+      env_wrap_frame_stack: 4
+      env_wrap_flatten_obs: true
+      out: "bench_runs/paper_submission/cartpole/intervention3_memory/seed_{seed}"
+
+# ── HalfCheetah (2 variants × 10 seeds) ──────────────────────────────────────
+
+  # Standard PPO (timing-unaware)
+  - name: halfcheetah_standard_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "HalfCheetah-v5"
+      model: "runs/halfcheetah_ppo_500k.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/halfcheetah/standard/seed_{seed}"
+
+  # Robust PPO (speed-randomized)
+  - name: halfcheetah_robust_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "HalfCheetah-v5"
+      model: "runs/halfcheetah_ppo_robust_500k.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/halfcheetah/robust/seed_{seed}"
+
+# ── dm_control Suite (4 envs × 2 variants × 10 seeds) ────────────────────────
+# NOTE: Requires pip install "deltatau-audit[dm_control]"
+
+  # Walker-walk: standard
+  - name: walker_walk_standard_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "dm_control/walker-walk"
+      model: "checkpoints/dm_control/walker_walk_standard.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/walker_walk/standard/seed_{seed}"
+
+  # Walker-walk: robust (speed-randomized)
+  - name: walker_walk_robust_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "dm_control/walker-walk"
+      model: "checkpoints/dm_control/walker_walk_robust.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/walker_walk/robust/seed_{seed}"
+
+  # Cheetah-run: standard
+  - name: cheetah_run_standard_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "dm_control/cheetah-run"
+      model: "checkpoints/dm_control/cheetah_run_standard.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/cheetah_run/standard/seed_{seed}"
+
+  # Cheetah-run: robust (speed-randomized)
+  - name: cheetah_run_robust_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "ppo"
+      env: "dm_control/cheetah-run"
+      model: "checkpoints/dm_control/cheetah_run_robust.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/cheetah_run/robust/seed_{seed}"
+
+  # Reacher-easy: standard
+  - name: reacher_easy_standard_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "sac"
+      env: "dm_control/reacher-easy"
+      model: "checkpoints/dm_control/reacher_easy_standard.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/reacher_easy/standard/seed_{seed}"
+
+  # Reacher-easy: robust
+  - name: reacher_easy_robust_seed_{seed}
+    command: audit-sb3
+    matrix:
+      seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    args:
+      algo: "sac"
+      env: "dm_control/reacher-easy"
+      model: "checkpoints/dm_control/reacher_easy_robust.zip"
+      seed: "{seed}"
+      episodes: 50
+      speeds: [1, 2, 3, 5, 8]
+      workers: "auto"
+      protocol: "paper"
+      ci: true
+      out: "bench_runs/paper_submission/dm_control/reacher_easy/robust/seed_{seed}"

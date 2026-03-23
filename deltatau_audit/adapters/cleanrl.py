@@ -124,9 +124,8 @@ class CleanRLAdapter(AgentAdapter):
             if action.numel() == 1:
                 action_out = int(action.item())
             else:
-                action_out = action.cpu().numpy().flatten()
-                if len(action_out) == 1:
-                    action_out = action_out[0]
+                action_arr = action.cpu().numpy().flatten()
+                action_out = action_arr[0] if action_arr.size == 1 else action_arr
         else:
             action_out = action
 

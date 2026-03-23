@@ -1,0 +1,13 @@
+{
+  "updated_at_utc": "2026-03-02T00:00:00+00:00",
+  "jobs": {
+    "mini": {
+      "timestamp_utc": "2026-03-02T00:00:00+00:00",
+      "timestamp_s": 100.0,
+      "done": 2,
+      "total": 10,
+      "pct": 20.0,
+      "child_cpu_s_total": null
+    }
+  }
+}

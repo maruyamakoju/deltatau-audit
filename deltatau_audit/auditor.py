@@ -1,21 +1,28 @@
 """Core auditor: 2-axis evaluation engine.
 
-Axis 1 — Timing Reliance (intervention ablation):
-    Tampers with the agent's internal Δτ to measure causal dependence
-    on internal time representation. High reliance = timing channel works.
+Axis 1 — Timing Channel Analysis (intervention ablation):
+    Tampers with the agent's internal Dt to measure causal dependence
+    on internal time representation.  HIGH reliance is *informational*:
+    it means the agent has learned timing features, which is a
+    desirable property when the agent was *designed* to use timing
+    information (e.g. Dt-GRU architectures).  Only when combined with
+    poor robustness does high reliance indicate a vulnerability.
 
 Axis 2 — Timing Robustness (env wrappers):
     Wraps the environment with realistic timing perturbations (jitter,
     delay, speed changes) to measure operational resilience.
 
 Bonus — Temporal Sensitivity:
-    Finite-difference |dV/dτ| measuring value function's local
-    sensitivity to internal time — the "timing Jacobian".
+    Finite-difference |dV/dt| measuring value function's local
+    sensitivity to internal time -- the "timing Jacobian".
 """
 
+import logging
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, List, Optional
+
+_logger = logging.getLogger("deltatau-audit")
 
 import gymnasium as gym
 import numpy as np
@@ -28,6 +35,23 @@ try:
 except ImportError:
     _HAS_TQDM = False
 
+from ._constants import (
+    DEPLOYMENT_SCENARIOS as _DEPLOYMENT_SCENARIOS,
+)
+from ._constants import (
+    INTERVENTION_LABELS as _INTERVENTION_LABELS,
+)
+from ._constants import (
+    ROBUSTNESS_SCENARIO_LABELS as ROBUSTNESS_SCENARIOS,
+)
+from ._constants import (
+    STRESS_SCENARIOS as _STRESS_SCENARIOS,
+)
+from ._theme import (
+    DEPLOY_THRESHOLD_DEFAULT,
+    RELIANCE_THRESHOLD,
+    STRESS_THRESHOLD_DEFAULT,
+)
 from .adapters.base import AgentAdapter
 from .metrics import (
     aggregate_episode_metrics,
@@ -42,31 +66,16 @@ from .metrics import (
     robustness_rating,
     severity_rating,
 )
+from .schema import SCHEMA_VERSION
 from .wrappers.latency import ObservationDelayWrapper, ObsNoiseWrapper
 from .wrappers.speed import FixedSpeedWrapper, JitterWrapper, PiecewiseSwitchWrapper
 
-# ── Labels ────────────────────────────────────────────────────────────
+# ── Public aliases (backward compatibility) ──────────────────────────
 
-INTERVENTIONS = {
-    "none": "Normal (learned Δτ)",
-    "clamp_1": "Δτ clamped to 1.0",
-    "reverse": "Δτ reversed (2.0 − learned)",
-    "random": "Δτ ~ Uniform(0.5, 1.5)",
-}
-
-ROBUSTNESS_SCENARIOS = {
-    "nominal": "Nominal (speed=1, no wrapper)",
-    "speed_5x": "5× speed (unseen frequency)",
-    "jitter": "Speed jitter (2 ± 1)",
-    "delay": "Observation delay (1 step)",
-    "spike": "Mid-episode speed spike (1→5→1)",
-    "obs_noise": "Observation noise (σ=0.1)",
-}
-
-# Deployment = realistic conditions an agent might face
-DEPLOYMENT_SCENARIOS = ["jitter", "delay", "spike", "obs_noise"]
-# Stress = extreme conditions for stress testing
-STRESS_SCENARIOS = ["speed_5x"]
+# Keep these names exported from auditor.py for compatibility with older code.
+INTERVENTIONS = dict(_INTERVENTION_LABELS)
+DEPLOYMENT_SCENARIOS = list(_DEPLOYMENT_SCENARIOS)
+STRESS_SCENARIOS = list(_STRESS_SCENARIOS)
 
 
 # ── Parallel episode runner ───────────────────────────────────────────
@@ -98,7 +107,7 @@ def _run_episodes_parallel(
     def _one(ep_idx: int) -> Dict:
         ep_seed = (None if seed is None
                    else seed + seed_offset + ep_idx)
-        env = _make_wrapped_env(env_factory, scenario)
+        env = _make_wrapped_env(env_factory, scenario, adapter=adapter)
         ep = _run_single_episode(adapter, env, intervention,
                                  gamma, device, seed=ep_seed)
         env.close()
@@ -183,8 +192,13 @@ def _run_single_episode(
     step_dts = []
 
     while not done:
-        obs_t = torch.tensor(obs, dtype=torch.float32)
-        action, value, hidden_new, dt = adapter.act(obs_t, hidden)
+        # Pass dicts/tuples as is so adapters can handle them natively
+        if isinstance(obs, (dict, tuple)):
+            obs_input = obs
+        else:
+            obs_input = torch.tensor(obs, dtype=torch.float32)
+            
+        action, value, hidden_new, dt = adapter.act(obs_input, hidden)
 
         # Apply intervention if supported
         if intervention != "none" and adapter.supports_intervention:
@@ -198,7 +212,7 @@ def _run_single_episode(
             else:
                 target_dt = 1.0
 
-            hidden_new = adapter.rerun_with_dt(obs_t, hidden, target_dt)
+            hidden_new = adapter.rerun_with_dt(obs_input, hidden, target_dt)
 
             if adapter.supports_value_recompute:
                 value = adapter.recompute_value(hidden_new)
@@ -230,6 +244,7 @@ def _run_single_episode(
         "length": len(step_rewards),
         "dt_mean": float(np.mean([d for d in step_dts if d is not None]))
                    if any(d is not None for d in step_dts) else None,
+        "dt_trace": [float(d) if d is not None else 1.0 for d in step_dts],
     }
 
 
@@ -278,7 +293,8 @@ def run_reliance_audit(
         }
 
     if interventions is None:
-        interventions = ["none", "clamp_1", "reverse", "random"]
+        interventions = [k for k in INTERVENTIONS if k != "none"]
+        interventions = ["none", *interventions]
 
     if verbose:
         print("  Reliance Test (intervention ablation)")
@@ -343,16 +359,27 @@ def run_reliance_audit(
 
     rating = reliance_rating(worst_ratio)
 
+    # Neutral framing: high reliance = "agent has learned timing features"
+    # This is informational, not a warning.  It is a vulnerability only
+    # when combined with poor robustness.
+    reliance_interpretation = (
+        "Agent has learned timing features (informational)"
+        if rating in ("HIGH", "EXTREME")
+        else "Agent shows minimal timing dependence"
+    )
+
     if verbose:
         from .color import colored_rating, dim
-        print(f"    -> Reliance: {colored_rating(rating)} "
+        print(f"    -> Timing Channel Analysis: {colored_rating(rating)} "
               f"{dim(f'(worst RMSE ratio: {worst_ratio:.2f}x)')}")
+        print(f"       {dim(reliance_interpretation)}")
 
     return {
         "per_speed": per_speed,
         "degradation": degradation,
         "score": worst_ratio,
         "rating": rating,
+        "interpretation": reliance_interpretation,
         "worst_case": {
             "speed": worst_speed,
             "intervention": worst_interv,
@@ -366,7 +393,7 @@ def run_reliance_audit(
 # AXIS 2: ROBUSTNESS AUDIT
 # ══════════════════════════════════════════════════════════════════════
 
-def _make_wrapped_env(env_factory, scenario: str):
+def _make_wrapped_env(env_factory, scenario: str, adapter: Optional[AgentAdapter] = None):
     """Create a wrapped env for a robustness scenario."""
     env = env_factory()
     if scenario == "nominal":
@@ -382,6 +409,9 @@ def _make_wrapped_env(env_factory, scenario: str):
             env, schedule=[(0, 1), (20, 5), (40, 1)])
     elif scenario == "obs_noise":
         return ObsNoiseWrapper(env, std=0.1)
+    elif scenario == "adversarial_jitter":
+        from .wrappers.adversarial import AdversarialSpeedWrapper
+        return AdversarialSpeedWrapper(env, agent_adapter=adapter, possible_speeds=[1, 2, 3, 5, 8])
     else:
         raise ValueError(f"Unknown robustness scenario: {scenario}")
 
@@ -399,6 +429,7 @@ def run_robustness_audit(
     adaptive: bool = False,
     target_ci_width: float = 0.10,
     max_episodes: int = 500,
+    bootstrap_samples: int = 2000,
 ) -> Dict:
     """Axis 2: Realistic timing perturbations via env wrappers.
 
@@ -415,6 +446,8 @@ def run_robustness_audit(
             return ratio. Ignored when adaptive=False. Default: 0.10.
         max_episodes: Hard cap on episodes per scenario in adaptive mode.
             Default: 500.
+        bootstrap_samples: Number of bootstrap resamples used for
+            return-ratio confidence intervals. Default: 2000.
 
     Returns:
         Dict with scenarios, per_scenario_scores, return_score, rating, worst_case.
@@ -498,7 +531,11 @@ def run_robustness_audit(
                 if len(pert_rets) < 5:
                     all_converged = False
                     break
-                bci = bootstrap_return_ratio(nom_rets, pert_rets)
+                bci = bootstrap_return_ratio(
+                    nom_rets,
+                    pert_rets,
+                    n_bootstrap=bootstrap_samples,
+                )
                 ci_w = bci["ci_upper"] - bci["ci_lower"]
                 if ci_w > target_ci_width:
                     all_converged = False
@@ -509,6 +546,42 @@ def run_robustness_audit(
                     print(f"    [adaptive: converged in {total_eps} eps/scenario]")
                 break
             if total_eps >= max_episodes:
+                # ── CI convergence warning ──────────────────────────
+                # Compute final CI widths for each scenario so the
+                # warning includes actionable numbers.
+                non_converged: List[str] = []
+                _nom_rets_final = [
+                    ep["total_reward"]
+                    for ep in all_ep_lists.get("nominal", [])
+                ]
+                for _sc in scenarios:
+                    if _sc == "nominal":
+                        continue
+                    _p_rets = [ep["total_reward"]
+                               for ep in all_ep_lists[_sc]]
+                    if len(_p_rets) < 5:
+                        non_converged.append(f"{_sc}(n<5)")
+                        continue
+                    _bci = bootstrap_return_ratio(
+                        _nom_rets_final, _p_rets,
+                        n_bootstrap=bootstrap_samples,
+                    )
+                    _ci_w = _bci["ci_upper"] - _bci["ci_lower"]
+                    if _ci_w > target_ci_width:
+                        non_converged.append(
+                            f"{_sc}(CI={_ci_w:.3f}>{target_ci_width:.2f})"
+                        )
+
+                _logger.warning(
+                    "Bootstrap CI did not converge within max_episodes=%d. "
+                    "Non-converged scenarios: %s. "
+                    "Consider increasing max_episodes or relaxing "
+                    "target_ci_width (current: %.2f).",
+                    max_episodes,
+                    ", ".join(non_converged) if non_converged else "(none)",
+                    target_ci_width,
+                )
+
                 if verbose:
                     print(f"    [adaptive: max_episodes={max_episodes} reached "
                           f"(CI may be wider than {target_ci_width:.2f})]")
@@ -555,7 +628,11 @@ def run_robustness_audit(
 
         # Bootstrap CI for return ratio
         pert_ep_returns = scenario_episode_returns.get(scenario, [])
-        bci = bootstrap_return_ratio(nominal_ep_returns, pert_ep_returns)
+        bci = bootstrap_return_ratio(
+            nominal_ep_returns,
+            pert_ep_returns,
+            n_bootstrap=bootstrap_samples,
+        )
 
         per_scenario_scores[scenario] = {
             "return_ratio": ret_ratio,
@@ -565,6 +642,14 @@ def run_robustness_audit(
             "ci_lower": bci["ci_lower"],
             "ci_upper": bci["ci_upper"],
             "significant": bci["significant"],
+            "significant_change": bci.get("significant_change", bci["significant"]),
+            "mean_nominal": bci.get("mean_nominal", nominal_return),
+            "mean_perturbed": bci.get("mean_perturbed", s_return),
+            "mean_difference": bci.get("mean_difference", s_return - nominal_return),
+            "cohens_d": bci.get("cohens_d", 0.0),
+            "cohens_d_magnitude": bci.get("cohens_d_magnitude", "NEGLIGIBLE"),
+            "cliffs_delta": bci.get("cliffs_delta", 0.0),
+            "common_language_effect": bci.get("common_language_effect", 0.5),
         }
 
         if ret_ratio < worst_return_ratio:
@@ -624,6 +709,12 @@ def run_robustness_audit(
         print(f"    -> {sig_count}/{total} scenarios with "
               f"statistically significant drop (95% CI)")
 
+    # ── Per-scenario CI widths (for convergence diagnostics) ──────────
+    ci_widths: Dict[str, float] = {}
+    for sc_name, sc_scores in per_scenario_scores.items():
+        ci_w = sc_scores.get("ci_upper", 0.0) - sc_scores.get("ci_lower", 0.0)
+        ci_widths[sc_name] = ci_w
+
     result = {
         "scenarios": scenario_results,
         "per_scenario_scores": per_scenario_scores,
@@ -637,15 +728,32 @@ def run_robustness_audit(
             "return_ratio": worst_return_ratio,
             "return_drop_pct": (1 - worst_return_ratio) * 100,
         },
+        "ci_widths": ci_widths,
     }
     if adaptive:
         result["n_episodes_used"] = n_episodes_used
         result["adaptive"] = True
+
+        # Record whether CI converged for each scenario
+        ci_converged = {
+            sc: (ci_widths.get(sc, 0.0) <= target_ci_width)
+            for sc in scenarios if sc != "nominal"
+        }
+        result["ci_converged"] = ci_converged
+        all_ci_converged = all(ci_converged.values())
+        if not all_ci_converged:
+            _logger.warning(
+                "Robustness audit CI did not converge for all scenarios. "
+                "Widths: %s. Target: %.2f.",
+                {k: f"{v:.3f}" for k, v in ci_widths.items()
+                 if ci_widths.get(k, 0) > target_ci_width},
+                target_ci_width,
+            )
     return result
 
 
 # ══════════════════════════════════════════════════════════════════════
-# TEMPORAL SENSITIVITY: |dV/dτ|
+# TEMPORAL SENSITIVITY: |dV/dt|
 # ══════════════════════════════════════════════════════════════════════
 
 def compute_temporal_sensitivity(
@@ -659,15 +767,52 @@ def compute_temporal_sensitivity(
     verbose: bool = True,
     seed: Optional[int] = None,
 ) -> Optional[Dict]:
-    """Compute temporal sensitivity: |dV/dτ| via finite difference.
+    """Compute temporal sensitivity |dV/dt| via symmetric finite difference.
 
-    S = E[ |V(τ+ε) − V(τ−ε)| / (2ε) ]
+    The **temporal sensitivity** (a.k.a. "timing Jacobian") measures how
+    the value function responds to infinitesimal perturbations of the
+    agent's internal time representation:
 
-    This is the "timing Jacobian" — how sensitive the value function
-    is to small perturbations in the internal time representation.
-    High sensitivity at unseen speeds suggests active adaptation.
+    .. math::
 
-    Returns None if the agent doesn't support intervention.
+        S = \\mathbb{E}\\left[
+          \\frac{|V(\\tau + \\varepsilon) - V(\\tau - \\varepsilon)|}
+               {2\\varepsilon}
+        \\right]
+
+    where :math:`\\tau` is the agent's learned internal timestep and
+    :math:`\\varepsilon` is a small perturbation (default 0.1).
+
+    **Interpretation** (neutral "Timing Channel Analysis" framing):
+
+    * High sensitivity at *trained* speeds: the agent has learned to
+      use timing information actively.  This is a feature, not a bug.
+    * High sensitivity at *unseen* speeds: the agent generalises its
+      timing representation -- strong evidence of temporal abstraction.
+    * Low sensitivity everywhere: the agent ignores internal timing.
+
+    The result includes per-speed breakdowns and a 95% bootstrap CI on
+    the overall mean sensitivity.
+
+    Parameters
+    ----------
+    adapter : AgentAdapter
+    env_factory : callable
+    speeds : list of int or None
+    n_episodes : int
+    epsilon : float
+        Finite-difference step size (default 0.1).
+    gamma : float
+    device : str
+    verbose : bool
+    seed : int or None
+
+    Returns
+    -------
+    dict or None
+        ``None`` if the agent doesn't support intervention.
+        Otherwise a dict with ``mean``, ``std``, ``median``,
+        ``ci_lower``, ``ci_upper``, ``n_samples``, ``per_speed``.
     """
     if not adapter.supports_intervention or not adapter.supports_value_recompute:
         if verbose:
@@ -737,16 +882,50 @@ def compute_temporal_sensitivity(
     if not all_sensitivities:
         return None
 
+    # Bootstrap 95% CI on overall mean sensitivity
+    sens_arr = np.array(all_sensitivities, dtype=np.float64)
+    rng = np.random.default_rng(42)
+    boot_means = np.array([
+        float(np.mean(rng.choice(sens_arr, size=len(sens_arr), replace=True)))
+        for _ in range(2000)
+    ])
+    ci_lower = float(np.percentile(boot_means, 2.5))
+    ci_upper = float(np.percentile(boot_means, 97.5))
+
+    # Interpretation (neutral framing)
+    mean_sens = float(np.mean(all_sensitivities))
+    if mean_sens > 0.5:
+        interpretation = (
+            "Agent has learned strong timing features -- the value "
+            "function is highly sensitive to internal time "
+            "perturbations. This indicates active temporal adaptation."
+        )
+    elif mean_sens > 0.1:
+        interpretation = (
+            "Agent shows moderate timing sensitivity. The value "
+            "function partially depends on internal time representation."
+        )
+    else:
+        interpretation = (
+            "Agent shows minimal timing sensitivity. The value "
+            "function is largely invariant to internal time changes."
+        )
+
     result = {
-        "mean": float(np.mean(all_sensitivities)),
+        "mean": mean_sens,
         "std": float(np.std(all_sensitivities)),
         "median": float(np.median(all_sensitivities)),
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
         "n_samples": len(all_sensitivities),
         "per_speed": per_speed,
+        "interpretation": interpretation,
     }
 
     if verbose:
-        print(f"    -> Mean sensitivity: {result['mean']:.4f}")
+        print(f"    -> Mean sensitivity: {result['mean']:.4f} "
+              f"[{ci_lower:.4f}, {ci_upper:.4f}]")
+        print(f"       {interpretation}")
 
     return result
 
@@ -768,11 +947,12 @@ def run_full_audit(
     verbose: bool = True,
     seed: Optional[int] = None,
     n_workers: int = 1,
-    deploy_threshold: float = 0.80,
-    stress_threshold: float = 0.50,
+    deploy_threshold: float = DEPLOY_THRESHOLD_DEFAULT,
+    stress_threshold: float = STRESS_THRESHOLD_DEFAULT,
     adaptive: bool = False,
     target_ci_width: float = 0.10,
     max_episodes: int = 500,
+    bootstrap_samples: int = 2000,
 ) -> Dict:
     """Run the complete 2-axis time robustness audit.
 
@@ -785,6 +965,8 @@ def run_full_audit(
             "good deployment" in the quadrant (default: 0.80).
         stress_threshold: Minimum stress return ratio for CI pass
             (default: 0.50). Stored in summary for downstream use.
+        bootstrap_samples: Number of bootstrap resamples used to estimate
+            per-scenario return-ratio confidence intervals (default: 2000).
 
     Returns structured dict ready for report generation.
     """
@@ -816,6 +998,7 @@ def run_full_audit(
         verbose=verbose, seed=seed, n_workers=n_workers,
         adaptive=adaptive, target_ci_width=target_ci_width,
         max_episodes=max_episodes,
+        bootstrap_samples=bootstrap_samples,
     )
 
     if verbose:
@@ -835,6 +1018,10 @@ def run_full_audit(
     summary = {
         "reliance_rating": reliance["rating"],
         "reliance_score": reliance["score"],
+        "reliance_interpretation": reliance.get(
+            "interpretation",
+            "Agent shows minimal timing dependence",
+        ),
         "robustness_rating": robustness["rating"],
         "robustness_score": robustness["return_score"],
         "robustness_rmse_score": robustness["rmse_score"],
@@ -843,6 +1030,10 @@ def run_full_audit(
         "stress_rating": stress["rating"],
         "stress_score": stress["return_score"],
         "sensitivity_mean": sensitivity["mean"] if sensitivity else None,
+        "sensitivity_ci_lower": sensitivity.get("ci_lower") if sensitivity else None,
+        "sensitivity_ci_upper": sensitivity.get("ci_upper") if sensitivity else None,
+        "sensitivity_interpretation": sensitivity.get("interpretation") if sensitivity else None,
+        "ci_widths": robustness.get("ci_widths", {}),
     }
 
     # Prescription based on quadrant
@@ -854,8 +1045,9 @@ def run_full_audit(
 
     if reliance_available:
         # Full 2-axis quadrant (internal time agents)
-        # Threshold 2.0: below = structural GRU sensitivity, above = learned timing
-        high_reliance = reliance["score"] >= 2.0
+        # Threshold from theme constants: below = structural sensitivity,
+        # above = strong learned timing reliance.
+        high_reliance = reliance["score"] >= RELIANCE_THRESHOLD
 
         if high_reliance and good_deployment:
             summary["quadrant"] = "time_aware_robust"
@@ -912,6 +1104,7 @@ def run_full_audit(
         _print_summary(summary, diagnosis)
 
     return {
+        "schema_version": SCHEMA_VERSION,
         "speeds": speeds,
         "n_episodes": n_episodes,
         "supports_intervention": adapter.supports_intervention,
@@ -920,6 +1113,130 @@ def run_full_audit(
         "sensitivity": sensitivity,
         "summary": summary,
         "diagnosis": diagnosis,
+        "manifest": {},
+    }
+
+
+def run_deliberative_audit(
+    adapter,
+    env_factory: Callable[[], Any],
+    speeds: Optional[List[int]] = None,
+    n_episodes: int = 20,
+    gamma: float = 0.99,
+    device: str = "cpu",
+    verbose: bool = True,
+    seed: Optional[int] = None,
+) -> Dict:
+    """Audit a deliberative agent: measure how ponder depth responds to timing stress.
+
+    Key metric: does the agent ponder MORE when timing is uncertain?
+    A well-calibrated deliberative agent increases thinking steps under jitter.
+
+    The adapter must be a DeliberativeAgentAdapter (or expose
+    get_deliberation_stats() and reset_episode() methods).
+
+    Args:
+        adapter: DeliberativeAgentAdapter instance.
+        env_factory: Callable returning a fresh gymnasium env.
+        speeds: List of speed multipliers to test (default: [1, 2, 5]).
+        n_episodes: Episodes per speed condition.
+        gamma: Discount factor.
+        device: Torch device.
+        verbose: Print progress.
+        seed: Random seed.
+
+    Returns:
+        Dict with:
+            ponder_vs_speed: {speed_str: mean_ponder_steps}
+            deliberative_score: Spearman correlation between speed and ponder steps
+                                (positive = more pondering under stress, good)
+            stats_by_speed: {speed_str: deliberation stats dict}
+            rating: "ADAPTIVE" | "NEUTRAL" | "ANTI_ADAPTIVE"
+    """
+    if speeds is None:
+        speeds = [1, 2, 5]
+
+    if verbose:
+        print("  Deliberative Audit (ponder depth vs timing stress)")
+
+    ponder_vs_speed: Dict[str, float] = {}
+    stats_by_speed: Dict[str, Dict] = {}
+
+    for speed in speeds:
+        if hasattr(adapter, "reset_episode"):
+            adapter.reset_episode()
+
+        # Build env with speed wrapper
+        from .wrappers.speed import FixedSpeedWrapper
+
+        def _factory(s=speed):
+            env = env_factory()
+            return FixedSpeedWrapper(env, speed=s) if s > 1 else env
+
+        total_ponder = 0.0
+        for ep_idx in range(n_episodes):
+            ep_seed = (None if seed is None else seed + ep_idx + speed * 1000)
+            env = _factory()
+            reset_kwargs = {"seed": ep_seed} if ep_seed is not None else {}
+            obs, _ = env.reset(**reset_kwargs)
+            hidden = adapter.reset_hidden(1, device)
+            done = False
+
+            while not done:
+                obs_t = torch.tensor(obs, dtype=torch.float32) if not isinstance(obs, torch.Tensor) else obs
+                action, value, hidden_new, dt = adapter.act(obs_t, hidden)
+                hidden = hidden_new
+                obs, reward, term, trunc, _ = env.step(action)
+                done = term or trunc
+            env.close()
+
+        stats = adapter.get_deliberation_stats() if hasattr(adapter, "get_deliberation_stats") else {}
+        mean_ponder = stats.get("mean_ponder_steps", 0.0)
+        ponder_vs_speed[str(speed)] = mean_ponder
+        stats_by_speed[str(speed)] = stats
+
+        if verbose:
+            print(f"    Speed {speed}x: mean_ponder={mean_ponder:.2f} steps, "
+                  f"utilization={stats.get('ponder_utilization', 0):.1%}")
+
+        if hasattr(adapter, "reset_episode"):
+            adapter.reset_episode()
+
+    # Compute deliberative score: Spearman correlation (speed vs ponder steps)
+    speed_vals = np.array([float(s) for s in speeds])
+    ponder_vals = np.array([ponder_vs_speed[str(s)] for s in speeds])
+
+    if len(speeds) >= 3 and ponder_vals.std() > 1e-6:
+        # Rank correlation: positive = more ponder under higher speed = good
+        from scipy.stats import spearmanr
+        try:
+            corr, _ = spearmanr(speed_vals, ponder_vals)
+            deliberative_score = float(corr)
+        except Exception:
+            deliberative_score = 0.0
+    elif ponder_vals.std() < 1e-6:
+        deliberative_score = 0.0  # No variation = neutral
+    else:
+        # 2-point approximation
+        deliberative_score = float(
+            np.sign(ponder_vals[-1] - ponder_vals[0])
+        )
+
+    if deliberative_score > 0.3:
+        rating = "ADAPTIVE"
+    elif deliberative_score < -0.3:
+        rating = "ANTI_ADAPTIVE"
+    else:
+        rating = "NEUTRAL"
+
+    if verbose:
+        print(f"    -> Deliberative score: {deliberative_score:.3f} ({rating})")
+
+    return {
+        "ponder_vs_speed": ponder_vs_speed,
+        "deliberative_score": deliberative_score,
+        "stats_by_speed": stats_by_speed,
+        "rating": rating,
     }
 
 
@@ -934,10 +1251,14 @@ def _print_summary(summary: Dict, diagnosis: Optional[Dict] = None):
     str_r = summary["stress_rating"]
     str_s = summary["stress_score"]
     if rel_r != "N/A" and rel_s is not None:
-        print(f"  Reliance:    {colored_rating(rel_r, 10)}  "
+        # Neutral framing: "Timing Channel Analysis" instead of "Reliance"
+        interp = summary.get("reliance_interpretation", "")
+        print(f"  Timing Channel: {colored_rating(rel_r, 10)}  "
               f"{dim('(RMSE ratio: ' + f'{rel_s:.2f}x)')}")
+        if interp:
+            print(f"                  {dim(interp)}")
     else:
-        print(f"  Reliance:    {colored_rating('N/A', 10)}  "
+        print(f"  Timing Channel: {colored_rating('N/A', 10)}  "
               f"{dim('(no intervention support)')}")
     print(f"  Deployment:  {colored_rating(dep_r, 10)}  "
           f"{dim('(return ratio: ' + f'{dep_s:.2f})')}")
@@ -945,7 +1266,16 @@ def _print_summary(summary: Dict, diagnosis: Optional[Dict] = None):
           f"{dim('(return ratio: ' + f'{str_s:.2f})')}")
     if summary.get("sensitivity_mean") is not None:
         sens = summary["sensitivity_mean"]
-        print(f"  Sensitivity:  {sens:>9.4f}  {dim('(|dV/dt|)')}")
+        ci_lo = summary.get("sensitivity_ci_lower")
+        ci_hi = summary.get("sensitivity_ci_upper")
+        if ci_lo is not None and ci_hi is not None:
+            ci_str = f" [{ci_lo:.4f}, {ci_hi:.4f}]"
+        else:
+            ci_str = ""
+        print(f"  Sensitivity:  {sens:>9.4f}{ci_str}  {dim('(|dV/dt|)')}")
+        sens_interp = summary.get("sensitivity_interpretation")
+        if sens_interp:
+            print(f"                {dim(sens_interp)}")
     print(f"  Quadrant:    {bold(summary['quadrant'])}")
     print("=" * 60)
     print(f"\n  {summary['prescription']}")
