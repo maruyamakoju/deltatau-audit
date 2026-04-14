@@ -68,20 +68,20 @@ from __future__ import annotations
 import enum
 import math
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 from deltatau_audit.protocols import AgentAdapter
 from deltatau_audit.schema import MetricValue
 
-
 # ============================================================================
 # Certification levels
 # ============================================================================
+
 
 class CertificationLevel(enum.IntEnum):
     """Structured certification tiers, ordered by strength of guarantee.
@@ -124,6 +124,7 @@ class CertificationLevel(enum.IntEnum):
 # ============================================================================
 # Lipschitz Certificate  (backwards-compatible + extended)
 # ============================================================================
+
 
 @dataclass
 class LipschitzCertificate:
@@ -245,11 +246,7 @@ class LipschitzCertificate:
         $\varepsilon_{\mathrm{cert}}$, Rating, Cert.\ Level.
         """
         level_name = self.certification_level.name
-        eps_str = (
-            f"{self.certified_epsilon:.4f}"
-            if self.certified_epsilon < 100
-            else r"$\infty$"
-        )
+        eps_str = f"{self.certified_epsilon:.4f}" if self.certified_epsilon < 100 else r"$\infty$"
         lines = [
             r"\textbf{" + self.bound_type.replace("_", r"\_") + r"}",
             f"& {self.L_max:.4f}",
@@ -264,13 +261,9 @@ class LipschitzCertificate:
         # If we have extra info, add a sub-row as a note
         notes: list[str] = []
         if self.holder_exponent is not None:
-            notes.append(
-                rf"H\"older exponent $\alpha = {self.holder_exponent:.3f}$"
-            )
+            notes.append(rf"H\"older exponent $\alpha = {self.holder_exponent:.3f}$")
         if self.spectral_gap is not None:
-            notes.append(
-                rf"Spectral gap $= {self.spectral_gap:.3f}$"
-            )
+            notes.append(rf"Spectral gap $= {self.spectral_gap:.3f}$")
         if self.confidence_interval is not None:
             lo, hi = self.confidence_interval
             notes.append(
@@ -286,6 +279,7 @@ class LipschitzCertificate:
 # ============================================================================
 # Spectral norm utilities  (Miyato et al. 2018)
 # ============================================================================
+
 
 def _power_iteration(
     weight: torch.Tensor,
@@ -434,6 +428,7 @@ def compute_spectral_lipschitz_bound(
 # Interval Bound Propagation  (Gowal et al. 2019)
 # ============================================================================
 
+
 @dataclass
 class IBPBounds:
     r"""Interval bounds on network output for input perturbation ball.
@@ -513,23 +508,17 @@ def _ibp_linear(
     return l_out, u_out
 
 
-def _ibp_relu(
-    l_in: torch.Tensor, u_in: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def _ibp_relu(l_in: torch.Tensor, u_in: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Propagate interval bounds through a ReLU activation (exact)."""
     return l_in.clamp(min=0), u_in.clamp(min=0)
 
 
-def _ibp_tanh(
-    l_in: torch.Tensor, u_in: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def _ibp_tanh(l_in: torch.Tensor, u_in: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Propagate interval bounds through tanh (monotone, so exact)."""
     return torch.tanh(l_in), torch.tanh(u_in)
 
 
-def _ibp_sigmoid(
-    l_in: torch.Tensor, u_in: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def _ibp_sigmoid(l_in: torch.Tensor, u_in: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Propagate interval bounds through sigmoid (monotone, so exact)."""
     return torch.sigmoid(l_in), torch.sigmoid(u_in)
 
@@ -617,8 +606,7 @@ def propagate_ibp(
         else:
             # Fallback: treat as identity (sound only if the layer is a no-op)
             warnings.warn(
-                f"IBP: unsupported layer type {type(layer).__name__}, "
-                f"treating as identity. Bounds may not be sound.",
+                f"IBP: unsupported layer type {type(layer).__name__}, treating as identity. Bounds may not be sound.",
                 stacklevel=2,
             )
 
@@ -660,6 +648,7 @@ def _extract_layers(model: nn.Module) -> List[nn.Module]:
 # ============================================================================
 # CROWN-based Linear Relaxation  (Zhang et al. 2018; Xu et al. 2021)
 # ============================================================================
+
 
 @dataclass
 class CROWNBounds:
@@ -778,8 +767,7 @@ def propagate_crown(
                 if linear_layers:
                     activation_types.append("identity")
             linear_layers.append(layer)
-            l, u = _ibp_linear(l, u, layer.weight.data,
-                               layer.bias.data if layer.bias is not None else None)
+            l, u = _ibp_linear(l, u, layer.weight.data, layer.bias.data if layer.bias is not None else None)
             pre_act_bounds.append((l.clone(), u.clone()))
             current_activation = None
         elif isinstance(layer, nn.ReLU):
@@ -821,7 +809,11 @@ def propagate_crown(
     # Back-propagate through layers (from output to input)
     for i in range(n_linear - 1, -1, -1):
         W = linear_layers[i].weight.data  # (out, in)
-        b = linear_layers[i].bias.data if linear_layers[i].bias is not None else torch.zeros(W.shape[0], device=W.device, dtype=W.dtype)
+        b = (
+            linear_layers[i].bias.data
+            if linear_layers[i].bias is not None
+            else torch.zeros(W.shape[0], device=W.device, dtype=W.dtype)
+        )
 
         # Propagate through linear layer: Lambda @ (Wx + b)
         Lambda_L_new = Lambda_L @ W  # (out_dim, in_features_of_layer_i)
@@ -841,8 +833,8 @@ def propagate_crown(
                 u_pre = u_pre.squeeze(0)
 
                 # Classify neurons
-                active = l_pre >= 0          # certainly active
-                inactive = u_pre <= 0        # certainly dead
+                active = l_pre >= 0  # certainly active
+                inactive = u_pre <= 0  # certainly dead
                 ambiguous = (~active) & (~inactive)
 
                 if ambiguous.any():
@@ -906,15 +898,11 @@ def propagate_crown(
     # min of Lambda_L @ x over the box = Lambda_L^+ @ (x_c - eps) + Lambda_L^- @ (x_c + eps)
     Lambda_L_pos = Lambda_L.clamp(min=0)
     Lambda_L_neg = Lambda_L.clamp(max=0)
-    concrete_lower = (
-        Lambda_L_pos @ (x_c - epsilon) + Lambda_L_neg @ (x_c + epsilon) + bias_L
-    )
+    concrete_lower = Lambda_L_pos @ (x_c - epsilon) + Lambda_L_neg @ (x_c + epsilon) + bias_L
 
     Lambda_U_pos = Lambda_U.clamp(min=0)
     Lambda_U_neg = Lambda_U.clamp(max=0)
-    concrete_upper = (
-        Lambda_U_pos @ (x_c + epsilon) + Lambda_U_neg @ (x_c - epsilon) + bias_U
-    )
+    concrete_upper = Lambda_U_pos @ (x_c + epsilon) + Lambda_U_neg @ (x_c - epsilon) + bias_U
 
     max_spread = float((concrete_upper - concrete_lower).max().item())
 
@@ -949,6 +937,7 @@ def propagate_crown(
 # ============================================================================
 # Monte Carlo Verification with Statistical Guarantees
 # ============================================================================
+
 
 def clopper_pearson_interval(
     k: int,
@@ -1026,9 +1015,9 @@ def _clopper_pearson_fallback(
     z = _normal_ppf(1 - alpha / 2)
 
     # Wilson score interval (better than Wald for small p)
-    denom = 1 + z ** 2 / n
-    center = (p_hat + z ** 2 / (2 * n)) / denom
-    half_width = z * math.sqrt(p_hat * (1 - p_hat) / n + z ** 2 / (4 * n ** 2)) / denom
+    denom = 1 + z**2 / n
+    center = (p_hat + z**2 / (2 * n)) / denom
+    half_width = z * math.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2)) / denom
 
     lower = max(0.0, center - half_width)
     upper = min(1.0, center + half_width)
@@ -1047,12 +1036,10 @@ def _normal_ppf(p: float) -> float:
     t = math.sqrt(-2 * math.log(p))
     c0, c1, c2 = 2.515517, 0.802853, 0.010328
     d1, d2, d3 = 1.432788, 0.189269, 0.001308
-    return t - (c0 + c1 * t + c2 * t ** 2) / (1 + d1 * t + d2 * t ** 2 + d3 * t ** 3)
+    return t - (c0 + c1 * t + c2 * t**2) / (1 + d1 * t + d2 * t**2 + d3 * t**3)
 
 
-def safe_clopper_pearson(
-    k: int, n: int, alpha: float = 0.05
-) -> Tuple[float, float]:
+def safe_clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
     """Clopper-Pearson CI with automatic fallback if scipy is missing."""
     try:
         return clopper_pearson_interval(k, n, alpha)
@@ -1063,6 +1050,7 @@ def safe_clopper_pearson(
 # ============================================================================
 # Hölder Continuity Analysis
 # ============================================================================
+
 
 def estimate_holder_exponent(
     diffs_tau: np.ndarray,
@@ -1141,6 +1129,7 @@ def estimate_holder_exponent(
 # Jacobian Spectrum Analysis
 # ============================================================================
 
+
 def compute_jacobian_spectrum(
     model_fn,
     x: torch.Tensor,
@@ -1214,7 +1203,8 @@ def compute_jacobian_spectrum(
     jacobian_rows: List[torch.Tensor] = []
     for i in range(n_out):
         grad = torch.autograd.grad(
-            output[i], tau_param,
+            output[i],
+            tau_param,
             retain_graph=True,
             create_graph=False,
             allow_unused=True,
@@ -1282,6 +1272,7 @@ def compute_jacobian_spectrum(
 # ============================================================================
 # Main Verifier Class
 # ============================================================================
+
 
 class LipschitzVerifier:
     """Formal Stability Verifier with Multi-Level Certification.
@@ -1364,7 +1355,8 @@ class LipschitzVerifier:
                     continue
 
                 grad = torch.autograd.grad(
-                    action_logits.sum(), tau,
+                    action_logits.sum(),
+                    tau,
                     retain_graph=False,
                     create_graph=False,
                     allow_unused=True,
@@ -1386,7 +1378,7 @@ class LipschitzVerifier:
                     "stability_rating": "UNKNOWN",
                     "note": "Agent does not support differentiable tau probing",
                     "available": False,
-                }
+                },
             )
 
         l_max = float(np.max(lipschitz_estimates))
@@ -1401,7 +1393,7 @@ class LipschitzVerifier:
                 "stability_rating": rating,
                 "n_samples": len(lipschitz_estimates),
                 "tau_range": list(tau_range),
-            }
+            },
         )
 
     # ────────────────────────────────────────────────────────────────────────
@@ -1447,7 +1439,8 @@ class LipschitzVerifier:
                     continue
 
                 grad = torch.autograd.grad(
-                    value, tau,
+                    value,
+                    tau,
                     retain_graph=False,
                     create_graph=False,
                     allow_unused=True,
@@ -1548,7 +1541,8 @@ class LipschitzVerifier:
                 if logits is None:
                     continue
                 grad = torch.autograd.grad(
-                    logits.sum(), tau,
+                    logits.sum(),
+                    tau,
                     retain_graph=False,
                     create_graph=False,
                     allow_unused=True,
@@ -1642,8 +1636,11 @@ class LipschitzVerifier:
         model = self._get_model()
         if model is None:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=(0.0, 0.0),
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="ibp",
@@ -1655,8 +1652,11 @@ class LipschitzVerifier:
             bounds = propagate_ibp(model, obs, epsilon, threshold)
         except Exception as e:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=(0.0, 0.0),
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="ibp",
@@ -1669,15 +1669,10 @@ class LipschitzVerifier:
         else:
             l_ibp = float("inf")
 
-        certified_epsilon_from_ibp = (
-            threshold / l_ibp if l_ibp > 1e-8 else float("inf")
-        )
+        certified_epsilon_from_ibp = threshold / l_ibp if l_ibp > 1e-8 else float("inf")
 
         rating = _stability_rating(l_ibp)
-        level = (
-            CertificationLevel.INTERVAL if bounds.certified_robust
-            else CertificationLevel.EMPIRICAL
-        )
+        level = CertificationLevel.INTERVAL if bounds.certified_robust else CertificationLevel.EMPIRICAL
 
         return LipschitzCertificate(
             L_max=l_ibp,
@@ -1733,8 +1728,11 @@ class LipschitzVerifier:
         model = self._get_model()
         if model is None:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=(0.0, 0.0),
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="crown",
@@ -1744,13 +1742,14 @@ class LipschitzVerifier:
         bound_type = "alpha-crown" if alpha_crown else "crown"
         model.eval()
         try:
-            bounds = propagate_crown(
-                model, obs, epsilon, threshold, alpha_crown=alpha_crown
-            )
+            bounds = propagate_crown(model, obs, epsilon, threshold, alpha_crown=alpha_crown)
         except Exception as e:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=(0.0, 0.0),
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type=bound_type,
@@ -1764,10 +1763,7 @@ class LipschitzVerifier:
 
         cert_eps = threshold / l_crown if l_crown > 1e-8 else float("inf")
         rating = _stability_rating(l_crown)
-        level = (
-            CertificationLevel.INTERVAL if bounds.certified_robust
-            else CertificationLevel.EMPIRICAL
-        )
+        level = CertificationLevel.INTERVAL if bounds.certified_robust else CertificationLevel.EMPIRICAL
 
         return LipschitzCertificate(
             L_max=l_crown,
@@ -1825,8 +1821,11 @@ class LipschitzVerifier:
         model = self._get_model()
         if model is None:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=tau_range,
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="spectral",
@@ -1834,22 +1833,21 @@ class LipschitzVerifier:
             )
 
         try:
-            l_spectral, layer_norms = compute_spectral_lipschitz_bound(
-                model, n_iters=n_power_iters
-            )
+            l_spectral, layer_norms = compute_spectral_lipschitz_bound(model, n_iters=n_power_iters)
         except Exception as e:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=0,
                 tau_range=tau_range,
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="spectral",
                 metadata={"note": f"Spectral computation failed: {e}"},
             )
 
-        l_mean = (
-            float(np.mean(layer_norms)) if layer_norms else l_spectral
-        )
+        l_mean = float(np.mean(layer_norms)) if layer_norms else l_spectral
         cert_eps = 0.1 / l_spectral if l_spectral > 1e-8 else float("inf")
         rating = _stability_rating(l_spectral)
 
@@ -1919,8 +1917,11 @@ class LipschitzVerifier:
 
         if len(outputs) < 3:
             return LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=len(outputs),
+                L_max=0.0,
+                L_mean=0.0,
+                certified_epsilon=0.0,
+                stability_rating="UNKNOWN",
+                n_samples=len(outputs),
                 tau_range=tau_range,
                 certification_level=CertificationLevel.UNCERTIFIED,
                 bound_type="holder",
@@ -1961,10 +1962,13 @@ class LipschitzVerifier:
             holder_constant=C,
             metadata={
                 "holder_interpretation": (
-                    "constant" if math.isinf(alpha) else
-                    "smoother than Lipschitz" if alpha > 1.0 else
-                    "Lipschitz" if abs(alpha - 1.0) < 0.1 else
-                    "rough (sub-Lipschitz)"
+                    "constant"
+                    if math.isinf(alpha)
+                    else "smoother than Lipschitz"
+                    if alpha > 1.0
+                    else "Lipschitz"
+                    if abs(alpha - 1.0) < 0.1
+                    else "rough (sub-Lipschitz)"
                 ),
             },
         )
@@ -2079,9 +2083,7 @@ class LipschitzVerifier:
         results: Dict[str, LipschitzCertificate] = {}
 
         # Level 1: empirical
-        empirical_mv = self.compute_temporal_lipschitz_constant(
-            obs, tau_range=tau_range, n_samples=n_samples
-        )
+        empirical_mv = self.compute_temporal_lipschitz_constant(obs, tau_range=tau_range, n_samples=n_samples)
         results["empirical"] = LipschitzCertificate(
             L_max=empirical_mv.value,
             L_mean=empirical_mv.metadata.get("mean_lipschitz", empirical_mv.value),
@@ -2096,7 +2098,9 @@ class LipschitzVerifier:
         # Level 2: statistical
         try:
             stat_cert = self.verify_statistical(
-                obs, tau_range=tau_range, n_samples=n_samples,
+                obs,
+                tau_range=tau_range,
+                n_samples=n_samples,
                 lipschitz_threshold=lipschitz_threshold,
             )
             results["statistical"] = stat_cert
@@ -2113,9 +2117,7 @@ class LipschitzVerifier:
 
         # Hölder analysis
         try:
-            holder_cert = self.verify_holder(
-                obs, tau_range=tau_range, n_samples=min(n_samples, 200)
-            )
+            holder_cert = self.verify_holder(obs, tau_range=tau_range, n_samples=min(n_samples, 200))
             results["holder"] = holder_cert
         except Exception:
             pass
@@ -2133,21 +2135,24 @@ class LipschitzVerifier:
         for key, cert in results.items():
             if best is None or cert.certification_level > best.certification_level:
                 best = cert
-            elif (
-                cert.certification_level == best.certification_level
-                and cert.L_max < best.L_max
-            ):
+            elif cert.certification_level == best.certification_level and cert.L_max < best.L_max:
                 # Same level, prefer tighter bound
                 best = cert
 
         if best is None:
-            best = results.get("empirical", LipschitzCertificate(
-                L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-                stability_rating="UNKNOWN", n_samples=0,
-                tau_range=tau_range,
-                certification_level=CertificationLevel.UNCERTIFIED,
-                bound_type="none",
-            ))
+            best = results.get(
+                "empirical",
+                LipschitzCertificate(
+                    L_max=0.0,
+                    L_mean=0.0,
+                    certified_epsilon=0.0,
+                    stability_rating="UNKNOWN",
+                    n_samples=0,
+                    tau_range=tau_range,
+                    certification_level=CertificationLevel.UNCERTIFIED,
+                    bound_type="none",
+                ),
+            )
 
         # Enrich metadata with all results
         all_results_summary = {}
@@ -2201,9 +2206,7 @@ class LipschitzVerifier:
             return model
         return None
 
-    def _get_logits_at_tau(
-        self, obs: torch.Tensor, tau: torch.Tensor
-    ) -> Optional[torch.Tensor]:
+    def _get_logits_at_tau(self, obs: torch.Tensor, tau: torch.Tensor) -> Optional[torch.Tensor]:
         """Probe policy head at a specific internal time tau.
 
         Tries multiple strategies in order:
@@ -2228,9 +2231,7 @@ class LipschitzVerifier:
                 with torch.enable_grad():
                     encoded = encoder(obs)
                     hidden_dim = (
-                        getattr(rnn, "hidden_size", None)
-                        or getattr(rnn, "output_size", None)
-                        or encoded.shape[-1]
+                        getattr(rnn, "hidden_size", None) or getattr(rnn, "output_size", None) or encoded.shape[-1]
                     )
                     h = torch.zeros(obs.shape[0], hidden_dim, dtype=obs.dtype)
 
@@ -2249,9 +2250,11 @@ class LipschitzVerifier:
                     # Generic GRU path: scale hidden by tau
                     try:
                         h_scaled = h * tau
-                        return policy_head(torch.cat([encoded, h_scaled], dim=-1)
-                                          if policy_head.in_features > encoded.shape[-1]
-                                          else policy_head(encoded))
+                        return policy_head(
+                            torch.cat([encoded, h_scaled], dim=-1)
+                            if policy_head.in_features > encoded.shape[-1]
+                            else policy_head(encoded)
+                        )
                     except Exception:
                         return policy_head(encoded)
 
@@ -2274,9 +2277,7 @@ class LipschitzVerifier:
         # Strategy 3: no gradient path — return None
         return None
 
-    def _get_value_at_tau(
-        self, obs: torch.Tensor, tau: torch.Tensor
-    ) -> Optional[torch.Tensor]:
+    def _get_value_at_tau(self, obs: torch.Tensor, tau: torch.Tensor) -> Optional[torch.Tensor]:
         """Probe value head at a specific internal time tau."""
         agent = self.agent
 
@@ -2290,9 +2291,7 @@ class LipschitzVerifier:
                 with torch.enable_grad():
                     encoded = encoder(obs)
                     hidden_dim = (
-                        getattr(rnn, "hidden_size", None)
-                        or getattr(rnn, "output_size", None)
-                        or encoded.shape[-1]
+                        getattr(rnn, "hidden_size", None) or getattr(rnn, "output_size", None) or encoded.shape[-1]
                     )
                     h = torch.zeros(obs.shape[0], hidden_dim, dtype=obs.dtype)
 
@@ -2327,6 +2326,7 @@ class LipschitzVerifier:
 # ============================================================================
 # Module-level convenience function
 # ============================================================================
+
 
 def verify_temporal_lipschitz(
     agent: AgentAdapter,
@@ -2364,8 +2364,7 @@ def verify_temporal_lipschitz(
     verifier = LipschitzVerifier(agent)
 
     if methods is None:
-        return verifier.verify_full(obs, tau_range=tau_range, epsilon=epsilon,
-                                    n_samples=n_samples)
+        return verifier.verify_full(obs, tau_range=tau_range, epsilon=epsilon, n_samples=n_samples)
 
     best: Optional[LipschitzCertificate] = None
 
@@ -2373,9 +2372,7 @@ def verify_temporal_lipschitz(
         cert: Optional[LipschitzCertificate] = None
         try:
             if method == "empirical":
-                mv = verifier.compute_temporal_lipschitz_constant(
-                    obs, tau_range=tau_range, n_samples=n_samples
-                )
+                mv = verifier.compute_temporal_lipschitz_constant(obs, tau_range=tau_range, n_samples=n_samples)
                 cert = LipschitzCertificate(
                     L_max=mv.value,
                     L_mean=mv.metadata.get("mean_lipschitz", mv.value),
@@ -2387,9 +2384,7 @@ def verify_temporal_lipschitz(
                     bound_type="empirical",
                 )
             elif method == "statistical":
-                cert = verifier.verify_statistical(
-                    obs, tau_range=tau_range, n_samples=n_samples
-                )
+                cert = verifier.verify_statistical(obs, tau_range=tau_range, n_samples=n_samples)
             elif method == "spectral":
                 cert = verifier.verify_spectral(obs, tau_range=tau_range)
             elif method == "ibp":
@@ -2397,9 +2392,7 @@ def verify_temporal_lipschitz(
             elif method == "crown":
                 cert = verifier.verify_crown(obs, epsilon=epsilon)
             elif method == "holder":
-                cert = verifier.verify_holder(
-                    obs, tau_range=tau_range, n_samples=n_samples
-                )
+                cert = verifier.verify_holder(obs, tau_range=tau_range, n_samples=n_samples)
             elif method == "jacobian":
                 tau_mid = (tau_range[0] + tau_range[1]) / 2
                 cert = verifier.analyze_jacobian_spectrum(obs, tau=tau_mid)
@@ -2409,16 +2402,16 @@ def verify_temporal_lipschitz(
         if cert is not None:
             if best is None or cert.certification_level > best.certification_level:
                 best = cert
-            elif (
-                cert.certification_level == best.certification_level
-                and cert.L_max < best.L_max
-            ):
+            elif cert.certification_level == best.certification_level and cert.L_max < best.L_max:
                 best = cert
 
     if best is None:
         best = LipschitzCertificate(
-            L_max=0.0, L_mean=0.0, certified_epsilon=0.0,
-            stability_rating="UNKNOWN", n_samples=0,
+            L_max=0.0,
+            L_mean=0.0,
+            certified_epsilon=0.0,
+            stability_rating="UNKNOWN",
+            n_samples=0,
             tau_range=tau_range,
             certification_level=CertificationLevel.UNCERTIFIED,
             bound_type="none",
@@ -2430,6 +2423,7 @@ def verify_temporal_lipschitz(
 # ============================================================================
 # Internal utilities
 # ============================================================================
+
 
 def _stability_rating(l_max: float) -> str:
     """Map a Lipschitz constant to a human-readable stability rating."""

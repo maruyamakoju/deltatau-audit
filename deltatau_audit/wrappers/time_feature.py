@@ -23,10 +23,7 @@ class TimeFeatureWrapper(gym.ObservationWrapper):
 
         base_space = getattr(self.env, "observation_space", None)
         if not isinstance(base_space, gym.spaces.Box):
-            raise TypeError(
-                "TimeFeatureWrapper requires Box observation_space, "
-                f"got: {type(base_space).__name__}"
-            )
+            raise TypeError(f"TimeFeatureWrapper requires Box observation_space, got: {type(base_space).__name__}")
 
         low = np.asarray(base_space.low, dtype=np.float32).reshape(-1)
         high = np.asarray(base_space.high, dtype=np.float32).reshape(-1)

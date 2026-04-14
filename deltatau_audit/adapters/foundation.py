@@ -39,10 +39,9 @@ from __future__ import annotations
 
 import abc
 import time
-import warnings
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -50,10 +49,10 @@ import torch.nn as nn
 
 from .base import AgentAdapter
 
-
 # ---------------------------------------------------------------------------
 # Diagnostics dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class FoundationDiagnostics:
@@ -101,6 +100,7 @@ class FoundationDiagnostics:
 # Hidden state for foundation models = context window + diagnostics handle
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ContextWindowState:
     """Hidden state representation for foundation model adapters.
@@ -142,6 +142,7 @@ class ContextWindowState:
 # ---------------------------------------------------------------------------
 # Abstract base: FoundationModelAdapter
 # ---------------------------------------------------------------------------
+
 
 class FoundationModelAdapter(AgentAdapter):
     """Abstract base adapter for large foundation-model-based RL policies.
@@ -206,9 +207,7 @@ class FoundationModelAdapter(AgentAdapter):
         Returns:
             List of ``ContextWindowState`` objects (one per batch element).
         """
-        return [
-            ContextWindowState(max_len=self.context_len) for _ in range(batch)
-        ]
+        return [ContextWindowState(max_len=self.context_len) for _ in range(batch)]
 
     @torch.no_grad()
     def act(
@@ -356,6 +355,7 @@ class FoundationModelAdapter(AgentAdapter):
 # OctoAdapter
 # ---------------------------------------------------------------------------
 
+
 class OctoAdapter(FoundationModelAdapter):
     """Adapter for Octo-style Vision-Language-Action generalist models.
 
@@ -445,6 +445,7 @@ class OctoAdapter(FoundationModelAdapter):
         """Import and return jax.numpy, raising helpful errors if missing."""
         try:
             import jax.numpy as jnp  # noqa: F811
+
             return jnp
         except ImportError:
             raise ImportError(
@@ -503,16 +504,12 @@ class OctoAdapter(FoundationModelAdapter):
 
             # Proprioception
             if self.proprio_key in obs:
-                prop = torch.as_tensor(
-                    obs[self.proprio_key], dtype=torch.float32
-                ).flatten()
+                prop = torch.as_tensor(obs[self.proprio_key], dtype=torch.float32).flatten()
                 parts.append(prop)
 
             # Language / instruction embedding (if pre-embedded)
             if "instruction" in obs:
-                instr = torch.as_tensor(
-                    obs["instruction"], dtype=torch.float32
-                ).flatten()
+                instr = torch.as_tensor(obs["instruction"], dtype=torch.float32).flatten()
                 parts.append(instr)
 
             if not parts:
@@ -553,6 +550,7 @@ class OctoAdapter(FoundationModelAdapter):
 
         # Advance JAX RNG
         import jax
+
         self._rng, sample_rng = jax.random.split(self._rng)
 
         # Call the model
@@ -615,9 +613,7 @@ class OctoAdapter(FoundationModelAdapter):
         result: Dict[str, Any] = {}
 
         # Image
-        img_key = self.image_key if any(
-            self.image_key in o for o in obs_list if isinstance(o, dict)
-        ) else "pixels"
+        img_key = self.image_key if any(self.image_key in o for o in obs_list if isinstance(o, dict)) else "pixels"
 
         images = []
         for o in obs_list:
@@ -660,6 +656,7 @@ class OctoAdapter(FoundationModelAdapter):
 # ---------------------------------------------------------------------------
 # TransformerPolicyAdapter
 # ---------------------------------------------------------------------------
+
 
 class TransformerPolicyAdapter(FoundationModelAdapter):
     """Adapter for autoregressive transformer RL policies.
@@ -915,12 +912,8 @@ class TransformerPolicyAdapter(FoundationModelAdapter):
             value = float(value_t)
 
         # Record transition
-        self._last_action = torch.as_tensor(
-            action, dtype=torch.float32, device=self.device
-        )
-        self._transition_history.append(
-            (obs_flat.detach(), self._last_action.detach(), self._current_rtg)
-        )
+        self._last_action = torch.as_tensor(action, dtype=torch.float32, device=self.device)
+        self._transition_history.append((obs_flat.detach(), self._last_action.detach(), self._current_rtg))
 
         return action, value, hidden, None
 

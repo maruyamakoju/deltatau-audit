@@ -1,4 +1,5 @@
 """Shared utilities for fix-sb3 and fix-cleanrl pipelines."""
+
 from __future__ import annotations
 
 from .color import bold, dim, err, ok, warn
@@ -41,8 +42,8 @@ def print_fix_comparison(before_summary: dict, after_summary: dict) -> None:
 
     rows = [
         ("Deployment", "deployment_rating", "deployment_score"),
-        ("Stress",     "stress_rating",     "stress_score"),
-        ("Quadrant",   "quadrant",          None),
+        ("Stress", "stress_rating", "stress_score"),
+        ("Quadrant", "quadrant", None),
     ]
 
     for label, rating_key, score_key in rows:

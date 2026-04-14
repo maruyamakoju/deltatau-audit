@@ -36,6 +36,7 @@ Temporal Consistency Score
     timings, measuring how *consistent* the agent's behaviour is under
     repeated timing perturbations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -124,11 +125,11 @@ class TemporalHorizonAuditor:
         """
         if cascade_schedule is None:
             cascade_schedule = [
-                (0, 1),    # Normal
-                (10, 3),   # Sudden speed-up
-                (20, 5),   # Extreme speed
-                (30, 2),   # Partial recovery
-                (40, 1),   # Full recovery
+                (0, 1),  # Normal
+                (10, 3),  # Sudden speed-up
+                (20, 5),  # Extreme speed
+                (30, 2),  # Partial recovery
+                (40, 1),  # Full recovery
             ]
 
         from deltatau_audit.wrappers.speed import PiecewiseSwitchWrapper
@@ -143,7 +144,7 @@ class TemporalHorizonAuditor:
         all_actions: List[List[Any]] = []  # for temporal consistency
 
         for ep_idx in range(n_episodes):
-            ep_seed = (None if seed is None else seed + ep_idx)
+            ep_seed = None if seed is None else seed + ep_idx
 
             env = env_factory()
             env = PiecewiseSwitchWrapper(env, schedule=cascade_schedule)
@@ -185,11 +186,7 @@ class TemporalHorizonAuditor:
 
             # Assign rewards to phases
             for phase_idx, (phase_start, speed) in enumerate(cascade_schedule):
-                next_start = (
-                    cascade_schedule[phase_idx + 1][0]
-                    if phase_idx + 1 < len(cascade_schedule)
-                    else horizon
-                )
+                next_start = cascade_schedule[phase_idx + 1][0] if phase_idx + 1 < len(cascade_schedule) else horizon
                 phase_steps = step_rewards[phase_start:next_start]
                 if phase_idx not in phase_rewards:
                     phase_rewards[phase_idx] = []
@@ -223,29 +220,20 @@ class TemporalHorizonAuditor:
                 }
 
         # ── Multi-scale temporal analysis ───────────────────────────────
-        multi_scale = self._multi_scale_robustness(
-            all_step_rewards, horizon
-        )
+        multi_scale = self._multi_scale_robustness(all_step_rewards, horizon)
 
         # ── Phase transition detection (CUSUM) ─────────────────────────
-        phase_transitions = self._detect_phase_transitions(
-            step_means.tolist()
-        )
+        phase_transitions = self._detect_phase_transitions(step_means.tolist())
 
         # ── Temporal consistency score ──────────────────────────────────
         consistency = self._temporal_consistency(all_actions, cascade_schedule)
 
         if self.verbose:
-            print(
-                f"    -> Horizon robustness: {horizon_robustness:.3f} "
-                f"(start={start_perf:.3f}, end={end_perf:.3f})"
-            )
+            print(f"    -> Horizon robustness: {horizon_robustness:.3f} (start={start_perf:.3f}, end={end_perf:.3f})")
             if phase_transitions:
-                pts = [f"t={p['step']}(mag={p['magnitude']:.3f})"
-                       for p in phase_transitions]
+                pts = [f"t={p['step']}(mag={p['magnitude']:.3f})" for p in phase_transitions]
                 print(f"    -> Phase transitions: {', '.join(pts)}")
-            print(f"    -> Temporal consistency: "
-                  f"{consistency.get('mean_consistency', 0.0):.3f}")
+            print(f"    -> Temporal consistency: {consistency.get('mean_consistency', 0.0):.3f}")
 
         return {
             "rewards_by_phase": rewards_by_phase,
@@ -390,22 +378,26 @@ class TemporalHorizonAuditor:
                 continue  # debounce
 
             if s_pos > h:
-                transitions.append({
-                    "step": t,
-                    "magnitude": float(s_pos / sigma),
-                    "direction": "rise",
-                    "cusum_value": float(s_pos),
-                })
+                transitions.append(
+                    {
+                        "step": t,
+                        "magnitude": float(s_pos / sigma),
+                        "direction": "rise",
+                        "cusum_value": float(s_pos),
+                    }
+                )
                 s_pos = 0.0
                 last_alarm_step = t
 
             elif s_neg > h:
-                transitions.append({
-                    "step": t,
-                    "magnitude": float(s_neg / sigma),
-                    "direction": "drop",
-                    "cusum_value": float(s_neg),
-                })
+                transitions.append(
+                    {
+                        "step": t,
+                        "magnitude": float(s_neg / sigma),
+                        "direction": "drop",
+                        "cusum_value": float(s_neg),
+                    }
+                )
                 s_neg = 0.0
                 last_alarm_step = t
 
@@ -486,7 +478,7 @@ class TemporalHorizonAuditor:
             rewards_list: List[float] = []
 
             for ep_idx in range(n_episodes):
-                ep_seed = (None if seed is None else seed + ep_idx + int(speed_val * 1000))
+                ep_seed = None if seed is None else seed + ep_idx + int(speed_val * 1000)
                 env = env_factory()
                 if speed_val > 1.01:
                     env = FixedSpeedWrapper(env, speed=max(1, int(round(speed_val))))
@@ -588,8 +580,7 @@ class TemporalHorizonAuditor:
         ci_upper = float(np.percentile(ci_arr, 97.5))
 
         if self.verbose:
-            print(f"    -> Critical speed: {critical:.2f}x "
-                  f"[{ci_lower:.3f}, {ci_upper:.3f}]")
+            print(f"    -> Critical speed: {critical:.2f}x [{ci_lower:.3f}, {ci_upper:.3f}]")
 
         return {
             "critical_speed": critical,
@@ -647,11 +638,7 @@ class TemporalHorizonAuditor:
         # Collect actions per phase
         phase_actions: Dict[int, List[float]] = {}
         for phase_idx, (phase_start, speed) in enumerate(cascade_schedule):
-            next_start = (
-                cascade_schedule[phase_idx + 1][0]
-                if phase_idx + 1 < len(cascade_schedule)
-                else horizon
-            )
+            next_start = cascade_schedule[phase_idx + 1][0] if phase_idx + 1 < len(cascade_schedule) else horizon
             vals: List[float] = []
             for ep in all_actions:
                 for t in range(phase_start, min(next_start, len(ep))):
@@ -794,10 +781,11 @@ class TemporalHorizonAuditor:
         def _run_agent(adapter, name: str) -> float:
             total_rewards = []
             from deltatau_audit.wrappers.speed import PiecewiseSwitchWrapper
+
             schedule = [(0, 1), (15, 5), (30, 1)]
 
             for ep_idx in range(n_episodes):
-                ep_seed = (None if seed is None else seed + ep_idx)
+                ep_seed = None if seed is None else seed + ep_idx
                 env = PiecewiseSwitchWrapper(env_factory(), schedule=schedule)
 
                 reset_kwargs = {"seed": ep_seed} if ep_seed is not None else {}

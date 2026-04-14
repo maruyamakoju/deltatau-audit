@@ -32,6 +32,7 @@ from ..schema import prepare_audit_result, validate_audit_result
 
 def _get_report_version() -> str:
     from .. import __version__
+
     return __version__
 
 
@@ -53,6 +54,7 @@ def _safe_text(value: Any) -> str:
 
 # ── Reliance figures ──────────────────────────────────────────────────
 
+
 def _plot_return_vs_speed(reliance: Dict, speeds: list) -> str:
     """Plot return vs speed (no intervention). Returns base64 PNG."""
     per_speed = reliance["per_speed"]
@@ -60,8 +62,7 @@ def _plot_return_vs_speed(reliance: Dict, speeds: list) -> str:
     fig, ax = plt.subplots(figsize=(7, 4))
     means = [per_speed[str(s)]["none"]["total_reward_mean"] for s in speeds]
     stds = [per_speed[str(s)]["none"].get("total_reward_se", 0) for s in speeds]
-    ax.errorbar(speeds, means, yerr=stds, marker="o", linewidth=2,
-                capsize=4, color="#2196F3", markersize=7)
+    ax.errorbar(speeds, means, yerr=stds, marker="o", linewidth=2, capsize=4, color="#2196F3", markersize=7)
     ax.set_xlabel("Environment Speed", fontsize=12)
     ax.set_ylabel("Episode Return", fontsize=12)
     ax.set_title("Return vs Speed (nominal)", fontsize=13)
@@ -95,10 +96,18 @@ def _plot_reliance_rmse(reliance: Dict, speeds: list) -> str:
             rmses.append(data.get("rmse_mean", 0))
             ses.append(data.get("rmse_se", 0))
         if valid:
-            ax.errorbar(speeds, rmses, yerr=ses, label=style["label"],
-                        color=style["color"], marker=style["marker"],
-                        linewidth=2, capsize=4, linestyle=style["ls"],
-                        markersize=7)
+            ax.errorbar(
+                speeds,
+                rmses,
+                yerr=ses,
+                label=style["label"],
+                color=style["color"],
+                marker=style["marker"],
+                linewidth=2,
+                capsize=4,
+                linestyle=style["ls"],
+                markersize=7,
+            )
 
     ax.set_xlabel("Environment Speed", fontsize=12)
     ax.set_ylabel("Value RMSE", fontsize=12)
@@ -133,8 +142,7 @@ def _plot_reliance_bars(reliance: Dict) -> str:
     }
     x_labels = [labels.get(i, i) for i in intervs]
 
-    ax.bar(range(len(intervs)), worst_pcts, color=colors, alpha=0.85,
-           edgecolor="white", linewidth=1.5)
+    ax.bar(range(len(intervs)), worst_pcts, color=colors, alpha=0.85, edgecolor="white", linewidth=1.5)
     ax.set_xticks(range(len(intervs)))
     ax.set_xticklabels(x_labels, fontsize=10)
     ax.set_ylabel("Worst-Speed RMSE Increase (%)", fontsize=11)
@@ -143,13 +151,13 @@ def _plot_reliance_bars(reliance: Dict) -> str:
     ax.grid(True, alpha=0.3, axis="y")
 
     for i, pct in enumerate(worst_pcts):
-        ax.text(i, pct + 2, f"+{pct:.0f}%", ha="center", fontsize=11,
-                fontweight="bold")
+        ax.text(i, pct + 2, f"+{pct:.0f}%", ha="center", fontsize=11, fontweight="bold")
 
     return _fig_to_base64(fig)
 
 
 # ── Robustness figures ────────────────────────────────────────────────
+
 
 def _plot_robustness_bars(robustness: Dict) -> str:
     """Bar chart of return ratio + RMSE ratio per scenario. Returns base64 PNG."""
@@ -159,6 +167,7 @@ def _plot_robustness_bars(robustness: Dict) -> str:
 
     # Order: deployment scenarios first, then stress
     from ..auditor import DEPLOYMENT_SCENARIOS, STRESS_SCENARIOS
+
     ordered = [s for s in DEPLOYMENT_SCENARIOS if s in scores]
     ordered += [s for s in STRESS_SCENARIOS if s in scores]
     # Add any remaining
@@ -192,8 +201,7 @@ def _plot_robustness_bars(robustness: Dict) -> str:
     # Visual separator between deployment and stress
     deploy_n = len([s for s in ordered if s in DEPLOYMENT_SCENARIOS])
 
-    ax1.barh(range(n), ret_ratios, color=ret_colors, alpha=0.85,
-             edgecolor="white", linewidth=1.5)
+    ax1.barh(range(n), ret_ratios, color=ret_colors, alpha=0.85, edgecolor="white", linewidth=1.5)
     ax1.set_yticks(range(n))
     ax1.set_yticklabels(labels, fontsize=10)
     ax1.set_xlabel("Return (% of nominal)", fontsize=11)
@@ -203,12 +211,10 @@ def _plot_robustness_bars(robustness: Dict) -> str:
     ax1.set_xlim(0, max(max(ret_ratios) * 1.1, 110))
     ax1.grid(True, alpha=0.3, axis="x")
     if deploy_n < n:
-        ax1.axhline(y=deploy_n - 0.5, color="#999", linewidth=1,
-                     linestyle="--", alpha=0.5)
+        ax1.axhline(y=deploy_n - 0.5, color="#999", linewidth=1, linestyle="--", alpha=0.5)
 
     for i, r in enumerate(ret_ratios):
-        ax1.text(r + 1, i, f"{r:.0f}%", va="center", fontsize=10,
-                 fontweight="bold")
+        ax1.text(r + 1, i, f"{r:.0f}%", va="center", fontsize=10, fontweight="bold")
 
     # Right: RMSE ratio
     rmse_ratios = [scores[s]["rmse_ratio"] for s in ordered]
@@ -223,8 +229,7 @@ def _plot_robustness_bars(robustness: Dict) -> str:
         else:
             rmse_colors.append("#dc3545")
 
-    ax2.barh(range(n), rmse_ratios, color=rmse_colors, alpha=0.85,
-             edgecolor="white", linewidth=1.5)
+    ax2.barh(range(n), rmse_ratios, color=rmse_colors, alpha=0.85, edgecolor="white", linewidth=1.5)
     ax2.set_yticks(range(n))
     ax2.set_yticklabels(labels, fontsize=10)
     ax2.set_xlabel("RMSE ratio (vs nominal)", fontsize=11)
@@ -232,18 +237,17 @@ def _plot_robustness_bars(robustness: Dict) -> str:
     ax2.axvline(x=1.0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax2.grid(True, alpha=0.3, axis="x")
     if deploy_n < n:
-        ax2.axhline(y=deploy_n - 0.5, color="#999", linewidth=1,
-                     linestyle="--", alpha=0.5)
+        ax2.axhline(y=deploy_n - 0.5, color="#999", linewidth=1, linestyle="--", alpha=0.5)
 
     for i, r in enumerate(rmse_ratios):
-        ax2.text(r + 0.02, i, f"{r:.2f}x", va="center", fontsize=10,
-                 fontweight="bold")
+        ax2.text(r + 0.02, i, f"{r:.2f}x", va="center", fontsize=10, fontweight="bold")
 
     fig.tight_layout()
     return _fig_to_base64(fig)
 
 
 # ── Quadrant scatter ──────────────────────────────────────────────────
+
 
 def _plot_quadrant(summary: Dict, comparison: Optional[List[Any]] = None) -> str:
     """2D quadrant scatter: Reliance vs Deployment Robustness.
@@ -260,50 +264,52 @@ def _plot_quadrant(summary: Dict, comparison: Optional[List[Any]] = None) -> str
     rob_threshold = 0.80
 
     # Shade quadrants
-    ax.axhspan(rob_threshold, 1.15, xmin=0, xmax=0.5,
-               alpha=0.06, color="#28a745")  # blind+robust
-    ax.axhspan(rob_threshold, 1.15, xmin=0.5, xmax=1.0,
-               alpha=0.08, color="#2196F3")  # aware+robust
-    ax.axhspan(0, rob_threshold, xmin=0, xmax=0.5,
-               alpha=0.06, color="#dc3545")  # blind+fragile
-    ax.axhspan(0, rob_threshold, xmin=0.5, xmax=1.0,
-               alpha=0.06, color="#FF9800")  # aware+fragile
+    ax.axhspan(rob_threshold, 1.15, xmin=0, xmax=0.5, alpha=0.06, color="#28a745")  # blind+robust
+    ax.axhspan(rob_threshold, 1.15, xmin=0.5, xmax=1.0, alpha=0.08, color="#2196F3")  # aware+robust
+    ax.axhspan(0, rob_threshold, xmin=0, xmax=0.5, alpha=0.06, color="#dc3545")  # blind+fragile
+    ax.axhspan(0, rob_threshold, xmin=0.5, xmax=1.0, alpha=0.06, color="#FF9800")  # aware+fragile
 
     # Quadrant labels
-    ax.text(1.0, 1.08, "Time-Blind\n& Robust", ha="center", va="center",
-            fontsize=8, color="#28a745", alpha=0.7)
-    ax.text(3.5, 1.08, "Time-Aware\n& Robust", ha="center", va="center",
-            fontsize=8, color="#1565C0", alpha=0.7, fontweight="bold")
-    ax.text(1.0, 0.25, "Time-Blind\n& Fragile", ha="center", va="center",
-            fontsize=8, color="#dc3545", alpha=0.7)
-    ax.text(3.5, 0.25, "Time-Aware\n but Fragile", ha="center", va="center",
-            fontsize=8, color="#FF9800", alpha=0.7)
+    ax.text(1.0, 1.08, "Time-Blind\n& Robust", ha="center", va="center", fontsize=8, color="#28a745", alpha=0.7)
+    ax.text(
+        3.5,
+        1.08,
+        "Time-Aware\n& Robust",
+        ha="center",
+        va="center",
+        fontsize=8,
+        color="#1565C0",
+        alpha=0.7,
+        fontweight="bold",
+    )
+    ax.text(1.0, 0.25, "Time-Blind\n& Fragile", ha="center", va="center", fontsize=8, color="#dc3545", alpha=0.7)
+    ax.text(3.5, 0.25, "Time-Aware\n but Fragile", ha="center", va="center", fontsize=8, color="#FF9800", alpha=0.7)
 
     # Threshold lines
-    ax.axvline(x=rel_threshold, color="#666", linewidth=1, linestyle="--",
-               alpha=0.4)
-    ax.axhline(y=rob_threshold, color="#666", linewidth=1, linestyle="--",
-               alpha=0.4)
+    ax.axvline(x=rel_threshold, color="#666", linewidth=1, linestyle="--", alpha=0.4)
+    ax.axhline(y=rob_threshold, color="#666", linewidth=1, linestyle="--", alpha=0.4)
 
     # Plot current model (y = deployment score, not overall)
     rel_score = summary["reliance_score"]
     rob_score = summary.get("deployment_score", summary["robustness_score"])
-    ax.scatter([rel_score], [rob_score], s=200, c="#1565C0", zorder=5,
-               edgecolors="white", linewidths=2)
-    ax.annotate("This Agent", (rel_score, rob_score),
-                textcoords="offset points", xytext=(12, 8),
-                fontsize=10, fontweight="bold", color="#1565C0")
+    ax.scatter([rel_score], [rob_score], s=200, c="#1565C0", zorder=5, edgecolors="white", linewidths=2)
+    ax.annotate(
+        "This Agent",
+        (rel_score, rob_score),
+        textcoords="offset points",
+        xytext=(12, 8),
+        fontsize=10,
+        fontweight="bold",
+        color="#1565C0",
+    )
 
     # Plot comparison models if provided
     if comparison:
         colors = ["#E91E63", "#4CAF50", "#FF9800", "#9C27B0"]
         for i, (name, r_score, b_score) in enumerate(comparison):
             c = colors[i % len(colors)]
-            ax.scatter([r_score], [b_score], s=120, c=c, zorder=4,
-                       edgecolors="white", linewidths=1.5, marker="D")
-            ax.annotate(name, (r_score, b_score),
-                        textcoords="offset points", xytext=(10, -10),
-                        fontsize=9, color=c)
+            ax.scatter([r_score], [b_score], s=120, c=c, zorder=4, edgecolors="white", linewidths=1.5, marker="D")
+            ax.annotate(name, (r_score, b_score), textcoords="offset points", xytext=(10, -10), fontsize=9, color=c)
 
     ax.set_xlabel("Timing Reliance (RMSE ratio)", fontsize=11)
     ax.set_ylabel("Deployment Robustness (return ratio)", fontsize=11)
@@ -317,8 +323,8 @@ def _plot_quadrant(summary: Dict, comparison: Optional[List[Any]] = None) -> str
 
 # ── HTML generation ───────────────────────────────────────────────────
 
-def generate_report(audit_result: Dict, output_dir: str,
-                    title: str = "Time Robustness Audit"):
+
+def generate_report(audit_result: Dict, output_dir: str, title: str = "Time Robustness Audit"):
     """Generate audit report: HTML + PNGs + summary JSON.
 
     Adapts layout based on available data:
@@ -407,9 +413,11 @@ def generate_report(audit_result: Dict, output_dir: str,
         verdict_color = "#dc3545"
     else:
         verdict_color = "#fd7e14"
-    verdict_pill = (f'<div style="text-align:center">'
-                    f'<span class="verdict-pill" style="background:{verdict_color}">'
-                    f'{quadrant_label}</span></div>')
+    verdict_pill = (
+        f'<div style="text-align:center">'
+        f'<span class="verdict-pill" style="background:{verdict_color}">'
+        f"{quadrant_label}</span></div>"
+    )
 
     # ── Badge HTML ─────────────────────────────────────────────────
     # Helper: colored score meter bar (0–100%)
@@ -418,12 +426,12 @@ def generate_report(audit_result: Dict, output_dir: str,
         return (
             f'<div class="meter-wrap">'
             f'<div class="meter-fill" style="width:{pct:.0f}%;background:{color}"></div>'
-            f'</div>'
+            f"</div>"
             f'<div class="badge-score" style="color:{color}">{label_pct}</div>'
         )
 
-    dep_pct = f"{summary['deployment_score']*100:.0f}%"
-    str_pct = f"{summary['stress_score']*100:.0f}%"
+    dep_pct = f"{summary['deployment_score'] * 100:.0f}%"
+    str_pct = f"{summary['stress_score'] * 100:.0f}%"
 
     if has_reliance:
         rel_rating = summary["reliance_rating"]
@@ -433,8 +441,8 @@ def generate_report(audit_result: Dict, output_dir: str,
         rel_norm = min(1.0, (rel_score - 1.0) / 4.0)
         rel_meter = (
             f'<div class="meter-wrap">'
-            f'<div class="meter-fill" style="width:{rel_norm*100:.0f}%;background:{rel_color}"></div>'
-            f'</div>'
+            f'<div class="meter-fill" style="width:{rel_norm * 100:.0f}%;background:{rel_color}"></div>'
+            f"</div>"
             f'<div class="badge-score" style="color:{rel_color}">{rel_score:.1f}x RMSE</div>'
         )
         badge_html = f"""
@@ -447,13 +455,13 @@ def generate_report(audit_result: Dict, output_dir: str,
     <div class="badge">
       <div class="badge-label">Deployment Robustness</div>
       <div class="badge-value" style="color:{dep_color}">{dep_rating}</div>
-      {_meter(summary['deployment_score'], dep_color, dep_pct)}
+      {_meter(summary["deployment_score"], dep_color, dep_pct)}
       <div class="badge-detail">Return under jitter / delay / spike / noise</div>
     </div>
     <div class="badge">
       <div class="badge-label">Stress Robustness</div>
       <div class="badge-value" style="color:{str_color}">{str_rating}</div>
-      {_meter(summary['stress_score'], str_color, str_pct)}
+      {_meter(summary["stress_score"], str_color, str_pct)}
       <div class="badge-detail">Return at 5× speed (extreme)</div>
     </div>"""
     else:
@@ -461,13 +469,13 @@ def generate_report(audit_result: Dict, output_dir: str,
     <div class="badge">
       <div class="badge-label">Deployment Robustness</div>
       <div class="badge-value" style="color:{dep_color}">{dep_rating}</div>
-      {_meter(summary['deployment_score'], dep_color, dep_pct)}
+      {_meter(summary["deployment_score"], dep_color, dep_pct)}
       <div class="badge-detail">Return under jitter / delay / spike / noise</div>
     </div>
     <div class="badge">
       <div class="badge-label">Stress Robustness</div>
       <div class="badge-value" style="color:{str_color}">{str_rating}</div>
-      {_meter(summary['stress_score'], str_color, str_pct)}
+      {_meter(summary["stress_score"], str_color, str_pct)}
       <div class="badge-detail">Return at 5× speed (extreme)</div>
     </div>"""
 
@@ -496,10 +504,10 @@ def generate_report(audit_result: Dict, output_dir: str,
                 col_i = severity_color(sev_i)
                 label = interv_labels.get(interv, interv)
                 deg_rows += (
-                    f'<tr><td>{_safe_text(label)}</td><td>{_safe_text(s_str)}</td>'
-                    f'<td>{deg["baseline_rmse"]:.4f}</td>'
-                    f'<td>{deg["intervention_rmse"]:.4f}</td>'
-                    f'<td>+{pct:.0f}%</td>'
+                    f"<tr><td>{_safe_text(label)}</td><td>{_safe_text(s_str)}</td>"
+                    f"<td>{deg['baseline_rmse']:.4f}</td>"
+                    f"<td>{deg['intervention_rmse']:.4f}</td>"
+                    f"<td>+{pct:.0f}%</td>"
                     f'<td style="color:{col_i};font-weight:bold">{_safe_text(sev_i)}</td></tr>\n'
                 )
 
@@ -565,17 +573,17 @@ def generate_report(audit_result: Dict, output_dir: str,
             ci_hi = sc.get("ci_upper")
             sig = sc.get("significant", False)
             if ci_lo is not None and ci_hi is not None:
-                ci_str = f"{ci_lo*100:.0f}%–{ci_hi*100:.0f}%"
+                ci_str = f"{ci_lo * 100:.0f}%–{ci_hi * 100:.0f}%"
                 sig_str = " ***" if sig else ""
             else:
                 ci_str = "–"
                 sig_str = ""
             rows += (
-                f'<tr><td>{_safe_text(category_label)}</td><td>{_safe_text(label)}</td>'
+                f"<tr><td>{_safe_text(category_label)}</td><td>{_safe_text(label)}</td>"
                 f'<td style="color:{r_col};font-weight:bold">{ret_r:.0f}%</td>'
-                f'<td>{_safe_text(ci_str + sig_str)}</td>'
-                f'<td>{rmse_r:.2f}x</td>'
-                f'<td>{sc["return_drop_pct"]:+.1f}%</td></tr>\n'
+                f"<td>{_safe_text(ci_str + sig_str)}</td>"
+                f"<td>{rmse_r:.2f}x</td>"
+                f"<td>{sc['return_drop_pct']:+.1f}%</td></tr>\n"
             )
         return rows
 
@@ -592,10 +600,10 @@ def generate_report(audit_result: Dict, output_dir: str,
         sens_rows = ""
         for s_str, sv in sens_per_speed.items():
             sens_rows += (
-                f'<tr><td>{_safe_text(s_str)}</td>'
-                f'<td>{sv["mean"]:.4f}</td>'
-                f'<td>{sv["std"]:.4f}</td>'
-                f'<td>{sv["n_samples"]}</td></tr>\n'
+                f"<tr><td>{_safe_text(s_str)}</td>"
+                f"<td>{sv['mean']:.4f}</td>"
+                f"<td>{sv['std']:.4f}</td>"
+                f"<td>{sv['n_samples']}</td></tr>\n"
             )
         sensitivity_html = f"""
 <h2>{sens_num}. Temporal Sensitivity &mdash; |dV/d&tau;|</h2>
@@ -605,7 +613,7 @@ def generate_report(audit_result: Dict, output_dir: str,
   the timing channel is <strong>actively adapting</strong>.
 </p>
 <div class="metric-card">
-  <div class="metric-value">{sensitivity['mean']:.4f}</div>
+  <div class="metric-value">{sensitivity["mean"]:.4f}</div>
   <div class="metric-label">Mean |dV/d&tau;| (timing Jacobian)</div>
 </div>
 <table>
@@ -620,14 +628,16 @@ def generate_report(audit_result: Dict, output_dir: str,
     if diagnosis and diagnosis.get("issues"):
         primary = diagnosis["issues"][0]
         rating_colors = {
-            "FAIL": "#dc3545", "DEGRADED": "#fd7e14",
-            "MILD": "#ffc107", "PASS": "#28a745",
+            "FAIL": "#dc3545",
+            "DEGRADED": "#fd7e14",
+            "MILD": "#ffc107",
+            "PASS": "#28a745",
         }
         p_color = rating_colors.get(primary["rating"], "#888")
         p_badge = (
             f'<span style="background:{p_color};color:white;padding:2px 8px;'
             f'border-radius:4px;font-size:0.85em;font-weight:600;">'
-            f'{_safe_text(primary["rating"])}</span>'
+            f"{_safe_text(primary['rating'])}</span>"
         )
         other_rows = ""
         for issue in diagnosis["issues"][1:]:
@@ -635,29 +645,26 @@ def generate_report(audit_result: Dict, output_dir: str,
             other_rows += (
                 f'<span style="background:{i_color};color:white;padding:1px 6px;'
                 f'border-radius:3px;font-size:0.8em;margin-right:4px;">'
-                f'{_safe_text(issue["scenario"])} {_safe_text(issue["rating"])}</span>'
+                f"{_safe_text(issue['scenario'])} {_safe_text(issue['rating'])}</span>"
             )
-        other_html = (
-            f'<p class="other-issues">Additional issues: {other_rows}</p>'
-            if other_rows else ""
-        )
+        other_html = f'<p class="other-issues">Additional issues: {other_rows}</p>' if other_rows else ""
         diagnosis_html = f"""
 <div class="diagnosis">
   <h3>Failure Analysis</h3>
-  <p style="margin:0 0 12px 0;color:#555;">{_safe_text(diagnosis['summary_line'])}</p>
+  <p style="margin:0 0 12px 0;color:#555;">{_safe_text(diagnosis["summary_line"])}</p>
   <div class="diagnosis-grid">
     <div class="diagnosis-row">
       <span class="diagnosis-label">Pattern:</span>
-      <span class="diagnosis-pattern">{_safe_text(primary['pattern'])}</span>
+      <span class="diagnosis-pattern">{_safe_text(primary["pattern"])}</span>
       &nbsp;{p_badge}
     </div>
     <div class="diagnosis-row">
       <span class="diagnosis-label">Cause:</span>
-      <span style="color:#555;">{_safe_text(primary['cause'])}</span>
+      <span style="color:#555;">{_safe_text(primary["cause"])}</span>
     </div>
     <div class="diagnosis-row">
       <span class="diagnosis-label">Fix:</span>
-      <span>{_safe_text(primary['fix'])}</span>
+      <span>{_safe_text(primary["fix"])}</span>
     </div>
   </div>
   {other_html}
@@ -783,8 +790,8 @@ def generate_report(audit_result: Dict, output_dir: str,
 
 <div class="meta">
   <p>Speeds tested: {speeds_html} |
-     Episodes per condition: {audit_result['n_episodes']} |
-     Intervention support: {audit_result['supports_intervention']}</p>
+     Episodes per condition: {audit_result["n_episodes"]} |
+     Intervention support: {audit_result["supports_intervention"]}</p>
   <p>Generated by <code>deltatau-audit</code> v{_get_report_version()}</p>
 </div>
 </body>

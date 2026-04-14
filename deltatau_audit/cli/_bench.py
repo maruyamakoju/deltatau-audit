@@ -1,4 +1,5 @@
 """Bench subcommand handlers: bench run, bench table."""
+
 import sys
 
 
@@ -43,5 +44,3 @@ def _run_bench_table(args):
     print("Submission tables generated")
     print(f"  CSV: {artifacts.get('submission_csv')}")
     print(f"  MD:  {artifacts.get('submission_md')}")
-
-

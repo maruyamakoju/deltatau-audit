@@ -70,6 +70,7 @@ def _text_width(text: str) -> int:
 def _make_badge(label: str, value: str, color: str) -> str:
     """Render a shields.io-style flat badge SVG string."""
     import hashlib
+
     # Unique IDs to prevent collision when badges are embedded inline in same page
     uid = hashlib.md5(f"{label}:{value}:{color}".encode()).hexdigest()[:8]
     pad = 10  # horizontal padding per side
@@ -98,19 +99,23 @@ def _make_badge(label: str, value: str, color: str) -> str:
 
 # ── Color helpers ────────────────────────────────────────────────────
 
+
 def _rating_color(rating: str) -> str:
     """Color for PASS/MILD/DEGRADED/FAIL ratings. Delegates to _theme."""
     from ._theme import rating_color
+
     return rating_color(rating)
 
 
 def _quadrant_color(quadrant: str) -> str:
     """Color for quadrant classification. Delegates to _theme."""
     from ._theme import quadrant_color
+
     return quadrant_color(quadrant)
 
 
 # ── Public API ───────────────────────────────────────────────────────
+
 
 def badge_deployment(summary: Dict[str, Any]) -> str:
     """Generate deployment robustness badge SVG."""

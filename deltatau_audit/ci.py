@@ -147,12 +147,8 @@ def _build_ci_summary_payload(
         ci_json["stress_worst"] = wc.get("scenario")
 
     if per_scenario:
-        ci_json["significant_drop_count"] = sum(
-            1 for s in per_scenario.values() if s.get("significant")
-        )
-        ci_json["significant_change_count"] = sum(
-            1 for s in per_scenario.values() if s.get("significant_change")
-        )
+        ci_json["significant_drop_count"] = sum(1 for s in per_scenario.values() if s.get("significant"))
+        ci_json["significant_change_count"] = sum(1 for s in per_scenario.values() if s.get("significant_change"))
         ci_json["scenario_effect_sizes"] = {
             name: {
                 "cohens_d": sc.get("cohens_d"),
@@ -164,11 +160,14 @@ def _build_ci_summary_payload(
     return ci_json, exit_code
 
 
-def write_ci_summary(summary: Dict, robustness: Dict,
-                     output_dir: str,
-                     deploy_threshold: float = 0.80,
-                     stress_threshold: float = 0.50,
-                     gate_mode: str = "score") -> int:
+def write_ci_summary(
+    summary: Dict,
+    robustness: Dict,
+    output_dir: str,
+    deploy_threshold: float = 0.80,
+    stress_threshold: float = 0.50,
+    gate_mode: str = "score",
+) -> int:
     """Write ci_summary.json and ci_summary.md, return exit code.
 
     Args:
@@ -195,6 +194,7 @@ def write_ci_summary(summary: Dict, robustness: Dict,
 
     # Traceability
     from . import __version__
+
     ci_json["_version"] = __version__
     ci_json["_timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 

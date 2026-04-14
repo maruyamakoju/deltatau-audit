@@ -160,8 +160,7 @@ class TimingAuditCallback:
             strs = summary["stress_score"]
             strs_r = summary["stress_rating"]
             print(
-                f"[deltatau-audit] step={self.num_timesteps}  "
-                f"deploy={dep:.2f} ({dep_r})  stress={strs:.2f} ({strs_r})"
+                f"[deltatau-audit] step={self.num_timesteps}  deploy={dep:.2f} ({dep_r})  stress={strs:.2f} ({strs_r})"
             )
 
 
@@ -171,8 +170,7 @@ def _resolve_base() -> type[Any]:
         from stable_baselines3.common.callbacks import BaseCallback
     except ImportError:
         raise ImportError(
-            "stable-baselines3 is required for TimingAuditCallback.\n"
-            'Install with: pip install "deltatau-audit[sb3]"'
+            'stable-baselines3 is required for TimingAuditCallback.\nInstall with: pip install "deltatau-audit[sb3]"'
         )
     return BaseCallback
 

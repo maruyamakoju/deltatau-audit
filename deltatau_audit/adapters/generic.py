@@ -4,7 +4,7 @@ Wraps a user-provided callable interface. Users provide functions
 rather than subclassing — lower barrier to entry.
 """
 
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
 
@@ -12,48 +12,45 @@ from .base import AgentAdapter
 
 
 class GenericRecurrentAdapter(AgentAdapter):
-    """Adapter that wraps user-provided callables.
-
-    Usage:
-        adapter = GenericRecurrentAdapter(
-            reset_fn=lambda batch, device: torch.zeros(1, 64),
-            act_fn=lambda obs, h: (action, value, h_new, None),
-        )
-
-    For intervention support, also provide:
-        rerun_fn=lambda obs, h, dt: h_new,
-        value_fn=lambda h: value_scalar,
-    """
+    """Adapter that wraps user-provided callables."""
 
     def __init__(
         self,
-        reset_fn: Callable[[int, str], Any],
-        act_fn: Callable[[torch.Tensor, Any], Tuple[int, float, Any, Optional[float]]],
-        rerun_fn: Optional[Callable[[torch.Tensor, Any, float], Any]] = None,
-        value_fn: Optional[Callable[[Any], float]] = None,
+        reset_fn: Callable[[], Any],
+        act_fn: Callable[[torch.Tensor, Any], Tuple[Any, Dict[str, Any]]],
+        rerun_fn: Optional[Callable[[torch.Tensor, float], Dict[str, Any]]] = None,
+        value_fn: Optional[Callable[[Dict[str, Any]], float]] = None,
     ):
         self._reset_fn = reset_fn
         self._act_fn = act_fn
         self._rerun_fn = rerun_fn
         self._value_fn = value_fn
+        self._hidden = None
 
-    def reset_hidden(self, batch: int = 1, device: str = "cpu") -> Any:
-        return self._reset_fn(batch, device)
+    def reset_internal_state(self) -> None:
+        self._hidden = self._reset_fn()
 
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[int, float, Any, Optional[float]]:
-        return self._act_fn(obs, hidden)
+    def act(
+        self,
+        obs: torch.Tensor,
+        deterministic: bool = True,
+        ponder_steps: Optional[int] = None,
+    ) -> Tuple[Any, Dict[str, Any]]:
+        if self._hidden is None:
+            self.reset_internal_state()
+        action, info = self._act_fn(obs, self._hidden)
+        self._hidden = info.get("hidden")
+        return action, info
 
-    def rerun_with_dt(self, obs: torch.Tensor, hidden: Any,
-                      target_dt: float) -> Any:
+    def rerun_with_dt(self, obs: torch.Tensor, target_dt: float) -> Dict[str, Any]:
         if self._rerun_fn is None:
-            raise NotImplementedError("No rerun_fn provided")
-        return self._rerun_fn(obs, hidden, target_dt)
+            return super().rerun_with_dt(obs, target_dt)
+        return self._rerun_fn(obs, target_dt)
 
-    def recompute_value(self, hidden: Any) -> float:
+    def recompute_value(self, info: Dict[str, Any]) -> float:
         if self._value_fn is None:
-            raise NotImplementedError("No value_fn provided")
-        return self._value_fn(hidden)
+            return super().recompute_value(info)
+        return self._value_fn(info)
 
     @property
     def supports_intervention(self) -> bool:

@@ -21,11 +21,13 @@ class SimpleGRUPolicy(nn.Module):
         self.hidden_dim = hidden_dim
         self.gru = nn.GRUCell(obs_dim, hidden_dim)
         self.policy_head = nn.Sequential(
-            nn.Linear(hidden_dim, 64), nn.Tanh(),
+            nn.Linear(hidden_dim, 64),
+            nn.Tanh(),
             nn.Linear(64, act_dim),
         )
         self.value_head = nn.Sequential(
-            nn.Linear(hidden_dim, 64), nn.Tanh(),
+            nn.Linear(hidden_dim, 64),
+            nn.Tanh(),
             nn.Linear(64, 1),
         )
 
@@ -51,13 +53,11 @@ class SimpleGRUAdapter(AgentAdapter):
         self.device = device
         self.model.eval()
 
-    def reset_hidden(self, batch: int = 1,
-                     device: str = "cpu") -> Any:
+    def reset_hidden(self, batch: int = 1, device: str = "cpu") -> Any:
         return self.model.get_initial_hidden(batch, device or self.device)
 
     @torch.no_grad()
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[int, float, Any, Optional[float]]:
+    def act(self, obs: torch.Tensor, hidden: Any) -> Tuple[int, float, Any, Optional[float]]:
         if obs.dim() == 1:
             obs = obs.unsqueeze(0)
         obs = obs.to(self.device)
@@ -76,13 +76,12 @@ class SimpleGRUAdapter(AgentAdapter):
     # No recompute_value → supports_value_recompute = False
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_path: str, obs_dim: int = 4,
-                        act_dim: int = 2, hidden_dim: int = 64,
-                        device: str = "cpu") -> "SimpleGRUAdapter":
+    def from_checkpoint(
+        cls, checkpoint_path: str, obs_dim: int = 4, act_dim: int = 2, hidden_dim: int = 64, device: str = "cpu"
+    ) -> "SimpleGRUAdapter":
         """Load from a saved checkpoint."""
         model = SimpleGRUPolicy(obs_dim, act_dim, hidden_dim)
-        ckpt = torch.load(checkpoint_path, map_location=device,
-                          weights_only=False)
+        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
         model.to(device)
         return cls(model, device=device)

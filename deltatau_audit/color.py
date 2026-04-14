@@ -25,17 +25,17 @@ def _supports_color() -> bool:
 
 # ANSI escape code table
 _C = {
-    "reset":          "\033[0m",
-    "bold":           "\033[1m",
-    "green":          "\033[32m",
-    "bright_green":   "\033[92m",
-    "yellow":         "\033[33m",
-    "bright_yellow":  "\033[93m",
-    "red":            "\033[31m",
-    "bright_red":     "\033[91m",
-    "gray":           "\033[90m",
-    "cyan":           "\033[36m",
-    "white":          "\033[97m",
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "green": "\033[32m",
+    "bright_green": "\033[92m",
+    "yellow": "\033[33m",
+    "bright_yellow": "\033[93m",
+    "red": "\033[31m",
+    "bright_red": "\033[91m",
+    "gray": "\033[90m",
+    "cyan": "\033[36m",
+    "white": "\033[97m",
 }
 
 
@@ -55,12 +55,12 @@ def _rj(text: str, width: int) -> str:
 # ── Rating-specific helpers ──────────────────────────────────────────
 
 _RATING_CODES = {
-    "PASS":     ("bright_green",),
-    "MILD":     ("green",),
+    "PASS": ("bright_green",),
+    "MILD": ("green",),
     "DEGRADED": ("bright_yellow",),
-    "FAIL":     ("bright_red", "bold"),
-    "N/A":      ("gray",),
-    "UNKNOWN":  ("gray",),
+    "FAIL": ("bright_red", "bold"),
+    "N/A": ("gray",),
+    "UNKNOWN": ("gray",),
 }
 
 

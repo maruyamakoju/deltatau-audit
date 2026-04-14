@@ -1,21 +1,22 @@
 """
 Multi-Agent Adapter for Temporal Robustness.
 
-Allows auditing a team of agents where each agent might have its own 
+Allows auditing a team of agents where each agent might have its own
 distinct internal clock or communication latency.
 """
 
-from typing import Any, List, Optional, Tuple, Dict
-import torch
-import numpy as np
+from typing import Any, List, Optional, Tuple
+
 from .base import AgentAdapter
+
 
 class MultiAgentAdapter(AgentAdapter):
     """
     Wraps multiple AgentAdapters into a single team.
-    Useful for Cooperative RL or competitive scenarios where 
+    Useful for Cooperative RL or competitive scenarios where
     temporal desynchronization matters.
     """
+
     def __init__(self, adapters: List[AgentAdapter]):
         self.adapters = adapters
         self.n_agents = len(adapters)
@@ -35,7 +36,7 @@ class MultiAgentAdapter(AgentAdapter):
         values = []
         hiddens_new = []
         dts = []
-        
+
         for i, adapter in enumerate(self.adapters):
             # Pass individual agent obs and hidden
             a, v, h, dt = adapter.act(obs[i], hidden[i])
@@ -43,7 +44,7 @@ class MultiAgentAdapter(AgentAdapter):
             values.append(v)
             hiddens_new.append(h)
             dts.append(dt)
-            
+
         return actions, values, hiddens_new, dts
 
     def rerun_with_dt(self, obs: Any, hidden: Any, target_dts: List[float]) -> List[Any]:

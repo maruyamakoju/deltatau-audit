@@ -40,9 +40,7 @@ def _scenario_key(scenario: str) -> tuple[int, str]:
     return (0 if scenario in _DEPLOY_SCENARIOS else 1, scenario)
 
 
-def _ordered_scenarios(
-    before_scores: Mapping[str, Any], after_scores: Mapping[str, Any]
-) -> list[str]:
+def _ordered_scenarios(before_scores: Mapping[str, Any], after_scores: Mapping[str, Any]) -> list[str]:
     return sorted(set(before_scores) | set(after_scores), key=_scenario_key)
 
 
@@ -107,12 +105,26 @@ def _make_comparison_chart(before_data: dict, after_data: dict) -> str | None:
             return "#fd7e14"
         return "#dc3545"
 
-    bars1 = ax.bar(x - width/2, before_ratios, width,
-                   label="Before", color=[_bar_color(v) for v in before_ratios],
-                   alpha=0.6, edgecolor="white", linewidth=1.2)
-    bars2 = ax.bar(x + width/2, after_ratios, width,
-                   label="After", color=[_bar_color(v) for v in after_ratios],
-                   alpha=0.95, edgecolor="white", linewidth=1.2)
+    bars1 = ax.bar(
+        x - width / 2,
+        before_ratios,
+        width,
+        label="Before",
+        color=[_bar_color(v) for v in before_ratios],
+        alpha=0.6,
+        edgecolor="white",
+        linewidth=1.2,
+    )
+    bars2 = ax.bar(
+        x + width / 2,
+        after_ratios,
+        width,
+        label="After",
+        color=[_bar_color(v) for v in after_ratios],
+        alpha=0.95,
+        edgecolor="white",
+        linewidth=1.2,
+    )
 
     # Reference lines
     ax.axhline(y=100, color="#28a745", linestyle="--", linewidth=1, alpha=0.5, label="Nominal (100%)")
@@ -124,14 +136,23 @@ def _make_comparison_chart(before_data: dict, after_data: dict) -> str | None:
         h = bar.get_height()
         va = "bottom" if h >= 0 else "top"
         y_off = 1 if h >= 0 else -1
-        ax.text(bar.get_x() + bar.get_width()/2., h + y_off,
-                f"{h:.0f}%", ha="center", va=va, fontsize=7, color="#333")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0, h + y_off, f"{h:.0f}%", ha="center", va=va, fontsize=7, color="#333"
+        )
     for bar in bars2:
         h = bar.get_height()
         va = "bottom" if h >= 0 else "top"
         y_off = 1 if h >= 0 else -1
-        ax.text(bar.get_x() + bar.get_width()/2., h + y_off,
-                f"{h:.0f}%", ha="center", va=va, fontsize=7, fontweight="bold", color="#111")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            h + y_off,
+            f"{h:.0f}%",
+            ha="center",
+            va=va,
+            fontsize=7,
+            fontweight="bold",
+            color="#111",
+        )
 
     ax.set_xlabel("Scenario", fontsize=11)
     ax.set_ylabel("Performance vs Nominal (%)", fontsize=11)
@@ -196,18 +217,12 @@ def _seed_metric_stats(seed_payload: Mapping[str, Any], key: str) -> tuple[float
     mean = stat.get("mean")
     ci_lo = stat.get("ci_lower")
     ci_hi = stat.get("ci_upper")
-    if (
-        isinstance(mean, (int, float))
-        and isinstance(ci_lo, (int, float))
-        and isinstance(ci_hi, (int, float))
-    ):
+    if isinstance(mean, (int, float)) and isinstance(ci_lo, (int, float)) and isinstance(ci_hi, (int, float)):
         return float(mean), float(ci_lo), float(ci_hi)
     return None
 
 
-def _make_seed_variance_chart(
-    before_seed: Mapping[str, Any], after_seed: Mapping[str, Any]
-) -> str | None:
+def _make_seed_variance_chart(before_seed: Mapping[str, Any], after_seed: Mapping[str, Any]) -> str | None:
     """Generate a base64 PNG for multi-seed mean/CI and seed scatter."""
     try:
         import base64
@@ -335,6 +350,7 @@ def _rating_change(before, after):
 
 def _rating_color(rating: str) -> str:
     from ._theme import rating_color
+
     return rating_color(rating)
 
 
@@ -380,8 +396,7 @@ def generate_comparison(
         a_val = f"{ars:.2f}x ({ar})" if ars is not None else "N/A"
         lines.append(f"| Reliance | {b_val} | {a_val} | - |")
     else:
-        lines.append(f"| Reliance | {brs:.2f}x ({br}) | {ars:.2f}x ({ar}) "
-                      f"| {_rating_change(br, ar)} |")
+        lines.append(f"| Reliance | {brs:.2f}x ({br}) | {ars:.2f}x ({ar}) | {_rating_change(br, ar)} |")
 
     # Deployment
     bd = bs.get("deployment_score", 0)
@@ -390,8 +405,9 @@ def generate_comparison(
     adr = as_.get("deployment_rating", "?")
     delta_d = ad - bd
     sign_d = "+" if delta_d >= 0 else ""
-    lines.append(f"| **Deployment** | {bd:.2f} ({bdr}) | {ad:.2f} ({adr}) "
-                 f"| {sign_d}{delta_d:.2f} {_rating_change(bdr, adr)} |")
+    lines.append(
+        f"| **Deployment** | {bd:.2f} ({bdr}) | {ad:.2f} ({adr}) | {sign_d}{delta_d:.2f} {_rating_change(bdr, adr)} |"
+    )
 
     # Stress
     bst = bs.get("stress_score", 0)
@@ -400,15 +416,14 @@ def generate_comparison(
     astr = as_.get("stress_rating", "?")
     delta_s = ast - bst
     sign_s = "+" if delta_s >= 0 else ""
-    lines.append(f"| **Stress** | {bst:.2f} ({bstr}) | {ast:.2f} ({astr}) "
-                 f"| {sign_s}{delta_s:.2f} {_rating_change(bstr, astr)} |")
+    lines.append(
+        f"| **Stress** | {bst:.2f} ({bstr}) | {ast:.2f} ({astr}) | {sign_s}{delta_s:.2f} {_rating_change(bstr, astr)} |"
+    )
 
     # Quadrant
     bq = bs.get("quadrant", "?")
     aq = as_.get("quadrant", "?")
-    lines.append(
-        f"| Quadrant | {_md_cell(bq)} | {_md_cell(aq)} | {_md_cell(_rating_change(bq, aq))} |"
-    )
+    lines.append(f"| Quadrant | {_md_cell(bq)} | {_md_cell(aq)} | {_md_cell(_rating_change(bq, aq))} |")
 
     # Per-scenario breakdown
     b_rob = _robustness(before)
@@ -471,16 +486,10 @@ def generate_comparison(
         return f"{sc} (drop {drop:.1f}%)"
 
     if b_dep_worst and a_dep_worst:
-        lines.append(
-            f"| Deployment | {_worst_str(b_dep_worst)} "
-            f"| {_worst_str(a_dep_worst)} |"
-        )
+        lines.append(f"| Deployment | {_worst_str(b_dep_worst)} | {_worst_str(a_dep_worst)} |")
 
     if b_str_worst and a_str_worst:
-        lines.append(
-            f"| Stress | {_worst_str(b_str_worst)} "
-            f"| {_worst_str(a_str_worst)} |"
-        )
+        lines.append(f"| Stress | {_worst_str(b_str_worst)} | {_worst_str(a_str_worst)} |")
 
     md = "\n".join(lines) + "\n"
 
@@ -540,9 +549,11 @@ def generate_comparison_html(
         color = _rating_color(str(rating))
         label = str(rating) if rating != "N/A" else "N/A"
         score_str = f" ({score:.2f})" if score is not None and rating != "N/A" else ""
-        return (f'<span style="background:{color};color:#fff;padding:2px 10px;'
-                f'border-radius:12px;font-size:12px;font-weight:bold">'
-                f'{_html_text(label)}{score_str}</span>')
+        return (
+            f'<span style="background:{color};color:#fff;padding:2px 10px;'
+            f'border-radius:12px;font-size:12px;font-weight:bold">'
+            f"{_html_text(label)}{score_str}</span>"
+        )
 
     def _delta_cell(b_val, a_val, is_pct=True):
         """HTML for a delta value with colored bar."""
@@ -560,7 +571,7 @@ def generate_comparison_html(
         bar_w = max(3, min(60, abs(delta) * 200))
         return (
             f'<span style="display:inline-block;width:{bar_w:.0f}px;height:8px;'
-            f'background:{color};border-radius:2px;vertical-align:middle;'
+            f"background:{color};border-radius:2px;vertical-align:middle;"
             f'margin-right:6px"></span>'
             f'<span style="color:{color};font-weight:bold">{val_str}</span>'
         )
@@ -577,24 +588,24 @@ def generate_comparison_html(
         b_pct = f"{b_ret * 100:.0f}%" if b_ret is not None else "—"
         a_pct = f"{a_ret * 100:.0f}%" if a_ret is not None else "—"
         if isinstance(b_d, (int, float)):
-            b_pct += f" <span style=\"color:#888;font-size:12px\">(d={b_d:+.2f})</span>"
+            b_pct += f' <span style="color:#888;font-size:12px">(d={b_d:+.2f})</span>'
         if isinstance(a_d, (int, float)):
-            a_pct += f" <span style=\"color:#888;font-size:12px\">(d={a_d:+.2f})</span>"
+            a_pct += f' <span style="color:#888;font-size:12px">(d={a_d:+.2f})</span>'
         delta_html = _delta_cell(b_ret, a_ret, is_pct=True)
         label = _html_text(scenario_labels.get(sc, sc))
         cat_label = _html_text(cat)
         b_sig = b_scores.get(sc, {}).get("significant", False)
         a_sig = a_scores.get(sc, {}).get("significant", False)
-        sig_mark = (" *" if (b_sig or a_sig) else "")
+        sig_mark = " *" if (b_sig or a_sig) else ""
         sc_rows += (
-            f'<tr>'
-            f'<td><strong>{label}</strong>{sig_mark}</td>'
+            f"<tr>"
+            f"<td><strong>{label}</strong>{sig_mark}</td>"
             f'<td><span style="background:{cat_color};color:#fff;padding:1px 8px;'
             f'border-radius:10px;font-size:11px">{cat_label}</span></td>'
-            f'<td>{b_pct}</td>'
-            f'<td>{a_pct}</td>'
-            f'<td>{delta_html}</td>'
-            f'</tr>\n'
+            f"<td>{b_pct}</td>"
+            f"<td>{a_pct}</td>"
+            f"<td>{delta_html}</td>"
+            f"</tr>\n"
         )
 
     # Badge cards helper
@@ -612,10 +623,7 @@ def generate_comparison_html(
         if ts:
             meta += (" · " if meta else "") + _html_text(ts[:19].replace("T", " "))
         meta_html = f'<div style="font-size:11px;color:#999;margin-bottom:10px">{meta}</div>' if meta else ""
-        rel_html = (
-            _rating_pill(rel_r) if rel_r == "N/A"
-            else _rating_pill(rel_r, rel_s)
-        )
+        rel_html = _rating_pill(rel_r) if rel_r == "N/A" else _rating_pill(rel_r, rel_s)
         side_label_safe = _html_text(side_label)
         quadrant_safe = _html_text(_quadrant_label(str(quad)))
         return f"""
@@ -651,7 +659,7 @@ def generate_comparison_html(
             f'<img src="data:image/png;base64,{chart_b64}" '
             f'alt="Before vs After Comparison" '
             f'style="max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">'
-            f'</div>'
+            f"</div>"
         )
 
     before_seed = _seed_sweep_payload(before)
@@ -670,15 +678,15 @@ def generate_comparison_html(
             a_str_rate = float(a_pass.get("stress", 0.0))
             seed_chart_html = (
                 "<h2>Multi-Seed Variance</h2>"
-                "<div class=\"summary-line\">"
+                '<div class="summary-line">'
                 f"Before: n={b_n}, deployment pass-rate {b_dep_rate:.0%}, stress pass-rate {b_str_rate:.0%}"
                 "&nbsp;→&nbsp;"
                 f"After: n={a_n}, deployment pass-rate {a_dep_rate:.0%}, stress pass-rate {a_str_rate:.0%}"
                 "</div>"
-                "<div class=\"chart-section\">"
-                f"<img src=\"data:image/png;base64,{seed_chart_b64}\" "
-                "alt=\"Multi-Seed Variance\" "
-                "style=\"max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);\">"
+                '<div class="chart-section">'
+                f'<img src="data:image/png;base64,{seed_chart_b64}" '
+                'alt="Multi-Seed Variance" '
+                'style="max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">'
                 "</div>"
             )
 

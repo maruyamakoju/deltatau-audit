@@ -1,11 +1,14 @@
 """Fix subcommand handlers: fix-sb3, fix-cleanrl, and _parse_kwargs helper."""
+
 import importlib.util
 import os
 import sys
 from pathlib import Path
 
 from deltatau_audit.cli import (
-    _resolve_workers, _require_module, _validate_gym_env_or_exit,
+    _require_module,
+    _resolve_workers,
+    _validate_gym_env_or_exit,
 )
 
 
@@ -30,16 +33,13 @@ def _parse_kwargs(kwargs_str):
     return result
 
 
-
-
 def _run_fix_sb3(args):
     """Fix a timing-fragile SB3 model via speed-randomized retraining."""
     # (1) Model file existence check
     if not os.path.isfile(args.model):
         print(f"ERROR: Model file not found: {args.model}")
         if not args.model.endswith(".zip"):
-            print("  SB3 models are saved as .zip files. "
-                  "Did you mean: {}.zip?".format(args.model))
+            print("  SB3 models are saved as .zip files. Did you mean: {}.zip?".format(args.model))
         sys.exit(1)
 
     # (2) Dependency/environment checks
@@ -71,6 +71,7 @@ def _run_fix_sb3(args):
     if args.ci and result.get("after"):
         after_dir = os.path.join(args.out, "after")
         from deltatau_audit.ci import write_ci_summary
+
         exit_code = write_ci_summary(
             result["after"]["summary"],
             result["after"]["robustness"],
@@ -85,8 +86,6 @@ def _run_fix_sb3(args):
     elif args.ci and result.get("skipped"):
         print("\n  CI: PASS (original model already robust)")
         sys.exit(0)
-
-
 
 
 def _run_fix_cleanrl(args):
@@ -104,8 +103,7 @@ def _run_fix_cleanrl(args):
         print("  Provide the path to the Python file containing your Agent class.")
         sys.exit(1)
 
-    import importlib.util
-    from pathlib import Path
+
     module_path = Path(args.agent_module).resolve()
     if not module_path.exists():
         print(f"ERROR: Agent module not found: {module_path}")
@@ -132,8 +130,7 @@ def _run_fix_cleanrl(args):
         agent_kwargs=_parse_kwargs(args.agent_kwargs),
         env_id=args.env,
         output_dir=args.out,
-        checkpoint_path=args.checkpoint if (
-            args.checkpoint and os.path.isfile(args.checkpoint)) else None,
+        checkpoint_path=args.checkpoint if (args.checkpoint and os.path.isfile(args.checkpoint)) else None,
         timesteps=args.timesteps,
         speed_min=args.speed_min,
         speed_max=args.speed_max,
@@ -147,6 +144,7 @@ def _run_fix_cleanrl(args):
     if args.ci and result.get("after"):
         after_dir = os.path.join(args.out, "after")
         from deltatau_audit.ci import write_ci_summary
+
         exit_code = write_ci_summary(
             result["after"]["summary"],
             result["after"]["robustness"],
@@ -161,5 +159,3 @@ def _run_fix_cleanrl(args):
     elif args.ci and result.get("skipped"):
         print("\n  CI: PASS (original agent already robust)")
         sys.exit(0)
-
-

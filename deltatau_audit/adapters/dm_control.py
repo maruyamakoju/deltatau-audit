@@ -88,8 +88,7 @@ def _check_dependencies() -> None:
     if missing:
         parts = ", ".join(missing)
         raise ImportError(
-            "dm_control adapter requires: " + parts + "."
-            " Install with: pip install deltatau-audit[dm_control]"
+            "dm_control adapter requires: " + parts + ". Install with: pip install deltatau-audit[dm_control]"
         )
 
 
@@ -146,6 +145,7 @@ def make_dm_control_env(
     # Wrap with speed controller when speed != 1.0
     if speed != 1.0:
         from deltatau_audit.wrappers.speed import FixedSpeedWrapper
+
         env = FixedSpeedWrapper(env, speed=speed)
 
     return env
@@ -198,6 +198,7 @@ class DMControlSB3Adapter(AgentAdapter):
         self.speed = speed
         self.seed = seed
         self.device = device
+
     # ------------------------------------------------------------------
     # AgentAdapter interface
     # ------------------------------------------------------------------
@@ -237,9 +238,7 @@ class DMControlSB3Adapter(AgentAdapter):
         action_arr, _ = self.model.predict(obs_np, deterministic=False)
 
         # Value estimate -- policy.predict_values expects a tensor
-        obs_tensor = torch.as_tensor(
-            obs_np, dtype=torch.float32, device=self.model.device
-        )
+        obs_tensor = torch.as_tensor(obs_np, dtype=torch.float32, device=self.model.device)
         value_tensor = self.model.policy.predict_values(obs_tensor)
         value_scalar = float(value_tensor.item())
 
@@ -316,10 +315,7 @@ class DMControlSB3Adapter(AgentAdapter):
         try:
             import stable_baselines3 as sb3
         except ImportError:
-            raise ImportError(
-                "stable-baselines3 is required. "
-                "Install with: pip install deltatau-audit[dm_control]"
-            )
+            raise ImportError("stable-baselines3 is required. Install with: pip install deltatau-audit[dm_control]")
 
         algo_map = {
             "ppo": sb3.PPO,
@@ -342,9 +338,5 @@ class DMControlSB3Adapter(AgentAdapter):
             algo_name = "None"
         env_id_r = repr(self.env_id)
         return (
-            f"DMControlSB3Adapter("
-            f"env_id={env_id_r}, "
-            f"algo={algo_name}, "
-            f"speed={self.speed}, "
-            f"supports_intervention=False)"
+            f"DMControlSB3Adapter(env_id={env_id_r}, algo={algo_name}, speed={self.speed}, supports_intervention=False)"
         )

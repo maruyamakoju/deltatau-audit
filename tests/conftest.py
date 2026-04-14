@@ -87,28 +87,25 @@ def tmp_path() -> Path:
 
 # ── Minimal adapter helpers ───────────────────────────────────────────────────
 
-class _DummyAdapter:
+class _DummyAdapter(AgentAdapter):
     """Adapter that returns a fixed action and constant hidden state."""
     supports_intervention = False
     supports_value_recompute = False
 
-    def reset(self):
-        return np.zeros(1)
+    def reset_internal_state(self) -> None:
+        pass
 
-    def reset_hidden(self, batch: int = 1, device: str = "cpu"):
-        return np.zeros(1)
+    def act(self, obs, deterministic=True, ponder_steps=None):
+        return 0, {"value": 0.0, "dt": 1.0, "hidden": np.zeros(1)}
 
-    def act(self, obs, hidden=None):
-        return 0, 0.0, np.zeros(1), None
-
-    def rerun_with_dt(self, obs_seq, hidden_init, dt_seq):
+    def rerun_with_dt(self, obs, target_dt):
         raise NotImplementedError("supports_intervention=False")
 
-    def recompute_value(self, hidden):
+    def recompute_value(self, info):
         raise NotImplementedError("supports_value_recompute=False")
 
 
-class _ConstAdapter:
+class _ConstAdapter(AgentAdapter):
     """Adapter returning a fixed reward and configurable hidden state."""
     supports_intervention = True
     supports_value_recompute = False
@@ -117,18 +114,14 @@ class _ConstAdapter:
         self._reward = reward
         self._rmse_base = rmse_base
 
-    def reset(self):
-        return np.zeros(4)
+    def reset_internal_state(self) -> None:
+        pass
 
-    def act(self, obs, hidden=None):
-        return 0, float(self._reward), np.zeros(4), None
+    def act(self, obs, deterministic=True, ponder_steps=None):
+        return 0, {"value": float(self._reward), "dt": 1.0, "hidden": np.zeros(4)}
 
-    def rerun_with_dt(self, obs_seq, hidden_init, dt_seq):
-        n = len(obs_seq)
-        return {
-            "values": [float(self._rmse_base)] * n,
-            "returns": [0.0] * n,
-        }
+    def rerun_with_dt(self, obs, target_dt):
+        return {"hidden": np.zeros(4), "dt": target_dt}
 
 
 # ── Summary/result factories ──────────────────────────────────────────────────
@@ -323,30 +316,29 @@ def failing_robustness():
 class _InterventionAdapter(AgentAdapter):
     """Adapter that supports both dt intervention and value recompute."""
 
-    def reset_hidden(self, batch: int = 1, device: str = "cpu"):
-        return torch.zeros(batch, 4)
+    def reset_internal_state(self) -> None:
+        pass
 
-    def act(self, obs, hidden=None):
-        return 0, 1.0, torch.zeros(1, 4), 1.0
+    def act(self, obs, deterministic=True, ponder_steps=None):
+        return 0, {"value": 1.0, "dt": 1.0, "hidden": torch.zeros(1, 4)}
 
-    def rerun_with_dt(self, obs, hidden, target_dt: float):
-        # Return a dummy hidden state that differs from input
-        return torch.zeros_like(hidden) if hidden is not None else torch.zeros(1, 4)
+    def rerun_with_dt(self, obs, target_dt: float):
+        return {"hidden": torch.zeros(1, 4), "dt": target_dt}
 
-    def recompute_value(self, hidden) -> float:
+    def recompute_value(self, info) -> float:
         return 0.5
 
 
 class _ValueOnlyAdapter(AgentAdapter):
     """Adapter that supports value recompute but NOT dt intervention."""
 
-    def reset_hidden(self, batch: int = 1, device: str = "cpu"):
-        return torch.zeros(batch, 4)
+    def reset_internal_state(self) -> None:
+        pass
 
-    def act(self, obs, hidden=None):
-        return 0, 1.0, torch.zeros(1, 4), None
+    def act(self, obs, deterministic=True, ponder_steps=None):
+        return 0, {"value": 1.0, "dt": 1.0, "hidden": torch.zeros(1, 4)}
 
-    def recompute_value(self, hidden) -> float:
+    def recompute_value(self, info) -> float:
         return 0.5
 
 

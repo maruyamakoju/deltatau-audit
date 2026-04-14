@@ -9,13 +9,18 @@
 """
 
 import warnings
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pytest
 import torch
 
-from deltatau_audit.auditor import _run_single_episode, run_robustness_audit
+from deltatau_audit._constants import DEPLOYMENT_SCENARIOS, ROBUSTNESS_SCENARIO_LABELS as ROBUSTNESS_SCENARIOS
+from deltatau_audit.auditors import RobustnessAuditor
+from deltatau_audit.core.runner import EpisodeRunner
 from deltatau_audit.metrics import bootstrap_return_ratio, compute_return_ratio
+from deltatau_audit.schema import TemporalCapability
+from deltatau_audit.wrappers.factory import create_wrapped_env
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures / helpers
@@ -46,11 +51,19 @@ class _DummyAdapter:
     supports_intervention = False
     supports_value_recompute = False
 
-    def reset_hidden(self, batch=1, device="cpu"):
-        return None
+    def reset_internal_state(self) -> None:
+        pass
 
-    def act(self, obs, hidden):
-        return 0, 1.0, hidden, None
+    def act(
+        self,
+        observation: Any,
+        deterministic: bool = True,
+        ponder_steps: Optional[int] = None,
+    ) -> Tuple[Any, Dict[str, Any]]:
+        return 0, {"value": 0.0, "dt": 1.0}
+
+    def get_capabilities(self) -> TemporalCapability:
+        return TemporalCapability(can_ponder=False, max_lookahead_steps=0)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -60,15 +73,13 @@ class _DummyAdapter:
 class TestEpisodeTimeout:
     def test_timeout_fires(self):
         """Episode exceeding max_steps must be truncated with RuntimeWarning."""
-        env = _NeverDoneEnv()
+        env_factory = lambda: _NeverDoneEnv()
         adapter = _DummyAdapter()
+        runner = EpisodeRunner(adapter, env_factory, max_steps=10)
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _run_single_episode(
-                adapter, env, intervention="none",
-                max_steps=10,
-            )
+            runner.run_single(intervention="none")
 
         assert len(caught) == 1
         assert issubclass(caught[0].category, RuntimeWarning)
@@ -76,33 +87,31 @@ class TestEpisodeTimeout:
 
     def test_timeout_episode_length(self):
         """Truncated episode must have exactly max_steps steps."""
-        env = _NeverDoneEnv()
+        env_factory = lambda: _NeverDoneEnv()
         adapter = _DummyAdapter()
+        runner = EpisodeRunner(adapter, env_factory, max_steps=7)
 
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
-            result = _run_single_episode(
-                adapter, env, intervention="none",
-                max_steps=7,
-            )
+            result = runner.run_single(intervention="none")
 
-        assert result["length"] == 7
+        assert result.length == 7
 
     def test_normal_episode_no_warning(self):
         """An episode that terminates normally must not raise RuntimeWarning."""
         import gymnasium as gym
 
-        env = gym.make("CartPole-v1")
+        env_factory = lambda: gym.make("CartPole-v1")
         adapter = _DummyAdapter()
+        runner = EpisodeRunner(adapter, env_factory, max_steps=10_000)
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _run_single_episode(adapter, env, max_steps=10_000)
+            runner.run_single()
 
         timeout_warnings = [w for w in caught
                             if issubclass(w.category, RuntimeWarning)]
         assert len(timeout_warnings) == 0
-        env.close()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -115,60 +124,54 @@ class TestSeedReproducibility:
         import gymnasium as gym
 
         adapter = _DummyAdapter()
+        env_factory = lambda: gym.make("CartPole-v1")
+        runner = EpisodeRunner(adapter, env_factory)
 
         def run(seed):
-            env = gym.make("CartPole-v1")
-            result = _run_single_episode(adapter, env, seed=seed)
-            env.close()
-            return result
+            return runner.run_single(seed=seed)
 
         r1 = run(42)
         r2 = run(42)
-        assert r1["total_reward"] == r2["total_reward"]
-        assert r1["length"] == r2["length"]
+        assert r1.total_reward == r2.total_reward
+        assert r1.length == r2.length
 
     def test_different_seeds_differ(self):
         """Different seeds should (almost always) produce different episodes."""
         import gymnasium as gym
 
         adapter = _DummyAdapter()
+        env_factory = lambda: gym.make("CartPole-v1")
+        runner = EpisodeRunner(adapter, env_factory)
 
         lengths = set()
         for seed in range(10):
-            env = gym.make("CartPole-v1")
-            result = _run_single_episode(adapter, env, seed=seed)
-            env.close()
-            lengths.add(result["length"])
+            result = runner.run_single(seed=seed)
+            lengths.add(result.length)
 
         # With 10 different seeds, we expect at least 2 distinct lengths
         assert len(lengths) >= 2
 
     def test_robustness_audit_seed_reproducible(self):
-        """run_robustness_audit with seed must give same return scores."""
+        """RobustnessAuditor with seed must give same return scores."""
         import gymnasium as gym
 
         adapter = _DummyAdapter()
+        env_id = "CartPole-v1"
 
-        def cartpole():
-            return gym.make("CartPole-v1")
-
-        res1 = run_robustness_audit(
-            adapter, cartpole,
-            scenarios=["nominal", "jitter"],
+        auditor = RobustnessAuditor(
             n_episodes=5,
             verbose=False,
             seed=0,
         )
-        res2 = run_robustness_audit(
-            adapter, cartpole,
-            scenarios=["nominal", "jitter"],
-            n_episodes=5,
-            verbose=False,
-            seed=0,
-        )
+        
+        # Auditor uses create_wrapped_env internally
+        res1 = auditor.run(adapter, env_id, scenarios=["nominal", "jitter"])
+        res2 = auditor.run(adapter, env_id, scenarios=["nominal", "jitter"])
 
-        s1 = res1["scenarios"]["nominal"]["total_reward_mean"]
-        s2 = res2["scenarios"]["nominal"]["total_reward_mean"]
+        # Compare nominal stage results
+        nom_label = ROBUSTNESS_SCENARIOS.get("nominal", "nominal")
+        s1 = [s for s in res1.stages if s.stage_name == nom_label][0].metrics["mean_reward"].value
+        s2 = [s for s in res2.stages if s.stage_name == nom_label][0].metrics["mean_reward"].value
         assert abs(s1 - s2) < 1e-6
 
 
@@ -369,19 +372,17 @@ class TestObsNoiseWrapper:
         env.close()
 
     def test_obs_noise_scenario_in_auditor(self):
-        """obs_noise must be a valid robustness scenario in ROBUSTNESS_SCENARIOS."""
-        from deltatau_audit.auditor import DEPLOYMENT_SCENARIOS, ROBUSTNESS_SCENARIOS
+        """obs_noise must be a valid robustness scenario."""
         assert "obs_noise" in ROBUSTNESS_SCENARIOS
         assert "obs_noise" in DEPLOYMENT_SCENARIOS
 
     def test_make_wrapped_env_obs_noise(self):
-        """_make_wrapped_env must create ObsNoiseWrapper for obs_noise scenario."""
+        """create_wrapped_env must create ObsNoiseWrapper for obs_noise scenario."""
         import gymnasium as gym
 
-        from deltatau_audit.auditor import _make_wrapped_env
         from deltatau_audit.wrappers.latency import ObsNoiseWrapper
 
-        env = _make_wrapped_env(lambda: gym.make("CartPole-v1"), "obs_noise")
+        env = create_wrapped_env(lambda: gym.make("CartPole-v1"), "obs_noise")
         assert isinstance(env, ObsNoiseWrapper)
         env.close()
 
@@ -400,53 +401,59 @@ class TestParallelExecution:
     def test_parallel_same_count(self):
         """Parallel run must return same number of episodes as serial."""
         adapter = _DummyAdapter()
+        env_id = "CartPole-v1"
 
-        serial = run_robustness_audit(
-            adapter, self._cartpole,
-            scenarios=["nominal", "jitter"],
+        auditor_serial = RobustnessAuditor(
             n_episodes=4, verbose=False, seed=0, n_workers=1,
         )
-        parallel = run_robustness_audit(
-            adapter, self._cartpole,
-            scenarios=["nominal", "jitter"],
+        auditor_parallel = RobustnessAuditor(
             n_episodes=4, verbose=False, seed=0, n_workers=2,
         )
 
-        s_n = serial["scenarios"]["nominal"]["n_episodes"]
-        p_n = parallel["scenarios"]["nominal"]["n_episodes"]
+        res_s = auditor_serial.run(adapter, env_id, scenarios=["nominal"])
+        res_p = auditor_parallel.run(adapter, env_id, scenarios=["nominal"])
+
+        # Stages list
+        nom_label = ROBUSTNESS_SCENARIOS.get("nominal", "nominal")
+        s_n = [s for s in res_s.stages if s.stage_name == nom_label][0].metrics["n_episodes"].value
+        p_n = [s for s in res_p.stages if s.stage_name == nom_label][0].metrics["n_episodes"].value
         assert s_n == p_n == 4
 
     def test_parallel_result_structure(self):
-        """Parallel run must return the same dict structure as serial."""
+        """Parallel run must return the correct Report structure."""
         adapter = _DummyAdapter()
+        env_id = "CartPole-v1"
 
-        result = run_robustness_audit(
-            adapter, self._cartpole,
-            scenarios=["nominal", "obs_noise"],
+        auditor = RobustnessAuditor(
             n_episodes=3, verbose=False, seed=42, n_workers=2,
         )
+        report = auditor.run(adapter, env_id, scenarios=["nominal", "obs_noise"])
 
-        assert "scenarios" in result
-        assert "nominal" in result["scenarios"]
-        assert "obs_noise" in result["scenarios"]
-        assert "per_scenario_scores" in result
-        assert result["scenarios"]["nominal"]["n_episodes"] == 3
+        stage_names = [s.stage_name for s in report.stages]
+        nom_label = ROBUSTNESS_SCENARIOS.get("nominal", "nominal")
+        noise_label = ROBUSTNESS_SCENARIOS.get("obs_noise", "obs_noise")
+        assert nom_label in stage_names
+        assert noise_label in stage_names
+        
+        nominal_stage = [s for s in report.stages if s.stage_name == nom_label][0]
+        assert nominal_stage.metrics["n_episodes"].value == 3
 
     def test_parallel_n_workers_1_same_as_serial(self):
         """n_workers=1 must be functionally identical to not specifying n_workers."""
         adapter = _DummyAdapter()
+        env_id = "CartPole-v1"
 
-        r1 = run_robustness_audit(
-            adapter, self._cartpole,
-            scenarios=["nominal"], n_episodes=5,
-            verbose=False, seed=7, n_workers=1,
+        a1 = RobustnessAuditor(
+            n_episodes=5, verbose=False, seed=7, n_workers=1,
         )
-        r2 = run_robustness_audit(
-            adapter, self._cartpole,
-            scenarios=["nominal"], n_episodes=5,
-            verbose=False, seed=7,
+        a2 = RobustnessAuditor(
+            n_episodes=5, verbose=False, seed=7,
         )
 
-        m1 = r1["scenarios"]["nominal"]["total_reward_mean"]
-        m2 = r2["scenarios"]["nominal"]["total_reward_mean"]
+        r1 = a1.run(adapter, env_id, scenarios=["nominal"])
+        r2 = a2.run(adapter, env_id, scenarios=["nominal"])
+
+        nom_label = ROBUSTNESS_SCENARIOS.get("nominal", "nominal")
+        m1 = [s for s in r1.stages if s.stage_name == nom_label][0].metrics["mean_reward"].value
+        m2 = [s for s in r2.stages if s.stage_name == nom_label][0].metrics["mean_reward"].value
         assert abs(m1 - m2) < 1e-6

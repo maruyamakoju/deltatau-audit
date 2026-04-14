@@ -22,6 +22,7 @@ import os
 import sys
 import time
 
+
 # _parse_kwargs: re-exported here for backward compatibility
 # (tests import directly from deltatau_audit.cli)
 def _parse_kwargs(kwargs_str):
@@ -44,9 +45,7 @@ def _parse_kwargs(kwargs_str):
     return result
 
 
-
-def make_env_factory(env_type: str, speed_hidden: bool = True,
-                     chain_length: int = 20):
+def make_env_factory(env_type: str, speed_hidden: bool = True, chain_length: int = 20):
     """Create an env factory based on env type string."""
     if env_type == "chain":
         from internal_time_rl.envs.variable_frequency import VariableFrequencyChainEnv
@@ -59,91 +58,112 @@ def make_env_factory(env_type: str, speed_hidden: bool = True,
                 train_speeds=(1, 2, 3),
                 speed_in_obs=not speed_hidden,
             )
+
         return factory
     else:
         raise ValueError(
-            f"Unknown env type: {env_type}. "
-            f"Currently supported: 'chain'. "
-            f"For custom envs, use the Python API directly."
+            f"Unknown env type: {env_type}. Currently supported: 'chain'. For custom envs, use the Python API directly."
         )
 
 
 def _add_ci_args(parser):
     """Add CI-related arguments to a subparser."""
-    parser.add_argument("--ci", action="store_true", default=False,
-                        help="CI mode: write ci_summary.json/md, exit code "
-                             "based on thresholds")
-    parser.add_argument("--ci-deploy-threshold", type=float, default=0.80,
-                        help="Deployment return ratio threshold (default: 0.80)")
-    parser.add_argument("--ci-stress-threshold", type=float, default=0.50,
-                        help="Stress return ratio threshold (default: 0.50)")
     parser.add_argument(
-        "--ci-min-deployment-pass-rate", type=float, default=0.80,
-        help="Multi-seed CI gate: minimum deployment pass rate (default: 0.80). "
-             "Used when --seeds is set.",
+        "--ci",
+        action="store_true",
+        default=False,
+        help="CI mode: write ci_summary.json/md, exit code based on thresholds",
     )
     parser.add_argument(
-        "--ci-min-stress-pass-rate", type=float, default=0.50,
-        help="Multi-seed CI gate: minimum stress pass rate (default: 0.50). "
-             "Used when --seeds is set.",
+        "--ci-deploy-threshold", type=float, default=0.80, help="Deployment return ratio threshold (default: 0.80)"
+    )
+    parser.add_argument(
+        "--ci-stress-threshold", type=float, default=0.50, help="Stress return ratio threshold (default: 0.50)"
+    )
+    parser.add_argument(
+        "--ci-min-deployment-pass-rate",
+        type=float,
+        default=0.80,
+        help="Multi-seed CI gate: minimum deployment pass rate (default: 0.80). Used when --seeds is set.",
+    )
+    parser.add_argument(
+        "--ci-min-stress-pass-rate",
+        type=float,
+        default=0.50,
+        help="Multi-seed CI gate: minimum stress pass rate (default: 0.50). Used when --seeds is set.",
     )
     parser.add_argument(
         "--ci-gate-mode",
         type=str,
         choices=["score", "pass_rate", "worst_ci_lower"],
         default="score",
-        help="CI gate rule: score (default), pass_rate (multi-seed), or "
-             "worst_ci_lower (strict research gate).",
+        help="CI gate rule: score (default), pass_rate (multi-seed), or worst_ci_lower (strict research gate).",
     )
 
 
 def _add_threshold_args(parser):
     """Add --deploy-threshold and --stress-threshold flags."""
     parser.add_argument(
-        "--deploy-threshold", type=float, default=0.80,
+        "--deploy-threshold",
+        type=float,
+        default=0.80,
         metavar="RATIO",
         help="Deployment return ratio threshold for quadrant classification "
-             "(default: 0.80). Below this → deployment_fragile / time_*_fragile.",
+        "(default: 0.80). Below this → deployment_fragile / time_*_fragile.",
     )
     parser.add_argument(
-        "--stress-threshold", type=float, default=0.50,
+        "--stress-threshold",
+        type=float,
+        default=0.50,
         metavar="RATIO",
-        help="Stress return ratio threshold for CI pass/warn "
-             "(default: 0.50). Stored in summary for downstream use.",
+        help="Stress return ratio threshold for CI pass/warn (default: 0.50). Stored in summary for downstream use.",
     )
 
 
 def _add_quiet_arg(parser):
     """Add --quiet flag to suppress episode-level progress output."""
     parser.add_argument(
-        "--quiet", "-q", action="store_true", default=False,
-        help="Suppress episode-level progress bars and verbose output. "
-             "Final summary is still shown.",
+        "--quiet",
+        "-q",
+        action="store_true",
+        default=False,
+        help="Suppress episode-level progress bars and verbose output. Final summary is still shown.",
     )
 
 
 def _add_tracker_args(parser):
     """Add --wandb / --mlflow experiment tracker flags."""
     parser.add_argument(
-        "--wandb", action="store_true", default=False,
-        help="Log audit metrics to Weights & Biases after the audit. "
-             "Requires: pip install \"deltatau-audit[wandb]\".",
+        "--wandb",
+        action="store_true",
+        default=False,
+        help='Log audit metrics to Weights & Biases after the audit. Requires: pip install "deltatau-audit[wandb]".',
     )
     parser.add_argument(
-        "--wandb-project", type=str, default="deltatau-audit", metavar="PROJECT",
+        "--wandb-project",
+        type=str,
+        default="deltatau-audit",
+        metavar="PROJECT",
         help="WandB project name (default: deltatau-audit). Used with --wandb.",
     )
     parser.add_argument(
-        "--wandb-run", type=str, default=None, metavar="RUN",
+        "--wandb-run",
+        type=str,
+        default=None,
+        metavar="RUN",
         help="WandB run name (default: audit title). Used with --wandb.",
     )
     parser.add_argument(
-        "--mlflow", action="store_true", default=False,
-        help="Log audit metrics to MLflow after the audit. "
-             "Requires: pip install \"deltatau-audit[mlflow]\".",
+        "--mlflow",
+        action="store_true",
+        default=False,
+        help='Log audit metrics to MLflow after the audit. Requires: pip install "deltatau-audit[mlflow]".',
     )
     parser.add_argument(
-        "--mlflow-experiment", type=str, default="deltatau-audit", metavar="EXP",
+        "--mlflow-experiment",
+        type=str,
+        default="deltatau-audit",
+        metavar="EXP",
         help="MLflow experiment name (default: deltatau-audit). Used with --mlflow.",
     )
 
@@ -151,20 +171,26 @@ def _add_tracker_args(parser):
 def _add_adaptive_args(parser):
     """Add --adaptive, --target-ci-width, --max-episodes for adaptive sampling."""
     parser.add_argument(
-        "--adaptive", action="store_true", default=False,
+        "--adaptive",
+        action="store_true",
+        default=False,
         help="Use adaptive episode sampling: keep adding episode batches until "
-             "every scenario's 95%% bootstrap CI width on the return ratio is "
-             "below --target-ci-width (or --max-episodes is reached).",
+        "every scenario's 95%% bootstrap CI width on the return ratio is "
+        "below --target-ci-width (or --max-episodes is reached).",
     )
     parser.add_argument(
-        "--target-ci-width", type=float, default=0.10, metavar="WIDTH",
-        help="Target 95%% CI width for adaptive sampling (default: 0.10). "
-             "Ignored unless --adaptive is set.",
+        "--target-ci-width",
+        type=float,
+        default=0.10,
+        metavar="WIDTH",
+        help="Target 95%% CI width for adaptive sampling (default: 0.10). Ignored unless --adaptive is set.",
     )
     parser.add_argument(
-        "--max-episodes", type=int, default=500, metavar="N",
-        help="Hard cap on episodes per scenario in adaptive mode (default: 500). "
-             "Ignored unless --adaptive is set.",
+        "--max-episodes",
+        type=int,
+        default=500,
+        metavar="N",
+        help="Hard cap on episodes per scenario in adaptive mode (default: 500). Ignored unless --adaptive is set.",
     )
 
 
@@ -175,16 +201,18 @@ def _add_stats_args(parser):
         type=int,
         default=2000,
         metavar="N",
-        help="Bootstrap resamples for return-ratio confidence intervals "
-             "(default: 2000).",
+        help="Bootstrap resamples for return-ratio confidence intervals (default: 2000).",
     )
 
 
 def _add_seed_arg(parser):
     """Add --seed for reproducible audits."""
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed for reproducible results "
-                             "(default: None = non-deterministic)")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible results (default: None = non-deterministic)",
+    )
 
 
 def _add_seeds_arg(parser):
@@ -195,8 +223,7 @@ def _add_seeds_arg(parser):
         nargs="+",
         default=None,
         metavar="SEED",
-        help="Run a multi-seed sweep (example: --seeds 0 1 2 3 4). "
-             "When set, --seed is ignored.",
+        help="Run a multi-seed sweep (example: --seeds 0 1 2 3 4). When set, --seed is ignored.",
     )
 
 
@@ -208,7 +235,7 @@ def _add_protocol_args(parser):
         choices=["custom", "ci", "research", "paper"],
         default="custom",
         help="Audit protocol preset. `research` enforces strict reproducibility "
-             "defaults; `paper` enforces publication-grade defaults.",
+        "defaults; `paper` enforces publication-grade defaults.",
     )
     parser.add_argument(
         "--allow-protocol-override",
@@ -230,10 +257,14 @@ def _add_explain_fail_arg(parser):
 
 def _add_workers_arg(parser):
     """Add --workers for parallel episode execution."""
-    parser.add_argument("--workers", type=str, default="1",
-                        help="Parallel workers for episode collection. "
-                             "Use an integer (e.g. 4) or 'auto' to use all "
-                             "CPU cores. Default: 1 (serial).")
+    parser.add_argument(
+        "--workers",
+        type=str,
+        default="1",
+        help="Parallel workers for episode collection. "
+        "Use an integer (e.g. 4) or 'auto' to use all "
+        "CPU cores. Default: 1 (serial).",
+    )
 
 
 def _add_eval_env_wrap_args(parser):
@@ -267,6 +298,7 @@ def _add_eval_env_wrap_args(parser):
 def _resolve_workers(args) -> int:
     """Parse --workers value, resolving 'auto' to os.cpu_count()."""
     import os
+
     raw = getattr(args, "workers", "1") or "1"
     if str(raw).strip().lower() in ("auto", "0", "-1"):
         return max(1, os.cpu_count() or 1)
@@ -318,9 +350,11 @@ def _wrap_external_eval_env(base_env, args):
 def _add_compare_arg(parser):
     """Add --compare for generating a comparison.html against a previous audit."""
     parser.add_argument(
-        "--compare", type=str, default=None, metavar="SUMMARY_JSON",
-        help="Path to a previous summary.json to compare against. "
-             "Generates comparison.html in the output directory.",
+        "--compare",
+        type=str,
+        default=None,
+        metavar="SUMMARY_JSON",
+        help="Path to a previous summary.json to compare against. Generates comparison.html in the output directory.",
     )
 
 
@@ -330,6 +364,7 @@ def _maybe_compare(args, out_dir: str):
     if not compare:
         return
     import pathlib
+
     compare_path = pathlib.Path(compare)
     if not compare_path.exists():
         print(f"  WARNING: --compare path not found: {compare}")
@@ -337,6 +372,7 @@ def _maybe_compare(args, out_dir: str):
     import os
 
     from deltatau_audit.diff import generate_comparison_html
+
     new_json = os.path.join(out_dir, "summary.json")
     html_path = os.path.join(out_dir, "comparison.html")
     try:
@@ -364,12 +400,14 @@ def _emit_json(result: dict, args) -> None:
 def _add_format_arg(parser):
     """Add --format for output format selection."""
     parser.add_argument(
-        "--format", type=str, default="text",
+        "--format",
+        type=str,
+        default="text",
         choices=["text", "markdown", "json"],
         dest="output_format",
         help="Output format: text (default), markdown (PR-ready table, "
-             "writes to $GITHUB_STEP_SUMMARY), or json (structured JSON "
-             "to stdout for piping; progress goes to stderr).",
+        "writes to $GITHUB_STEP_SUMMARY), or json (structured JSON "
+        "to stdout for piping; progress goes to stderr).",
     )
 
 
@@ -387,15 +425,15 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
     str_s = summary.get("stress_score", 0)
     quad = summary.get("quadrant", "?")
 
-    icon = {"PASS": "✅", "MILD": "🟡", "DEGRADED": "⚠️", "FAIL": "❌"}.get(
-        dep_r, "❓")
+    icon = {"PASS": "✅", "MILD": "🟡", "DEGRADED": "⚠️", "FAIL": "❌"}.get(dep_r, "❓")
 
     header = f"## {icon} Time Robustness Audit: **{dep_r}**"
     if label:
         header += f" - {label}"
 
     lines = [
-        header, "",
+        header,
+        "",
         "| Badge | Rating | Score |",
         "|-------|--------|-------|",
         f"| **Deployment** | **{dep_r}** | {dep_s:.2f} |",
@@ -429,11 +467,13 @@ def _print_markdown_summary(result: dict, label: str = "") -> str:
         lines.append(f"> **Fix:** {diagnosis['fix_recommendation']}")
 
     from deltatau_audit import __version__
-    lines.extend([
-        "",
-        f"*Generated by [deltatau-audit](https://github.com/maruyamakoju/"
-        f"deltatau-audit) v{__version__}*",
-    ])
+
+    lines.extend(
+        [
+            "",
+            f"*Generated by [deltatau-audit](https://github.com/maruyamakoju/deltatau-audit) v{__version__}*",
+        ]
+    )
 
     md = "\n".join(lines)
     print(md)
@@ -498,8 +538,7 @@ def _handle_ci(result, out_dir, args):
     dep = result["summary"]["deployment_score"]
     stress = result["summary"]["stress_score"]
 
-    print(f"\n  CI: {status.upper()} "
-          f"(deployment={dep:.2f}, stress={stress:.2f})")
+    print(f"\n  CI: {status.upper()} (deployment={dep:.2f}, stress={stress:.2f})")
     if gate_mode != "score":
         print(f"  CI gate mode: {gate_mode}")
     if isinstance(seed_sweep, dict) and isinstance(seed_sweep.get("aggregate"), dict):
@@ -507,10 +546,7 @@ def _handle_ci(result, out_dir, args):
         dep_rate = float(pass_rates.get("deployment", 0.0))
         str_rate = float(pass_rates.get("stress", 0.0))
         n_seeds = int(seed_sweep.get("n_seeds", 0))
-        print(
-            "  Multi-seed gate: "
-            f"n={n_seeds}, deployment_pass_rate={dep_rate:.1%}, stress_pass_rate={str_rate:.1%}"
-        )
+        print(f"  Multi-seed gate: n={n_seeds}, deployment_pass_rate={dep_rate:.1%}, stress_pass_rate={str_rate:.1%}")
     print(f"  ci_summary.json -> {out_dir}/ci_summary.json")
     print(f"  ci_summary.md   -> {out_dir}/ci_summary.md")
 
@@ -721,20 +757,18 @@ def _print_env_install_hint(
         if extras:
             print(f'\n  pip install "deltatau-audit[{extras},mujoco]"')
         else:
-            print('\n  pip install gymnasium[mujoco]')
+            print("\n  pip install gymnasium[mujoco]")
         return
     if "box2d" in err_lower or any(token in env_lower for token in _BOX2D_HINT_TOKENS):
-        print('\n  pip install gymnasium[box2d]')
+        print("\n  pip install gymnasium[box2d]")
         return
     if include_atari and ("ale" in err_lower or "atari" in env_lower):
-        print('\n  pip install gymnasium[atari] autorom[accept-rom-license]')
+        print("\n  pip install gymnasium[atari] autorom[accept-rom-license]")
         return
     print(f"\n  Check the environment ID is correct: {env_id}")
 
 
-def _validate_gym_env_or_exit(
-    env_id: str, *, extras: str | None = None, include_atari: bool = False
-):
+def _validate_gym_env_or_exit(env_id: str, *, extras: str | None = None, include_atari: bool = False):
     """Validate a Gymnasium env ID and return imported gym module."""
     if _is_dm_control_env_id(env_id):
         _require_module(
@@ -752,29 +786,36 @@ def _validate_gym_env_or_exit(
     except Exception as e:
         print(f"ERROR: Cannot create environment '{env_id}'")
         print(f"  {e}")
-        _print_env_install_hint(
-            env_id, str(e).lower(), extras=extras, include_atari=include_atari
-        )
+        _print_env_install_hint(env_id, str(e).lower(), extras=extras, include_atari=include_atari)
         sys.exit(1)
     return gym
-
 
 
 def main():
     # Import handler functions from submodules
     from deltatau_audit.cli._audit import (
-        _run_audit, _run_audit_sb3, _run_audit_hf,
-        _run_audit_cleanrl, _run_demo,
+        _run_audit,
+        _run_audit_cleanrl,
+        _run_audit_hf,
+        _run_audit_sb3,
+        _run_demo,
     )
-    from deltatau_audit.cli._fix import _run_fix_sb3, _run_fix_cleanrl
     from deltatau_audit.cli._bench import _run_bench, _run_bench_table
-    from deltatau_audit.cli._stress import (
-        _run_stress_analyze, _run_stress_ablate, _run_stress_train_sb3,
-    )
+    from deltatau_audit.cli._fix import _run_fix_cleanrl, _run_fix_sb3
     from deltatau_audit.cli._research import (
-        _run_diff, _run_research_full, _run_certify, _run_badge,
-        _run_audit_deliberative, _run_audit_horizon,
+        _run_audit_deliberative,
+        _run_audit_horizon,
+        _run_badge,
+        _run_certify,
+        _run_diff,
+        _run_research_full,
     )
+    from deltatau_audit.cli._stress import (
+        _run_stress_ablate,
+        _run_stress_analyze,
+        _run_stress_train_sb3,
+    )
+
     parser = argparse.ArgumentParser(
         prog="deltatau-audit",
         description="Time Robustness Audit for RL agents",
@@ -782,29 +823,25 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     # ── audit subcommand ──────────────────────────────────────────
-    audit_parser = subparsers.add_parser(
-        "audit", help="Run audit on a checkpoint")
-    audit_parser.add_argument("--checkpoint", type=str, required=True,
-                              help="Path to agent checkpoint (.pt file)")
-    audit_parser.add_argument("--agent-type", type=str, default="internal_time",
-                              choices=["internal_time", "internal_time_discount",
-                                       "baseline", "skip_rnn", "ltc"],
-                              help="Type of agent architecture")
-    audit_parser.add_argument("--env", type=str, default="chain",
-                              help="Environment type (default: chain)")
-    audit_parser.add_argument("--speed-hidden", action="store_true",
-                              default=True)
-    audit_parser.add_argument("--speeds", type=int, nargs="+",
-                              default=[1, 2, 3, 5, 8])
-    audit_parser.add_argument("--interventions", type=str, nargs="+",
-                              default=["none", "clamp_1", "reverse", "random"])
+    audit_parser = subparsers.add_parser("audit", help="Run audit on a checkpoint")
+    audit_parser.add_argument("--checkpoint", type=str, required=True, help="Path to agent checkpoint (.pt file)")
+    audit_parser.add_argument(
+        "--agent-type",
+        type=str,
+        default="internal_time",
+        choices=["internal_time", "internal_time_discount", "baseline", "skip_rnn", "ltc"],
+        help="Type of agent architecture",
+    )
+    audit_parser.add_argument("--env", type=str, default="chain", help="Environment type (default: chain)")
+    audit_parser.add_argument("--speed-hidden", action="store_true", default=True)
+    audit_parser.add_argument("--speeds", type=int, nargs="+", default=[1, 2, 3, 5, 8])
+    audit_parser.add_argument("--interventions", type=str, nargs="+", default=["none", "clamp_1", "reverse", "random"])
     audit_parser.add_argument("--episodes", type=int, default=50)
     audit_parser.add_argument("--sensitivity-episodes", type=int, default=20)
     audit_parser.add_argument("--out", type=str, default="audit_report")
     audit_parser.add_argument("--device", type=str, default="cpu")
     audit_parser.add_argument("--chain-length", type=int, default=20)
-    audit_parser.add_argument("--title", type=str,
-                              default="Time Robustness Audit")
+    audit_parser.add_argument("--title", type=str, default="Time Robustness Audit")
     _add_ci_args(audit_parser)
     _add_seed_arg(audit_parser)
     _add_workers_arg(audit_parser)
@@ -818,31 +855,30 @@ def main():
     _add_tracker_args(audit_parser)
 
     # ── audit-sb3 subcommand ─────────────────────────────────────
-    sb3_parser = subparsers.add_parser(
-        "audit-sb3",
-        help="Audit a Stable-Baselines3 model (.zip) on any Gymnasium env")
-    sb3_parser.add_argument("--model", type=str, required=True,
-                            help="Path to SB3 model (.zip file)")
-    sb3_parser.add_argument("--algo", type=str, required=True,
-                            choices=["ppo", "sac", "td3", "a2c"],
-                            help="SB3 algorithm (ppo, sac, td3, a2c)")
-    sb3_parser.add_argument("--env", type=str, required=True,
-                            help="Gymnasium environment ID "
-                                 "(e.g. HalfCheetah-v5, CartPole-v1)")
-    sb3_parser.add_argument("--vec-normalize", metavar="PATH",
-                            help="Path to VecNormalize stats .pkl "
-                                 "(if model was trained with VecNormalize)")
-    sb3_parser.add_argument("--out", type=str, default="audit_report",
-                            help="Output directory (default: audit_report/)")
-    sb3_parser.add_argument("--episodes", type=int, default=30,
-                            help="Episodes per condition (default: 30)")
-    sb3_parser.add_argument("--speeds", type=int, nargs="+",
-                            default=[1, 2, 3, 5, 8],
-                            help="Speed multipliers (default: 1 2 3 5 8)")
-    sb3_parser.add_argument("--device", type=str, default="cpu",
-                            help="Device (default: cpu)")
-    sb3_parser.add_argument("--title", type=str, default=None,
-                            help="Report title (default: auto)")
+    sb3_parser = subparsers.add_parser("audit-sb3", help="Audit a Stable-Baselines3 model (.zip) on any Gymnasium env")
+    sb3_parser.add_argument("--model", type=str, required=True, help="Path to SB3 model (.zip file)")
+    sb3_parser.add_argument(
+        "--algo",
+        type=str,
+        required=True,
+        choices=["ppo", "sac", "td3", "a2c"],
+        help="SB3 algorithm (ppo, sac, td3, a2c)",
+    )
+    sb3_parser.add_argument(
+        "--env", type=str, required=True, help="Gymnasium environment ID (e.g. HalfCheetah-v5, CartPole-v1)"
+    )
+    sb3_parser.add_argument(
+        "--vec-normalize",
+        metavar="PATH",
+        help="Path to VecNormalize stats .pkl (if model was trained with VecNormalize)",
+    )
+    sb3_parser.add_argument("--out", type=str, default="audit_report", help="Output directory (default: audit_report/)")
+    sb3_parser.add_argument("--episodes", type=int, default=30, help="Episodes per condition (default: 30)")
+    sb3_parser.add_argument(
+        "--speeds", type=int, nargs="+", default=[1, 2, 3, 5, 8], help="Speed multipliers (default: 1 2 3 5 8)"
+    )
+    sb3_parser.add_argument("--device", type=str, default="cpu", help="Device (default: cpu)")
+    sb3_parser.add_argument("--title", type=str, default=None, help="Report title (default: auto)")
     _add_ci_args(sb3_parser)
     _add_seed_arg(sb3_parser)
     _add_seeds_arg(sb3_parser)
@@ -859,65 +895,61 @@ def main():
     _add_tracker_args(sb3_parser)
 
     # ── fix-sb3 subcommand ────────────────────────────────────────
-    fix_parser = subparsers.add_parser(
-        "fix-sb3",
-        help="Fix a timing-fragile SB3 model: audit -> retrain -> re-audit")
-    fix_parser.add_argument("--model", type=str, required=True,
-                            help="Path to SB3 model (.zip file)")
-    fix_parser.add_argument("--algo", type=str, required=True,
-                            choices=["ppo", "sac", "td3", "a2c"],
-                            help="SB3 algorithm (ppo, sac, td3, a2c)")
-    fix_parser.add_argument("--env", type=str, required=True,
-                            help="Gymnasium environment ID "
-                                 "(e.g. HalfCheetah-v5, CartPole-v1)")
-    fix_parser.add_argument("--vec-normalize", metavar="PATH",
-                            help="Path to VecNormalize stats .pkl "
-                                 "(if model was trained with VecNormalize)")
-    fix_parser.add_argument("--out", type=str, default="fix_output",
-                            help="Output directory (default: fix_output/)")
-    fix_parser.add_argument("--timesteps", type=int, default=None,
-                            help="Training timesteps (default: auto)")
-    fix_parser.add_argument("--speed-min", type=int, default=1,
-                            help="Min speed during training (default: 1)")
-    fix_parser.add_argument("--speed-max", type=int, default=5,
-                            help="Max speed during training (default: 5)")
-    fix_parser.add_argument("--episodes", type=int, default=30,
-                            help="Audit episodes per condition (default: 30)")
-    fix_parser.add_argument("--device", type=str, default="cpu",
-                            help="Device (default: cpu)")
+    fix_parser = subparsers.add_parser("fix-sb3", help="Fix a timing-fragile SB3 model: audit -> retrain -> re-audit")
+    fix_parser.add_argument("--model", type=str, required=True, help="Path to SB3 model (.zip file)")
+    fix_parser.add_argument(
+        "--algo",
+        type=str,
+        required=True,
+        choices=["ppo", "sac", "td3", "a2c"],
+        help="SB3 algorithm (ppo, sac, td3, a2c)",
+    )
+    fix_parser.add_argument(
+        "--env", type=str, required=True, help="Gymnasium environment ID (e.g. HalfCheetah-v5, CartPole-v1)"
+    )
+    fix_parser.add_argument(
+        "--vec-normalize",
+        metavar="PATH",
+        help="Path to VecNormalize stats .pkl (if model was trained with VecNormalize)",
+    )
+    fix_parser.add_argument("--out", type=str, default="fix_output", help="Output directory (default: fix_output/)")
+    fix_parser.add_argument("--timesteps", type=int, default=None, help="Training timesteps (default: auto)")
+    fix_parser.add_argument("--speed-min", type=int, default=1, help="Min speed during training (default: 1)")
+    fix_parser.add_argument("--speed-max", type=int, default=5, help="Max speed during training (default: 5)")
+    fix_parser.add_argument("--episodes", type=int, default=30, help="Audit episodes per condition (default: 30)")
+    fix_parser.add_argument("--device", type=str, default="cpu", help="Device (default: cpu)")
     _add_ci_args(fix_parser)
     _add_seed_arg(fix_parser)
     _add_workers_arg(fix_parser)
 
     # ── audit-cleanrl subcommand ──────────────────────────────────
     cleanrl_parser = subparsers.add_parser(
-        "audit-cleanrl",
-        help="Audit a CleanRL agent (.pt checkpoint) on any Gymnasium env")
-    cleanrl_parser.add_argument("--checkpoint", type=str, required=True,
-                                help="Path to CleanRL checkpoint (.pt file)")
-    cleanrl_parser.add_argument("--agent-module", type=str, required=True,
-                                help="Path to Python file containing the Agent class")
-    cleanrl_parser.add_argument("--agent-class", type=str, default="Agent",
-                                help="Agent class name (default: Agent)")
-    cleanrl_parser.add_argument("--agent-kwargs", type=str, default=None,
-                                help="Agent constructor kwargs: key=val,key=val "
-                                     "(e.g. obs_dim=4,act_dim=2)")
-    cleanrl_parser.add_argument("--lstm", action="store_true", default=False,
-                                help="Agent uses LSTM (get_action_and_value takes "
-                                     "lstm_state)")
-    cleanrl_parser.add_argument("--env", type=str, required=True,
-                                help="Gymnasium environment ID")
-    cleanrl_parser.add_argument("--out", type=str, default="audit_report",
-                                help="Output directory (default: audit_report/)")
-    cleanrl_parser.add_argument("--episodes", type=int, default=30,
-                                help="Episodes per condition (default: 30)")
-    cleanrl_parser.add_argument("--speeds", type=int, nargs="+",
-                                default=[1, 2, 3, 5, 8],
-                                help="Speed multipliers (default: 1 2 3 5 8)")
-    cleanrl_parser.add_argument("--device", type=str, default="cpu",
-                                help="Device (default: cpu)")
-    cleanrl_parser.add_argument("--title", type=str, default=None,
-                                help="Report title (default: auto)")
+        "audit-cleanrl", help="Audit a CleanRL agent (.pt checkpoint) on any Gymnasium env"
+    )
+    cleanrl_parser.add_argument("--checkpoint", type=str, required=True, help="Path to CleanRL checkpoint (.pt file)")
+    cleanrl_parser.add_argument(
+        "--agent-module", type=str, required=True, help="Path to Python file containing the Agent class"
+    )
+    cleanrl_parser.add_argument("--agent-class", type=str, default="Agent", help="Agent class name (default: Agent)")
+    cleanrl_parser.add_argument(
+        "--agent-kwargs",
+        type=str,
+        default=None,
+        help="Agent constructor kwargs: key=val,key=val (e.g. obs_dim=4,act_dim=2)",
+    )
+    cleanrl_parser.add_argument(
+        "--lstm", action="store_true", default=False, help="Agent uses LSTM (get_action_and_value takes lstm_state)"
+    )
+    cleanrl_parser.add_argument("--env", type=str, required=True, help="Gymnasium environment ID")
+    cleanrl_parser.add_argument(
+        "--out", type=str, default="audit_report", help="Output directory (default: audit_report/)"
+    )
+    cleanrl_parser.add_argument("--episodes", type=int, default=30, help="Episodes per condition (default: 30)")
+    cleanrl_parser.add_argument(
+        "--speeds", type=int, nargs="+", default=[1, 2, 3, 5, 8], help="Speed multipliers (default: 1 2 3 5 8)"
+    )
+    cleanrl_parser.add_argument("--device", type=str, default="cpu", help="Device (default: cpu)")
+    cleanrl_parser.add_argument("--title", type=str, default=None, help="Report title (default: auto)")
     _add_ci_args(cleanrl_parser)
     _add_seed_arg(cleanrl_parser)
     _add_seeds_arg(cleanrl_parser)
@@ -934,66 +966,59 @@ def main():
 
     # ── fix-cleanrl subcommand ────────────────────────────────────
     fix_cleanrl_parser = subparsers.add_parser(
-        "fix-cleanrl",
-        help="Fix a timing-fragile CleanRL agent: audit -> retrain -> re-audit")
-    fix_cleanrl_parser.add_argument("--agent-module", type=str, required=True,
-                                    help="Path to Python file with Agent class")
-    fix_cleanrl_parser.add_argument("--agent-class", type=str, default="Agent",
-                                    help="Agent class name (default: Agent)")
-    fix_cleanrl_parser.add_argument("--agent-kwargs", type=str, default=None,
-                                    help="Agent kwargs: obs_dim=4,act_dim=2")
-    fix_cleanrl_parser.add_argument("--checkpoint", type=str, default=None,
-                                    help="Path to original .pt checkpoint "
-                                         "(optional, enables Before audit)")
-    fix_cleanrl_parser.add_argument("--env", type=str, required=True,
-                                    help="Gymnasium environment ID")
-    fix_cleanrl_parser.add_argument("--out", type=str, default="fix_output",
-                                    help="Output directory (default: fix_output/)")
-    fix_cleanrl_parser.add_argument("--timesteps", type=int, default=None,
-                                    help="Training timesteps (default: auto)")
-    fix_cleanrl_parser.add_argument("--speed-min", type=int, default=1,
-                                    help="Min speed during training (default: 1)")
-    fix_cleanrl_parser.add_argument("--speed-max", type=int, default=5,
-                                    help="Max speed during training (default: 5)")
-    fix_cleanrl_parser.add_argument("--episodes", type=int, default=30,
-                                    help="Audit episodes per condition (default: 30)")
-    fix_cleanrl_parser.add_argument("--device", type=str, default="cpu",
-                                    help="Device (default: cpu)")
+        "fix-cleanrl", help="Fix a timing-fragile CleanRL agent: audit -> retrain -> re-audit"
+    )
+    fix_cleanrl_parser.add_argument(
+        "--agent-module", type=str, required=True, help="Path to Python file with Agent class"
+    )
+    fix_cleanrl_parser.add_argument(
+        "--agent-class", type=str, default="Agent", help="Agent class name (default: Agent)"
+    )
+    fix_cleanrl_parser.add_argument("--agent-kwargs", type=str, default=None, help="Agent kwargs: obs_dim=4,act_dim=2")
+    fix_cleanrl_parser.add_argument(
+        "--checkpoint", type=str, default=None, help="Path to original .pt checkpoint (optional, enables Before audit)"
+    )
+    fix_cleanrl_parser.add_argument("--env", type=str, required=True, help="Gymnasium environment ID")
+    fix_cleanrl_parser.add_argument(
+        "--out", type=str, default="fix_output", help="Output directory (default: fix_output/)"
+    )
+    fix_cleanrl_parser.add_argument("--timesteps", type=int, default=None, help="Training timesteps (default: auto)")
+    fix_cleanrl_parser.add_argument("--speed-min", type=int, default=1, help="Min speed during training (default: 1)")
+    fix_cleanrl_parser.add_argument("--speed-max", type=int, default=5, help="Max speed during training (default: 5)")
+    fix_cleanrl_parser.add_argument(
+        "--episodes", type=int, default=30, help="Audit episodes per condition (default: 30)"
+    )
+    fix_cleanrl_parser.add_argument("--device", type=str, default="cpu", help="Device (default: cpu)")
     _add_ci_args(fix_cleanrl_parser)
     _add_seed_arg(fix_cleanrl_parser)
     _add_workers_arg(fix_cleanrl_parser)
 
     # ── audit-hf subcommand ───────────────────────────────────────
-    hf_parser = subparsers.add_parser(
-        "audit-hf",
-        help="Audit an SB3 model downloaded directly from HuggingFace Hub")
-    hf_parser.add_argument("--repo", type=str, required=True,
-                           metavar="REPO_ID",
-                           help="HuggingFace repo ID "
-                                "(e.g. sb3/ppo-CartPole-v1)")
-    hf_parser.add_argument("--algo", type=str, required=True,
-                           choices=["ppo", "sac", "td3", "a2c"],
-                           help="SB3 algorithm (ppo, sac, td3, a2c)")
-    hf_parser.add_argument("--env", type=str, required=True,
-                           help="Gymnasium environment ID "
-                                "(e.g. CartPole-v1)")
-    hf_parser.add_argument("--filename", type=str, default=None,
-                           help="Model filename in the repo "
-                                "(auto-detected if not provided)")
-    hf_parser.add_argument("--hf-token", type=str, default=None,
-                           metavar="TOKEN",
-                           help="HuggingFace token for private repos")
-    hf_parser.add_argument("--out", type=str, default="audit_report",
-                           help="Output directory (default: audit_report/)")
-    hf_parser.add_argument("--episodes", type=int, default=30,
-                           help="Episodes per condition (default: 30)")
-    hf_parser.add_argument("--speeds", type=int, nargs="+",
-                           default=[1, 2, 3, 5, 8],
-                           help="Speed multipliers (default: 1 2 3 5 8)")
-    hf_parser.add_argument("--device", type=str, default="cpu",
-                           help="Device (default: cpu)")
-    hf_parser.add_argument("--title", type=str, default=None,
-                           help="Report title (default: auto)")
+    hf_parser = subparsers.add_parser("audit-hf", help="Audit an SB3 model downloaded directly from HuggingFace Hub")
+    hf_parser.add_argument(
+        "--repo", type=str, required=True, metavar="REPO_ID", help="HuggingFace repo ID (e.g. sb3/ppo-CartPole-v1)"
+    )
+    hf_parser.add_argument(
+        "--algo",
+        type=str,
+        required=True,
+        choices=["ppo", "sac", "td3", "a2c"],
+        help="SB3 algorithm (ppo, sac, td3, a2c)",
+    )
+    hf_parser.add_argument("--env", type=str, required=True, help="Gymnasium environment ID (e.g. CartPole-v1)")
+    hf_parser.add_argument(
+        "--filename", type=str, default=None, help="Model filename in the repo (auto-detected if not provided)"
+    )
+    hf_parser.add_argument(
+        "--hf-token", type=str, default=None, metavar="TOKEN", help="HuggingFace token for private repos"
+    )
+    hf_parser.add_argument("--out", type=str, default="audit_report", help="Output directory (default: audit_report/)")
+    hf_parser.add_argument("--episodes", type=int, default=30, help="Episodes per condition (default: 30)")
+    hf_parser.add_argument(
+        "--speeds", type=int, nargs="+", default=[1, 2, 3, 5, 8], help="Speed multipliers (default: 1 2 3 5 8)"
+    )
+    hf_parser.add_argument("--device", type=str, default="cpu", help="Device (default: cpu)")
+    hf_parser.add_argument("--title", type=str, default=None, help="Report title (default: auto)")
     _add_ci_args(hf_parser)
     _add_seed_arg(hf_parser)
     _add_seeds_arg(hf_parser)
@@ -1010,15 +1035,10 @@ def main():
     _add_tracker_args(hf_parser)
 
     # ── demo subcommand ───────────────────────────────────────────
-    demo_parser = subparsers.add_parser(
-        "demo", help="Run a bundled demo (Before/After comparison)")
-    demo_parser.add_argument("demo_name", type=str, nargs="?",
-                             default="cartpole",
-                             help="Demo name (default: cartpole)")
-    demo_parser.add_argument("--out", type=str, default="demo_report",
-                             help="Output directory (default: demo_report/)")
-    demo_parser.add_argument("--episodes", type=int, default=20,
-                             help="Episodes per condition (default: 20)")
+    demo_parser = subparsers.add_parser("demo", help="Run a bundled demo (Before/After comparison)")
+    demo_parser.add_argument("demo_name", type=str, nargs="?", default="cartpole", help="Demo name (default: cartpole)")
+    demo_parser.add_argument("--out", type=str, default="demo_report", help="Output directory (default: demo_report/)")
+    demo_parser.add_argument("--episodes", type=int, default=20, help="Episodes per condition (default: 20)")
     _add_ci_args(demo_parser)
     _add_seed_arg(demo_parser)
     _add_workers_arg(demo_parser)
@@ -1325,96 +1345,89 @@ def main():
     )
 
     # ── badge subcommand ───────────────────────────────────────────
-    badge_parser = subparsers.add_parser(
-        "badge", help="Generate SVG badge images from a summary.json")
-    badge_parser.add_argument("summary_json", type=str,
-                              help="Path to summary.json from an audit run")
-    badge_parser.add_argument("--out", type=str, default=".",
-                              help="Output directory for SVG files (default: .)")
-    badge_parser.add_argument("--prefix", type=str, default="badge",
-                              help="Filename prefix (default: badge)")
+    badge_parser = subparsers.add_parser("badge", help="Generate SVG badge images from a summary.json")
+    badge_parser.add_argument("summary_json", type=str, help="Path to summary.json from an audit run")
+    badge_parser.add_argument("--out", type=str, default=".", help="Output directory for SVG files (default: .)")
+    badge_parser.add_argument("--prefix", type=str, default="badge", help="Filename prefix (default: badge)")
 
     # ── diff subcommand ────────────────────────────────────────────
-    diff_parser = subparsers.add_parser(
-        "diff", help="Compare two audit summary.json files")
-    diff_parser.add_argument("before", type=str,
-                             help="Path to 'before' summary.json")
-    diff_parser.add_argument("after", type=str,
-                             help="Path to 'after' summary.json")
-    diff_parser.add_argument("--out", type=str, default="comparison.md",
-                             help="Output path (default: comparison.md)")
+    diff_parser = subparsers.add_parser("diff", help="Compare two audit summary.json files")
+    diff_parser.add_argument("before", type=str, help="Path to 'before' summary.json")
+    diff_parser.add_argument("after", type=str, help="Path to 'after' summary.json")
+    diff_parser.add_argument("--out", type=str, default="comparison.md", help="Output path (default: comparison.md)")
 
     # ── certify subcommand ────────────────────────────────────────
-    certify_parser = subparsers.add_parser(
-        "certify", help="Generate a formal Safety Certificate from audit results")
-    certify_parser.add_argument("summary_json", type=str,
-                                help="Path to audit summary.json")
-    certify_parser.add_argument("--out", type=str, default="certificate.html",
-                                help="Output path for the certificate")
+    certify_parser = subparsers.add_parser("certify", help="Generate a formal Safety Certificate from audit results")
+    certify_parser.add_argument("summary_json", type=str, help="Path to audit summary.json")
+    certify_parser.add_argument("--out", type=str, default="certificate.html", help="Output path for the certificate")
 
     # ── research-full subcommand ──────────────────────────────────
     research_parser = subparsers.add_parser(
-        "research-full",
-        help="Run the complete research suite: VLA, LTC, and Deliberative Audits")
-    research_parser.add_argument("--env", type=str, default="CartPole-v1",
-                                 help="Gymnasium environment ID")
-    research_parser.add_argument("--out", type=str, default="research_full_report",
-                                 help="Output directory")
-    research_parser.add_argument("--episodes", type=int, default=10,
-                                 help="Episodes per condition")
-    research_parser.add_argument("--speeds", type=int, nargs="+", default=[1, 2, 5],
-                                 help="Speed multipliers used for staged audits")
-    research_parser.add_argument("--deliberative-max-thinking-steps", type=int, default=5,
-                                 help="Max internal pondering steps for deliberative stage")
-    research_parser.add_argument("--bridge-delay-ms", type=float, default=30.0,
-                                 help="Mean transport delay for bridge stage (ms)")
-    research_parser.add_argument("--bridge-delay-std-ms", type=float, default=10.0,
-                                 help="Std dev of transport delay for bridge stage (ms)")
-    research_parser.add_argument("--bridge-dt-ms", type=float, default=10.0,
-                                 help="Nominal env step duration used in delay conversion (ms)")
-    research_parser.add_argument("--bridge-actuator-alpha", type=float, default=0.3,
-                                 help="First-order actuator lag coefficient in bridge stage")
-    research_parser.add_argument("--no-resume", action="store_true", default=False,
-                                 help="Disable resume and rerun all stages")
-    research_parser.add_argument("--fail-fast", action="store_true", default=False,
-                                 help="Stop pipeline after first failed stage")
+        "research-full", help="Run the complete research suite: VLA, LTC, and Deliberative Audits"
+    )
+    research_parser.add_argument("--env", type=str, default="CartPole-v1", help="Gymnasium environment ID")
+    research_parser.add_argument("--out", type=str, default="research_full_report", help="Output directory")
+    research_parser.add_argument("--episodes", type=int, default=10, help="Episodes per condition")
+    research_parser.add_argument(
+        "--speeds", type=int, nargs="+", default=[1, 2, 5], help="Speed multipliers used for staged audits"
+    )
+    research_parser.add_argument(
+        "--deliberative-max-thinking-steps",
+        type=int,
+        default=5,
+        help="Max internal pondering steps for deliberative stage",
+    )
+    research_parser.add_argument(
+        "--bridge-delay-ms", type=float, default=30.0, help="Mean transport delay for bridge stage (ms)"
+    )
+    research_parser.add_argument(
+        "--bridge-delay-std-ms", type=float, default=10.0, help="Std dev of transport delay for bridge stage (ms)"
+    )
+    research_parser.add_argument(
+        "--bridge-dt-ms", type=float, default=10.0, help="Nominal env step duration used in delay conversion (ms)"
+    )
+    research_parser.add_argument(
+        "--bridge-actuator-alpha", type=float, default=0.3, help="First-order actuator lag coefficient in bridge stage"
+    )
+    research_parser.add_argument(
+        "--no-resume", action="store_true", default=False, help="Disable resume and rerun all stages"
+    )
+    research_parser.add_argument(
+        "--fail-fast", action="store_true", default=False, help="Stop pipeline after first failed stage"
+    )
     _add_workers_arg(research_parser)
     _add_seed_arg(research_parser)
 
     # ── audit-deliberative subcommand ──────────────────────────────
     deliberative_parser = subparsers.add_parser(
-        "audit-deliberative",
-        help="Audit a deliberative (ACT-based) agent: measure ponder depth vs timing stress")
-    deliberative_parser.add_argument("--checkpoint", type=str, required=True,
-                                     help="Path to a DeliberativeInternalTimeAgent checkpoint (.pt)")
-    deliberative_parser.add_argument("--env", type=str, default="CartPole-v1",
-                                     help="Gymnasium environment ID (default: CartPole-v1)")
-    deliberative_parser.add_argument("--obs-dim", type=int, default=4,
-                                     help="Observation dimensionality")
-    deliberative_parser.add_argument("--act-dim", type=int, default=2,
-                                     help="Action space size")
-    deliberative_parser.add_argument("--speeds", type=int, nargs="+", default=[1, 2, 5],
-                                     help="Speed multipliers for stress testing")
-    deliberative_parser.add_argument("--episodes", type=int, default=20,
-                                     help="Episodes per speed condition")
-    deliberative_parser.add_argument("--out", type=str, default="deliberative_report",
-                                     help="Output directory")
+        "audit-deliberative", help="Audit a deliberative (ACT-based) agent: measure ponder depth vs timing stress"
+    )
+    deliberative_parser.add_argument(
+        "--checkpoint", type=str, required=True, help="Path to a DeliberativeInternalTimeAgent checkpoint (.pt)"
+    )
+    deliberative_parser.add_argument(
+        "--env", type=str, default="CartPole-v1", help="Gymnasium environment ID (default: CartPole-v1)"
+    )
+    deliberative_parser.add_argument("--obs-dim", type=int, default=4, help="Observation dimensionality")
+    deliberative_parser.add_argument("--act-dim", type=int, default=2, help="Action space size")
+    deliberative_parser.add_argument(
+        "--speeds", type=int, nargs="+", default=[1, 2, 5], help="Speed multipliers for stress testing"
+    )
+    deliberative_parser.add_argument("--episodes", type=int, default=20, help="Episodes per speed condition")
+    deliberative_parser.add_argument("--out", type=str, default="deliberative_report", help="Output directory")
     _add_seed_arg(deliberative_parser)
 
     # ── audit-horizon subcommand ────────────────────────────────────
     horizon_parser = subparsers.add_parser(
-        "audit-horizon",
-        help="Audit agents on cascading multi-step timing scenarios (long-horizon)")
-    horizon_parser.add_argument("--checkpoint", type=str, required=True,
-                                help="Path to agent checkpoint (.pt or .zip)")
-    horizon_parser.add_argument("--env", type=str, default="CartPole-v1",
-                                help="Gymnasium environment ID")
-    horizon_parser.add_argument("--horizon", type=int, default=50,
-                                help="Number of timesteps for cascade audit (default: 50)")
-    horizon_parser.add_argument("--episodes", type=int, default=20,
-                                help="Episodes per condition")
-    horizon_parser.add_argument("--out", type=str, default="horizon_report",
-                                help="Output directory")
+        "audit-horizon", help="Audit agents on cascading multi-step timing scenarios (long-horizon)"
+    )
+    horizon_parser.add_argument("--checkpoint", type=str, required=True, help="Path to agent checkpoint (.pt or .zip)")
+    horizon_parser.add_argument("--env", type=str, default="CartPole-v1", help="Gymnasium environment ID")
+    horizon_parser.add_argument(
+        "--horizon", type=int, default=50, help="Number of timesteps for cascade audit (default: 50)"
+    )
+    horizon_parser.add_argument("--episodes", type=int, default=20, help="Episodes per condition")
+    horizon_parser.add_argument("--out", type=str, default="horizon_report", help="Output directory")
     _add_seed_arg(horizon_parser)
 
     args = parser.parse_args()
@@ -1473,25 +1486,22 @@ def main():
             parser.print_help()
             print("\nExamples:")
             print("  python -m deltatau_audit demo cartpole")
-            print("  python -m deltatau_audit audit-sb3 "
-                  "--algo ppo --model my_model.zip --env HalfCheetah-v5")
-            print("  python -m deltatau_audit fix-sb3 "
-                  "--algo ppo --model my_model.zip --env HalfCheetah-v5")
-            print("  python -m deltatau_audit audit-sb3 "
-                  "--algo ppo --model my_model.zip --env CartPole-v1 --ci")
-            print("  python -m deltatau_audit audit-cleanrl "
-                  "--checkpoint runs/CartPole/agent.pt "
-                  "--agent-module ppo_cartpole.py --env CartPole-v1")
-            print("  python -m deltatau_audit diff before/summary.json "
-                  "after/summary.json")
+            print("  python -m deltatau_audit audit-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5")
+            print("  python -m deltatau_audit fix-sb3 --algo ppo --model my_model.zip --env HalfCheetah-v5")
+            print("  python -m deltatau_audit audit-sb3 --algo ppo --model my_model.zip --env CartPole-v1 --ci")
+            print(
+                "  python -m deltatau_audit audit-cleanrl "
+                "--checkpoint runs/CartPole/agent.pt "
+                "--agent-module ppo_cartpole.py --env CartPole-v1"
+            )
+            print("  python -m deltatau_audit diff before/summary.json after/summary.json")
             print("  python -m deltatau_audit bench run --manifest bench/manifest.yaml")
             print("  python -m deltatau_audit bench table --summary bench_runs/")
-            print("  python -m deltatau_audit stress analyze "
-                  "--summary audit_report/summary.json --out stress_artifacts/")
-            print("  python -m deltatau_audit stress train-sb3 "
-                  "--env CartPole-v1 --algo ppo --out-root checkpoints/")
-            print("  python -m deltatau_audit badge audit_report/summary.json "
-                  "--out badges/")
+            print(
+                "  python -m deltatau_audit stress analyze --summary audit_report/summary.json --out stress_artifacts/"
+            )
+            print("  python -m deltatau_audit stress train-sb3 --env CartPole-v1 --algo ppo --out-root checkpoints/")
+            print("  python -m deltatau_audit badge audit_report/summary.json --out badges/")
 
 
 if __name__ == "__main__":

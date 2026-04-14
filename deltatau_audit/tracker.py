@@ -71,12 +71,10 @@ def log_to_wandb(
     try:
         import wandb  # type: ignore[import]
     except ImportError:
-        raise ImportError(
-            "WandB is not installed. Install it with:\n"
-            '  pip install "deltatau-audit[wandb]"'
-        )
+        raise ImportError('WandB is not installed. Install it with:\n  pip install "deltatau-audit[wandb]"')
 
     from . import __version__
+
     metrics = _build_metrics(result)
     params = _build_params(result)
     config = {**(run_config or {}), **params, "_deltatau_version": __version__}
@@ -115,12 +113,10 @@ def log_to_mlflow(
     try:
         import mlflow  # type: ignore[import]
     except ImportError:
-        raise ImportError(
-            "MLflow is not installed. Install it with:\n"
-            '  pip install "deltatau-audit[mlflow]"'
-        )
+        raise ImportError('MLflow is not installed. Install it with:\n  pip install "deltatau-audit[mlflow]"')
 
     from . import __version__
+
     metrics = _build_metrics(result)
     params = _build_params(result)
 

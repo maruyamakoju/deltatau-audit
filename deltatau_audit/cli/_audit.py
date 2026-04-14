@@ -1,14 +1,20 @@
 """Audit subcommand handlers: audit, audit-sb3, audit-hf, audit-cleanrl, demo."""
+
 import os
 import sys
 import time
 
-from deltatau_audit.cli._utils import _run_audit_pipeline
 from deltatau_audit.cli import (
-    _activate_protocol, _json_redirect, _resolve_workers, _handle_ci,
-    make_env_factory, _require_module, _validate_gym_env_or_exit,
+    _activate_protocol,
+    _handle_ci,
+    _json_redirect,
+    _require_module,
+    _resolve_workers,
+    _validate_gym_env_or_exit,
     _wrap_external_eval_env,
+    make_env_factory,
 )
+from deltatau_audit.cli._utils import _run_audit_pipeline
 
 
 def _run_audit(args):
@@ -18,6 +24,7 @@ def _run_audit(args):
 
     with _json_redirect(args):
         from deltatau_audit import __version__
+
         print(f"deltatau-audit v{__version__}")
         print(f"  Checkpoint: {args.checkpoint}")
         print(f"  Agent type: {args.agent_type}")
@@ -26,12 +33,10 @@ def _run_audit(args):
         print(f"  Episodes: {args.episodes}")
         print(f"  Output: {args.out}")
         if args.ci:
-            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-                  f"stress>={args.ci_stress_threshold})")
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, stress>={args.ci_stress_threshold})")
         print()
 
-        env_factory = make_env_factory(args.env, args.speed_hidden,
-                                       args.chain_length)
+        env_factory = make_env_factory(args.env, args.speed_hidden, args.chain_length)
         sample_env = env_factory()
         obs_dim = sample_env.observation_space.shape[0]
         act_dim = sample_env.action_space.n
@@ -40,15 +45,20 @@ def _run_audit(args):
         from deltatau_audit.adapters.internal_time import InternalTimeAdapter
 
         adapter = InternalTimeAdapter.from_checkpoint(
-            args.checkpoint, obs_dim, act_dim,
-            agent_type=args.agent_type, device=args.device,
+            args.checkpoint,
+            obs_dim,
+            act_dim,
+            agent_type=args.agent_type,
+            device=args.device,
         )
         print(f"  Agent loaded ({obs_dim}D obs, {act_dim} actions)")
         print(f"  Intervention support: {adapter.supports_intervention}")
         print()
 
     _run_audit_pipeline(
-        adapter, env_factory, args,
+        adapter,
+        env_factory,
+        args,
         title=args.title,
         extra_audit_kwargs=dict(
             interventions=args.interventions,
@@ -57,7 +67,6 @@ def _run_audit(args):
         compare=False,
         protocol_meta=protocol_meta,
     )
-
 
 
 def _run_demo(args):
@@ -81,12 +90,8 @@ def _run_demo(args):
     # Fallback to demo_external_env/ (development mode)
     if not os.path.exists(baseline_ckpt):
         project_root = os.path.dirname(pkg_dir)
-        baseline_ckpt = os.path.join(
-            project_root, "demo_external_env", "checkpoints",
-            "baseline", "final.pt")
-        robust_ckpt = os.path.join(
-            project_root, "demo_external_env", "checkpoints",
-            "robust_wide", "final.pt")
+        baseline_ckpt = os.path.join(project_root, "demo_external_env", "checkpoints", "baseline", "final.pt")
+        robust_ckpt = os.path.join(project_root, "demo_external_env", "checkpoints", "robust_wide", "final.pt")
 
     for path, name in [(baseline_ckpt, "baseline"), (robust_ckpt, "robust")]:
         if not os.path.exists(path):
@@ -105,23 +110,22 @@ def _run_demo(args):
     n_episodes = args.episodes
 
     models = [
-        ("baseline", baseline_ckpt,
-         "CartPole Baseline GRU (Before Fix)"),
-        ("robust_wide", robust_ckpt,
-         "CartPole Speed-Randomized GRU (After Fix)"),
+        ("baseline", baseline_ckpt, "CartPole Baseline GRU (Before Fix)"),
+        ("robust_wide", robust_ckpt, "CartPole Speed-Randomized GRU (After Fix)"),
     ]
 
     from deltatau_audit import __version__
+
     n_workers = _resolve_workers(args)
     print(f"deltatau-audit v{__version__} - CartPole Demo")
     print(f"  Episodes per condition: {n_episodes}")
-    print(f"  Workers: {n_workers}"
-          + (" (parallel)" if n_workers > 1 else
-             "  - tip: use --workers auto for faster auditing"))
+    print(
+        f"  Workers: {n_workers}"
+        + (" (parallel)" if n_workers > 1 else "  - tip: use --workers auto for faster auditing")
+    )
     print(f"  Output: {out_dir}/")
     if args.ci:
-        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-              f"stress>={args.ci_stress_threshold})")
+        print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, stress>={args.ci_stress_threshold})")
     print()
 
     results = {}
@@ -130,12 +134,12 @@ def _run_demo(args):
         print(f"AUDITING: {title}")
         print(f"{'=' * 60}\n")
 
-        adapter = SimpleGRUAdapter.from_checkpoint(
-            ckpt, obs_dim=4, act_dim=2, hidden_dim=64)
+        adapter = SimpleGRUAdapter.from_checkpoint(ckpt, obs_dim=4, act_dim=2, hidden_dim=64)
 
         t0 = time.time()
         result = run_full_audit(
-            adapter, cartpole_factory,
+            adapter,
+            cartpole_factory,
             speeds=[1, 2, 3, 5, 8],
             n_episodes=n_episodes,
             sensitivity_episodes=0,
@@ -163,8 +167,7 @@ def _run_demo(args):
         print("BEFORE vs AFTER COMPARISON")
         print(f"{'=' * 60}\n")
 
-        print(f"  {'Scenario':12s}  {'Before':>10s}  {'After':>10s}  "
-              f"{'Change':>10s}")
+        print(f"  {'Scenario':12s}  {'Before':>10s}  {'After':>10s}  {'Change':>10s}")
         print(f"  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
 
         for sc in b_rob:
@@ -172,18 +175,21 @@ def _run_demo(args):
             a_pct = a_rob.get(sc, {}).get("return_ratio", 0) * 100
             delta = a_pct - b_pct
             sign = "+" if delta >= 0 else ""
-            print(f"  {sc:12s}  {b_pct:9.1f}%  {a_pct:9.1f}%  "
-                  f"{sign}{delta:8.1f}%")
+            print(f"  {sc:12s}  {b_pct:9.1f}%  {a_pct:9.1f}%  {sign}{delta:8.1f}%")
 
         if b_sum and a_sum:
-            print(f"\n  Deployment: {b_sum['deployment_rating']} "
-                  f"({b_sum['deployment_score']:.2f}) -> "
-                  f"{a_sum['deployment_rating']} "
-                  f"({a_sum['deployment_score']:.2f})")
-            print(f"  Stress:     {b_sum['stress_rating']} "
-                  f"({b_sum['stress_score']:.2f}) -> "
-                  f"{a_sum['stress_rating']} "
-                  f"({a_sum['stress_score']:.2f})")
+            print(
+                f"\n  Deployment: {b_sum['deployment_rating']} "
+                f"({b_sum['deployment_score']:.2f}) -> "
+                f"{a_sum['deployment_rating']} "
+                f"({a_sum['deployment_score']:.2f})"
+            )
+            print(
+                f"  Stress:     {b_sum['stress_rating']} "
+                f"({b_sum['stress_score']:.2f}) -> "
+                f"{a_sum['stress_rating']} "
+                f"({a_sum['stress_score']:.2f})"
+            )
 
     # Auto-generate comparison.md
     if len(results) >= 2:
@@ -191,6 +197,7 @@ def _run_demo(args):
         after_json = os.path.join(out_dir, "robust_wide", "summary.json")
         if os.path.exists(before_json) and os.path.exists(after_json):
             from deltatau_audit.diff import generate_comparison
+
             comp_path = os.path.join(out_dir, "comparison.md")
             generate_comparison(before_json, after_json, comp_path)
             print(f"\n  comparison.md -> {comp_path}")
@@ -202,7 +209,6 @@ def _run_demo(args):
         sys.exit(exit_code)
 
 
-
 def _run_audit_sb3(args):
     """Audit an SB3 model (.zip) on a Gymnasium environment."""
     protocol_meta = _activate_protocol(args)
@@ -210,13 +216,10 @@ def _run_audit_sb3(args):
     if not os.path.isfile(args.model):
         print(f"ERROR: Model file not found: {args.model}")
         if not args.model.endswith(".zip"):
-            print("  SB3 models are saved as .zip files. "
-                  "Did you mean: {}.zip?".format(args.model))
+            print("  SB3 models are saved as .zip files. Did you mean: {}.zip?".format(args.model))
         print("\n  To try with a sample model:")
-        print("  gh release download assets -R maruyamakoju/deltatau-audit "
-              "-p cartpole_ppo_sb3.zip")
-        print("  deltatau-audit audit-sb3 --algo ppo "
-              "--model cartpole_ppo_sb3.zip --env CartPole-v1")
+        print("  gh release download assets -R maruyamakoju/deltatau-audit -p cartpole_ppo_sb3.zip")
+        print("  deltatau-audit audit-sb3 --algo ppo --model cartpole_ppo_sb3.zip --env CartPole-v1")
         sys.exit(1)
 
     # (2) Dependency/environment checks
@@ -248,14 +251,11 @@ def _run_audit_sb3(args):
         print(f"  Env:   {args.env}")
         print(f"  Speeds: {args.speeds}")
         print(f"  Episodes: {args.episodes}")
-        print(f"  Workers: {_n_workers}"
-              + ("" if _n_workers > 1 else
-                 "  - tip: --workers auto for faster auditing"))
+        print(f"  Workers: {_n_workers}" + ("" if _n_workers > 1 else "  - tip: --workers auto for faster auditing"))
         print(f"  Device: {args.device}")
         print(f"  Output: {args.out}")
         if args.ci:
-            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-                  f"stress>={args.ci_stress_threshold})")
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, stress>={args.ci_stress_threshold})")
         print()
 
         # (4) Load model with friendly error
@@ -263,8 +263,7 @@ def _run_audit_sb3(args):
             adapter = _load_adapter()
         except Exception as e:
             print(f"ERROR: Failed to load model: {e}")
-            print(f"\n  Make sure the file was saved with "
-                  f"{args.algo.upper()}.save() from stable-baselines3.")
+            print(f"\n  Make sure the file was saved with {args.algo.upper()}.save() from stable-baselines3.")
             sys.exit(1)
 
         print(f"  Model loaded ({args.algo.upper()} on {args.env})")
@@ -274,13 +273,14 @@ def _run_audit_sb3(args):
         title = args.title or f"{args.algo.upper()} on {args.env}"
 
     _run_audit_pipeline(
-        adapter, env_factory, args,
+        adapter,
+        env_factory,
+        args,
         title=title,
         extra_audit_kwargs=dict(sensitivity_episodes=0),
         adapter_factory=lambda _seed: _load_adapter(),
         protocol_meta=protocol_meta,
     )
-
 
 
 def _run_audit_cleanrl(args):
@@ -346,21 +346,21 @@ def _run_audit_cleanrl(args):
         print(f"  Episodes: {args.episodes}")
         print(f"  Output: {args.out}")
         if args.ci:
-            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-                  f"stress>={args.ci_stress_threshold})")
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, stress>={args.ci_stress_threshold})")
         print()
 
         env_factory = lambda: gym.make(args.env)
         title = args.title or f"CleanRL on {args.env}"
 
     _run_audit_pipeline(
-        adapter, env_factory, args,
+        adapter,
+        env_factory,
+        args,
         title=title,
         extra_audit_kwargs=dict(sensitivity_episodes=0),
         adapter_factory=lambda _seed: _load_adapter(),
         protocol_meta=protocol_meta,
     )
-
 
 
 def _run_audit_hf(args):
@@ -405,8 +405,7 @@ def _run_audit_hf(args):
         print(f"  Device:  {args.device}")
         print(f"  Output:  {args.out}")
         if args.ci:
-            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, "
-                  f"stress>={args.ci_stress_threshold})")
+            print(f"  CI mode: ON (deploy>={args.ci_deploy_threshold}, stress>={args.ci_stress_threshold})")
         print()
 
         print(f"  Downloading from HuggingFace Hub: {args.repo} ...")
@@ -426,11 +425,11 @@ def _run_audit_hf(args):
         title = args.title or f"{args.algo.upper()} on {args.env} (from {args.repo})"
 
     _run_audit_pipeline(
-        adapter, env_factory, args,
+        adapter,
+        env_factory,
+        args,
         title=title,
         extra_audit_kwargs=dict(sensitivity_episodes=0),
         adapter_factory=lambda _seed: _load_adapter(),
         protocol_meta=protocol_meta,
     )
-
-

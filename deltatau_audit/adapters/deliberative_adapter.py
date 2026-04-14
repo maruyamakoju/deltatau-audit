@@ -9,6 +9,7 @@ These metrics allow the auditor to answer:
   "Does the agent ponder MORE when timing is uncertain?"
 A good deliberative agent should increase thinking steps under jitter.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -66,9 +67,7 @@ class DeliberativeAgentAdapter(AgentAdapter):
         hidden = hidden.to(self._device) if isinstance(hidden, torch.Tensor) else hidden
 
         with torch.no_grad():
-            dist, value, hidden_new, cumulative_halt, ponder_cost = self._agent.forward(
-                obs, hidden, deterministic=True
-            )
+            dist, value, hidden_new, cumulative_halt, ponder_cost = self._agent.forward(obs, hidden, deterministic=True)
             action = dist.sample()
 
         ponder_steps = float(ponder_cost.mean().item())
@@ -92,8 +91,7 @@ class DeliberativeAgentAdapter(AgentAdapter):
     ) -> torch.Tensor:
         """Deliberative agent does not support dt override (ACT is self-determined)."""
         raise NotImplementedError(
-            "DeliberativeAgentAdapter: deliberation time is self-determined by ACT. "
-            "dt override is not supported."
+            "DeliberativeAgentAdapter: deliberation time is self-determined by ACT. dt override is not supported."
         )
 
     def reset_episode(self) -> None:

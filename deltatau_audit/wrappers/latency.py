@@ -52,8 +52,7 @@ class ObsNoiseWrapper(gym.Wrapper):
         seed: Optional integer seed for a thread-local RNG.
     """
 
-    def __init__(self, env: gym.Env, std: float = 0.1,
-                 seed: Optional[int] = None):
+    def __init__(self, env: gym.Env, std: float = 0.1, seed: Optional[int] = None):
         super().__init__(env)
         self.std = float(std)
         self._rng = np.random.default_rng(seed)

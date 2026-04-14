@@ -25,6 +25,7 @@ __all__ = [
 # Optional dm_control adapter (requires shimmy + dm-control)
 try:
     from .adapters.dm_control import DMControlSB3Adapter, make_dm_control_env
+
     __all__ += ["DMControlSB3Adapter", "make_dm_control_env"]
 except ImportError:
     pass  # dm_control/shimmy not installed

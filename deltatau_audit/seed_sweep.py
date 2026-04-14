@@ -51,12 +51,8 @@ def _as_float(value: Any) -> float | None:
 
 def _aggregate_scenario_metrics(results: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Aggregate per-scenario robustness statistics across seed results."""
-    scenario_values: Dict[str, Dict[str, List[float]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-    scenario_flags: Dict[str, Dict[str, List[float]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    scenario_values: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+    scenario_flags: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
 
     for result in results:
         if not isinstance(result, dict):
@@ -87,9 +83,7 @@ def _aggregate_scenario_metrics(results: List[Dict[str, Any]]) -> Dict[str, Dict
                 scenario_flags[scenario]["significant"].append(1.0 if sig else 0.0)
             sig_change = sc.get("significant_change")
             if isinstance(sig_change, bool):
-                scenario_flags[scenario]["significant_change"].append(
-                    1.0 if sig_change else 0.0
-                )
+                scenario_flags[scenario]["significant_change"].append(1.0 if sig_change else 0.0)
 
     out: Dict[str, Dict[str, Any]] = {}
     for scenario in sorted(scenario_values.keys()):
@@ -110,9 +104,7 @@ def _aggregate_scenario_metrics(results: List[Dict[str, Any]]) -> Dict[str, Dict
             entry["significant_rate"] = sum(sig_vals) / len(sig_vals)
         sig_change_vals = scenario_flags[scenario].get("significant_change", [])
         if sig_change_vals:
-            entry["significant_change_rate"] = (
-                sum(sig_change_vals) / len(sig_change_vals)
-            )
+            entry["significant_change_rate"] = sum(sig_change_vals) / len(sig_change_vals)
 
         out[scenario] = entry
 
@@ -218,9 +210,7 @@ def _scenario_scores_from_aggregate(
         ret_mean_f = float(ret_mean)
 
         rmse_stats = sc.get("rmse_ratio", {})
-        rmse_mean = (
-            rmse_stats.get("mean", 1.0) if isinstance(rmse_stats, Mapping) else 1.0
-        )
+        rmse_mean = rmse_stats.get("mean", 1.0) if isinstance(rmse_stats, Mapping) else 1.0
         rmse_mean_f = _safe_float(rmse_mean, 1.0)
 
         d_stats = sc.get("cohens_d", {})
@@ -274,13 +264,9 @@ def _sub_score(
             },
         }
 
-    worst_name, worst_info = min(
-        available, key=lambda item: _safe_float(item[1].get("return_ratio"), 1.0)
-    )
+    worst_name, worst_info = min(available, key=lambda item: _safe_float(item[1].get("return_ratio"), 1.0))
     worst_ret = _safe_float(worst_info.get("return_ratio"), fallback_return)
-    worst_rmse = max(
-        _safe_float(info.get("rmse_ratio"), 1.0) for _, info in available
-    )
+    worst_rmse = max(_safe_float(info.get("rmse_ratio"), 1.0) for _, info in available)
     return {
         "return_score": worst_ret,
         "rmse_score": worst_rmse,
@@ -296,9 +282,7 @@ def _sub_score(
 def _quadrant_prescription(quadrant: str) -> str:
     """Default aggregate prescription text for multi-seed summaries."""
     mapping = {
-        "time_aware_robust": (
-            "Agent actively uses internal timing and remains robust under deployment timing shifts."
-        ),
+        "time_aware_robust": ("Agent actively uses internal timing and remains robust under deployment timing shifts."),
         "time_aware_fragile": (
             "Timing is used but not stable across deployment shifts; calibrate with timing-augmented training."
         ),
@@ -308,9 +292,7 @@ def _quadrant_prescription(quadrant: str) -> str:
         "time_blind_robust": (
             "Performance is robust without explicit timing use; consider timing-aware features for harder regimes."
         ),
-        "deployment_ready": (
-            "Deployment robustness is stable under tested timing perturbations."
-        ),
+        "deployment_ready": ("Deployment robustness is stable under tested timing perturbations."),
         "deployment_fragile": (
             "Deployment robustness is fragile; prioritize jitter/delay/spike augmentation before release."
         ),
@@ -349,17 +331,11 @@ def seed_sweep_payload_to_result(
 
     template: Dict[str, Any] = results[0] if results else {}
     template_summary_raw = template.get("summary", {})
-    template_summary = (
-        template_summary_raw if isinstance(template_summary_raw, Mapping) else {}
-    )
+    template_summary = template_summary_raw if isinstance(template_summary_raw, Mapping) else {}
     template_robustness_raw = template.get("robustness", {})
-    template_robustness = (
-        template_robustness_raw if isinstance(template_robustness_raw, Mapping) else {}
-    )
+    template_robustness = template_robustness_raw if isinstance(template_robustness_raw, Mapping) else {}
     template_reliance_raw = template.get("reliance", {})
-    template_reliance = (
-        template_reliance_raw if isinstance(template_reliance_raw, Mapping) else {}
-    )
+    template_reliance = template_reliance_raw if isinstance(template_reliance_raw, Mapping) else {}
 
     dep_mean = _metric_mean(
         metrics,
@@ -380,25 +356,17 @@ def seed_sweep_payload_to_result(
         if isinstance(rel_val, (int, float)) and not isinstance(rel_val, bool):
             rel_mean = float(rel_val)
 
-    dep_threshold = _safe_float(
-        thresholds.get("deployment"), float(deploy_threshold)
-    )
-    str_threshold = _safe_float(
-        thresholds.get("stress"), float(stress_threshold)
-    )
+    dep_threshold = _safe_float(thresholds.get("deployment"), float(deploy_threshold))
+    str_threshold = _safe_float(thresholds.get("stress"), float(stress_threshold))
 
     scenario_metrics_raw = aggregate.get("scenario_metrics", {})
-    scenario_metrics = (
-        scenario_metrics_raw if isinstance(scenario_metrics_raw, Mapping) else {}
-    )
+    scenario_metrics = scenario_metrics_raw if isinstance(scenario_metrics_raw, Mapping) else {}
     per_scenario_scores = _scenario_scores_from_aggregate(scenario_metrics)
     if not per_scenario_scores:
         fallback_scores = template_robustness.get("per_scenario_scores", {})
         if isinstance(fallback_scores, Mapping):
             per_scenario_scores = {
-                str(name): dict(values)
-                for name, values in fallback_scores.items()
-                if isinstance(values, Mapping)
+                str(name): dict(values) for name, values in fallback_scores.items() if isinstance(values, Mapping)
             }
 
     deployment = _sub_score(per_scenario_scores, DEPLOYMENT_SCENARIOS, dep_mean)
@@ -432,9 +400,7 @@ def seed_sweep_payload_to_result(
         rel_score = rel_mean
 
     quadrant_counts_raw = aggregate.get("quadrant_counts", {})
-    quadrant_counts = (
-        quadrant_counts_raw if isinstance(quadrant_counts_raw, Mapping) else {}
-    )
+    quadrant_counts = quadrant_counts_raw if isinstance(quadrant_counts_raw, Mapping) else {}
     quadrant: str | None = None
     if quadrant_counts:
         quadrant = max(
@@ -446,11 +412,7 @@ def seed_sweep_payload_to_result(
         if isinstance(q, str):
             quadrant = q
     if not quadrant:
-        quadrant = (
-            "deployment_ready"
-            if dep_mean >= dep_threshold
-            else "deployment_fragile"
-        )
+        quadrant = "deployment_ready" if dep_mean >= dep_threshold else "deployment_fragile"
 
     summary = {
         "reliance_rating": rel_rating,
@@ -477,9 +439,7 @@ def seed_sweep_payload_to_result(
 
     speed_list = list(speeds) if speeds is not None else []
 
-    seed_sweep = {
-        key: value for key, value in seed_payload.items() if key != "results"
-    }
+    seed_sweep = {key: value for key, value in seed_payload.items() if key != "results"}
     return {
         "schema_version": SCHEMA_VERSION,
         "speeds": template.get("speeds", speed_list),

@@ -33,10 +33,14 @@ class _CartPoleDummyAdapter:
             nn.Linear(4, 8), nn.ReLU(), nn.Linear(8, 3)
         )
 
-    def reset_hidden(self, batch: int = 1, device: str = "cpu"):
-        return None
+    def get_capabilities(self):
+        from deltatau_audit.schema import TemporalCapability
+        return TemporalCapability()
 
-    def act(self, obs, hidden=None):
+    def reset_internal_state(self) -> None:
+        pass
+
+    def act(self, obs, deterministic=True, ponder_steps=None):
         with torch.no_grad():
             if not isinstance(obs, torch.Tensor):
                 obs = torch.tensor(obs, dtype=torch.float32)
@@ -45,7 +49,7 @@ class _CartPoleDummyAdapter:
             logits = out[:, :2]
             value = out[:, 2].item()
             action = int(torch.argmax(logits, dim=-1).item())
-        return action, value, None, None
+        return action, {"value": value, "dt": 1.0, "hidden": None}
 
 
 def _cartpole_factory():

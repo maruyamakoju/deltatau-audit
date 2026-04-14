@@ -26,6 +26,7 @@ from ._fixer_utils import estimate_timesteps as _estimate_timesteps_shared
 def _make_robust_env(env_id: str, base_speed: int = 3, jitter: int = 2):
     """Create env with speed randomization for robust training."""
     from .wrappers.speed import JitterWrapper
+
     env = gym.make(env_id)
     return JitterWrapper(env, base_speed=base_speed, jitter=jitter)
 
@@ -105,8 +106,7 @@ def fix_sb3_model(
         print(f"  Algo:      {algo.upper()}")
         print(f"  Env:       {env_id}")
         print(f"  Timesteps: {timesteps:,}")
-        print(f"  Speed range: {effective_min}-{effective_max} "
-              f"(base={base_speed}, jitter={jitter})")
+        print(f"  Speed range: {effective_min}-{effective_max} (base={base_speed}, jitter={jitter})")
         print(f"  Device:    {device}")
         print(f"  Output:    {output_dir}/")
         print()
@@ -126,7 +126,8 @@ def fix_sb3_model(
 
     t0 = time.time()
     before_result = run_full_audit(
-        adapter_before, env_factory,
+        adapter_before,
+        env_factory,
         speeds=audit_speeds,
         n_episodes=n_audit_episodes,
         sensitivity_episodes=0,
@@ -138,10 +139,8 @@ def fix_sb3_model(
     audit_time_before = time.time() - t0
 
     before_dir = os.path.join(output_dir, "before")
-    generate_report(before_result, before_dir,
-                    title=f"{algo.upper()} on {env_id} — Before Fix")
-    write_ci_summary(before_result["summary"],
-                     before_result["robustness"], before_dir)
+    generate_report(before_result, before_dir, title=f"{algo.upper()} on {env_id} — Before Fix")
+    write_ci_summary(before_result["summary"], before_result["robustness"], before_dir)
 
     before_dep = before_result["summary"]["deployment_score"]
     before_rating = before_result["summary"]["deployment_rating"]
@@ -180,10 +179,7 @@ def fix_sb3_model(
     try:
         import stable_baselines3
     except ImportError:
-        raise ImportError(
-            "stable-baselines3 required. "
-            'Install: pip install "deltatau-audit[sb3]"'
-        )
+        raise ImportError('stable-baselines3 required. Install: pip install "deltatau-audit[sb3]"')
 
     algo_map = {
         "ppo": stable_baselines3.PPO,
@@ -193,15 +189,12 @@ def fix_sb3_model(
     }
     algo_cls = algo_map.get(algo.lower())
     if algo_cls is None:
-        raise ValueError(
-            f"Unknown algo '{algo}'. Supported: {list(algo_map.keys())}")
+        raise ValueError(f"Unknown algo '{algo}'. Supported: {list(algo_map.keys())}")
 
     robust_env = _make_robust_env(env_id, base_speed, jitter)
 
     t0 = time.time()
-    model = algo_cls("MlpPolicy", robust_env,
-                     verbose=1 if verbose else 0,
-                     device=device)
+    model = algo_cls("MlpPolicy", robust_env, verbose=1 if verbose else 0, device=device)
     model.learn(total_timesteps=timesteps)
     train_time = time.time() - t0
     robust_env.close()
@@ -229,7 +222,8 @@ def fix_sb3_model(
 
     t0 = time.time()
     after_result = run_full_audit(
-        fixed_adapter, env_factory,
+        fixed_adapter,
+        env_factory,
         speeds=audit_speeds,
         n_episodes=n_audit_episodes,
         sensitivity_episodes=0,
@@ -241,10 +235,8 @@ def fix_sb3_model(
     audit_time_after = time.time() - t0
 
     after_dir = os.path.join(output_dir, "after")
-    generate_report(after_result, after_dir,
-                    title=f"{algo.upper()} on {env_id} — After Fix")
-    write_ci_summary(after_result["summary"],
-                     after_result["robustness"], after_dir)
+    generate_report(after_result, after_dir, title=f"{algo.upper()} on {env_id} — After Fix")
+    write_ci_summary(after_result["summary"], after_result["robustness"], after_dir)
 
     after_dep = after_result["summary"]["deployment_score"]
     after_rating = after_result["summary"]["deployment_rating"]
@@ -258,14 +250,11 @@ def fix_sb3_model(
     # ═══════════════════════════════════════════════════════════════
     before_json = os.path.join(before_dir, "summary.json")
     after_json = os.path.join(after_dir, "summary.json")
-    generate_comparison(before_json, after_json,
-                        output_path=os.path.join(output_dir, "comparison.md"))
-    generate_comparison_html(before_json, after_json,
-                             output_path=os.path.join(output_dir, "comparison.html"))
+    generate_comparison(before_json, after_json, output_path=os.path.join(output_dir, "comparison.md"))
+    generate_comparison_html(before_json, after_json, output_path=os.path.join(output_dir, "comparison.html"))
 
     if verbose:
-        _print_comparison(before_result, after_result,
-                          fixed_model_path, output_dir, train_time)
+        _print_comparison(before_result, after_result, fixed_model_path, output_dir, train_time)
 
     return {
         "before": before_result,
@@ -278,9 +267,7 @@ def fix_sb3_model(
     }
 
 
-def _print_comparison(before: Dict, after: Dict,
-                      fixed_model_path: str, output_dir: str,
-                      train_time: float):
+def _print_comparison(before: Dict, after: Dict, fixed_model_path: str, output_dir: str, train_time: float):
     """Print Before vs After comparison summary."""
     print()
     print("=" * 60)
@@ -299,21 +286,24 @@ def _print_comparison(before: Dict, after: Dict,
         a_pct = a_rob.get(sc, {}).get("return_ratio", 0) * 100
         delta = a_pct - b_pct
         sign = "+" if delta >= 0 else ""
-        print(f"  {sc:12s}  {b_pct:9.1f}%  {a_pct:9.1f}%  "
-              f"{sign}{delta:8.1f}pp")
+        print(f"  {sc:12s}  {b_pct:9.1f}%  {a_pct:9.1f}%  {sign}{delta:8.1f}pp")
 
     b_sum = before["summary"]
     a_sum = after["summary"]
 
     print()
-    print(f"  Deployment: {b_sum['deployment_rating']} "
-          f"({b_sum['deployment_score']:.2f}) -> "
-          f"{a_sum['deployment_rating']} "
-          f"({a_sum['deployment_score']:.2f})")
-    print(f"  Stress:     {b_sum['stress_rating']} "
-          f"({b_sum['stress_score']:.2f}) -> "
-          f"{a_sum['stress_rating']} "
-          f"({a_sum['stress_score']:.2f})")
+    print(
+        f"  Deployment: {b_sum['deployment_rating']} "
+        f"({b_sum['deployment_score']:.2f}) -> "
+        f"{a_sum['deployment_rating']} "
+        f"({a_sum['deployment_score']:.2f})"
+    )
+    print(
+        f"  Stress:     {b_sum['stress_rating']} "
+        f"({b_sum['stress_score']:.2f}) -> "
+        f"{a_sum['stress_rating']} "
+        f"({a_sum['stress_score']:.2f})"
+    )
     print(f"  Quadrant:   {b_sum['quadrant']} -> {a_sum['quadrant']}")
 
     print()

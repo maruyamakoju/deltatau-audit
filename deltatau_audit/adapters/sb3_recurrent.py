@@ -42,8 +42,7 @@ class SB3RecurrentAdapter(AgentAdapter):
         self.device = device
         self._n_envs = 1
 
-    def reset_hidden(self, batch: int = 1,
-                     device: str = "cpu") -> Any:
+    def reset_hidden(self, batch: int = 1, device: str = "cpu") -> Any:
         self._n_envs = batch
         # SB3 RecurrentPPO uses LSTM states as numpy arrays
         # Shape: (num_layers, batch, hidden_dim)
@@ -55,8 +54,7 @@ class SB3RecurrentAdapter(AgentAdapter):
         return (h, c)
 
     @torch.no_grad()
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[int, float, Any, Optional[float]]:
+    def act(self, obs: torch.Tensor, hidden: Any) -> Tuple[int, float, Any, Optional[float]]:
         # Convert obs to numpy for SB3
         if obs.dim() == 1:
             obs_np = obs.cpu().numpy().reshape(1, -1)
@@ -75,14 +73,12 @@ class SB3RecurrentAdapter(AgentAdapter):
         )
 
         # Get value estimate
-        obs_t = torch.as_tensor(obs_np, dtype=torch.float32,
-                                device=self.model.device)
+        obs_t = torch.as_tensor(obs_np, dtype=torch.float32, device=self.model.device)
         lstm_states_t = (
             torch.as_tensor(hidden[0], device=self.model.device),
             torch.as_tensor(hidden[1], device=self.model.device),
         )
-        ep_starts_t = torch.as_tensor(episode_starts, dtype=torch.float32,
-                                      device=self.model.device)
+        ep_starts_t = torch.as_tensor(episode_starts, dtype=torch.float32, device=self.model.device)
 
         value = self.model.policy.predict_values(
             obs_t,
@@ -91,7 +87,7 @@ class SB3RecurrentAdapter(AgentAdapter):
         )
         value_scalar = value.item()
 
-        action_int = int(action[0]) if hasattr(action, '__len__') else int(action)
+        action_int = int(action[0]) if hasattr(action, "__len__") else int(action)
 
         return (action_int, value_scalar, hidden_new, None)
 
@@ -111,10 +107,7 @@ class SB3RecurrentAdapter(AgentAdapter):
         try:
             from sb3_contrib import RecurrentPPO
         except ImportError:
-            raise ImportError(
-                "sb3_contrib is required for SB3 adapter. "
-                "Install with: pip install sb3-contrib"
-            )
+            raise ImportError("sb3_contrib is required for SB3 adapter. Install with: pip install sb3-contrib")
 
         model = RecurrentPPO.load(path, device=device)
         return cls(model, device=device)

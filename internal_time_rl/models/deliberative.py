@@ -43,6 +43,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
+from act_utils import apply_act_step, halt_distribution_stats, stack_halt_weights
+
 from .policy import InternalTimeAgent
 from .encoder import ObservationEncoder
 from .time_module import TimeModule, TimeAwareGRUCell
@@ -191,9 +193,9 @@ class InformationGainTracker:
         """
         # Cosine similarity: 1.0 = identical, 0.0 = orthogonal, -1.0 = opposite
         cos_sim = F.cosine_similarity(h_prev, h_curr, dim=-1, eps=1e-8)  # (batch,)
-        # Information gain = 1 - |cosine_similarity|
-        # Use absolute value since anti-correlated states are also informative
-        info_gain = (1.0 - cos_sim.abs()).unsqueeze(-1)  # (batch, 1)
+        # Anti-correlated states still represent a substantial change and
+        # should not be treated as redundant.
+        info_gain = (1.0 - cos_sim).clamp(min=0.0).unsqueeze(-1)  # (batch, 1)
         should_halt = info_gain < self.threshold
         return info_gain, should_halt
 
@@ -709,12 +711,12 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
 
         # --- §4: Adaptive max steps ---
         if self.use_adaptive_steps and self.complexity_estimator is not None:
-            predicted_steps = self.complexity_estimator(encoded)  # (B, 1)
-            # Use per-sample max, take batch maximum for the loop bound
-            # (we mask per-sample below)
-            adaptive_max = int(predicted_steps.max().item() + 0.5)
-            adaptive_max = max(self.min_steps, min(adaptive_max, self.hard_max_steps))
-            per_sample_max = predicted_steps.squeeze(-1)  # (B,)
+            predicted_steps = self.complexity_estimator(encoded).squeeze(-1)  # (B,)
+            per_sample_max = predicted_steps.round().clamp(
+                min=self.min_steps,
+                max=self.hard_max_steps,
+            ).to(dtype=torch.int64)
+            adaptive_max = int(per_sample_max.max().item())
         else:
             adaptive_max = self.max_thinking_steps
             per_sample_max = None
@@ -740,12 +742,18 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
             head_halt_weights_all: List[List[torch.Tensor]] = [[] for _ in range(self.num_heads)]
 
         for step in range(adaptive_max):
-            still_running = (cumulative_halt < 1.0 - self.HALT_EPS).float()
+            still_running = (remainder > self.HALT_EPS).float()
+            force_halt = torch.zeros(B, 1, device=device)
 
             # Per-sample adaptive step limit
             if per_sample_max is not None:
                 step_allowed = (step < per_sample_max).float().unsqueeze(-1)  # (B, 1)
                 still_running = still_running * step_allowed
+                force_halt = ((step + 1) >= per_sample_max).float().unsqueeze(-1)
+            elif step == adaptive_max - 1:
+                force_halt = torch.ones(B, 1, device=device)
+
+            force_halt = force_halt * still_running
 
             # Early exit if all batch elements halted
             if still_running.sum() < 1e-6:
@@ -785,24 +793,14 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
             info_boost = (1.0 - info_gain.detach().clamp(0, 1)) * 0.1 * should_halt_info.float()
             p_halt = (p_halt + info_boost).clamp(0.0, 1.0)
 
-            new_cumulative = cumulative_halt + p_halt * still_running
-
-            # At the last step, force-halt remaining elements via remainder
-            is_last_step = float(step == adaptive_max - 1)
-            use_remainder_mask = (
-                (new_cumulative >= 1.0 - self.HALT_EPS).float()
-                + torch.tensor(is_last_step, device=device) * still_running
-            ).clamp(0, 1)
-
-            # lambda_n: effective weight for this step's hidden state
-            lambda_n = torch.where(
-                use_remainder_mask.bool(),
-                remainder.clamp(min=0.0) * still_running,
-                p_halt * still_running,
+            lambda_n, cumulative_halt, remainder, used_remainder_step = apply_act_step(
+                cumulative_halt=cumulative_halt,
+                remainder=remainder,
+                p_halt=p_halt,
+                still_running=still_running,
+                force_halt=force_halt,
+                halt_eps=self.HALT_EPS,
             )
-
-            # --- §3: Numerically stable remainder ---
-            lambda_n = lambda_n.clamp(min=0.0, max=1.0)
 
             # --- ACT weighted accumulation ---
             weighted_hidden = weighted_hidden + lambda_n * current_hidden
@@ -812,13 +810,8 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
             step_weights.append(lambda_n.detach())
             step_weights_live.append(lambda_n)
 
-            # Track which samples used remainder at this step
-            if is_last_step > 0.5:
-                used_remainder = used_remainder + (still_running.squeeze(-1) > 0.5).float()
-
-            # Update accumulators
-            remainder = (remainder - lambda_n * still_running).clamp(min=0.0)
-            cumulative_halt = new_cumulative.clamp(0.0, 1.0)
+            # Track which samples used remainder at any step
+            used_remainder = torch.maximum(used_remainder, used_remainder_step)
 
             prev_hidden = current_hidden
 
@@ -837,16 +830,16 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
             self._last_head_attn_weights = None
 
         # --- §3: Weight-sum assertion ---
-        if step_weights:
-            weight_matrix = torch.stack(step_weights, dim=1).squeeze(-1)  # (B, N)
-            weight_sums = weight_matrix.sum(dim=1)  # (B,)
-            weight_sum_error = (weight_sums - 1.0).abs().mean().item()
-            # Live version for gradient flow through KL loss
-            weight_matrix_live = torch.stack(step_weights_live, dim=1).squeeze(-1)
-        else:
-            weight_matrix = torch.zeros(B, 1, device=device)
-            weight_matrix_live = torch.zeros(B, 1, device=device)
-            weight_sum_error = 0.0
+        weight_matrix, weight_sum_error = stack_halt_weights(
+            step_weights=step_weights,
+            batch_size=B,
+            device=device,
+        )
+        weight_matrix_live, _ = stack_halt_weights(
+            step_weights=step_weights_live,
+            batch_size=B,
+            device=device,
+        )
 
         # --- §5: Compute and store diagnostics ---
         self._last_halt_weights = weight_matrix
@@ -991,23 +984,14 @@ class DeliberativeInternalTimeAgent(InternalTimeAgent):
         Returns:
             ``PonderingDiagnostics`` dataclass with all computed statistics.
         """
-        B, N = weight_matrix.shape
+        _, N = weight_matrix.shape
         if N == 0:
             return PonderingDiagnostics()
 
-        # Halt entropy: H(w) = -sum(w * log(w))
-        w_safe = weight_matrix.clamp(min=1e-10)
-        entropy_per_sample = -(w_safe * torch.log(w_safe)).sum(dim=1)  # (B,)
-        halt_entropy = entropy_per_sample.mean().item()
-
-        # Mode: argmax step (1-indexed)
-        halt_mode = (weight_matrix.argmax(dim=1).float() + 1).mean().item()
-
-        # Variance of halting distribution
-        steps = torch.arange(1, N + 1, dtype=torch.float32, device=weight_matrix.device)
-        mean_step = (weight_matrix * steps.unsqueeze(0)).sum(dim=1)  # (B,)
-        var_step = (weight_matrix * (steps.unsqueeze(0) - mean_step.unsqueeze(1)) ** 2).sum(dim=1)
-        halt_variance = var_step.mean().item()
+        stats = halt_distribution_stats(weight_matrix)
+        halt_entropy = stats["halt_entropy"].mean().item()
+        halt_mode = stats["halt_mode"].mean().item()
+        halt_variance = stats["halt_variance"].mean().item()
 
         # Remainder fraction
         remainder_fraction = used_remainder.mean().item() if used_remainder.numel() > 0 else 0.0
@@ -1193,17 +1177,17 @@ class TemporalUncertaintyEstimator(nn.Module):
             Dict with keys: ``mean_value``, ``std_value``,
             ``ensemble_disagreement``, ``recommended_ponder_steps``.
         """
-        # Enable dropout for uncertainty estimation
+        was_training = self.uncertainty_net.training
         self.uncertainty_net.train()
 
         value_samples = []
         h_enc = torch.cat([hidden, obs_encoded], dim=-1)
 
-        for _ in range(n_samples):
-            v = self.uncertainty_net(h_enc)
-            value_samples.append(v)
+        with torch.no_grad():
+            for _ in range(n_samples):
+                value_samples.append(self.uncertainty_net(h_enc))
 
-        self.uncertainty_net.eval()
+        self.uncertainty_net.train(was_training)
 
         values = torch.stack(value_samples, dim=0)  # (K, batch, 1)
         mean_value = values.mean(dim=0)  # (batch, 1)

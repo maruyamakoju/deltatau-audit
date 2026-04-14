@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import torch
+import torch.nn as nn
 import pytest
 
 
@@ -120,6 +121,69 @@ def test_temporal_uncertainty_estimator_output_shape():
     assert result["std_value"].shape == (2, 1)
     assert isinstance(result["recommended_ponder_steps"], int)
     assert result["recommended_ponder_steps"] >= 1
+
+
+def test_temporal_uncertainty_estimator_restores_training_mode():
+    """MC-dropout should preserve the caller's module mode."""
+    from internal_time_rl.models.deliberative import TemporalUncertaintyEstimator
+
+    est = TemporalUncertaintyEstimator(hidden_dim=16, latent_dim=8)
+    hidden = torch.zeros(2, 16)
+    encoded = torch.randn(2, 8)
+
+    est.uncertainty_net.eval()
+    est.estimate_timing_uncertainty(encoded, hidden, n_samples=3)
+    assert not est.uncertainty_net.training
+
+    est.uncertainty_net.train()
+    est.estimate_timing_uncertainty(encoded, hidden, n_samples=3)
+    assert est.uncertainty_net.training
+
+
+def test_information_gain_tracker_keeps_anti_correlated_states_informative():
+    """Anti-correlated hidden states should not trigger early-halting."""
+    from internal_time_rl.models.deliberative import InformationGainTracker
+
+    tracker = InformationGainTracker(threshold=0.1)
+    h_prev = torch.tensor([[1.0, 0.0]])
+    h_curr = torch.tensor([[-1.0, 0.0]])
+
+    info_gain, should_halt = tracker.compute_info_gain(h_prev, h_curr)
+
+    assert float(info_gain.item()) > 1.0
+    assert not bool(should_halt.item())
+
+
+def test_deliberative_adaptive_steps_preserve_halt_mass():
+    """Per-sample adaptive budgets must still produce a normalized halt distribution."""
+    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
+
+    class FixedEstimator(nn.Module):
+        def forward(self, encoded):
+            return torch.tensor([[1.0], [4.0]], device=encoded.device)
+
+    agent = DeliberativeInternalTimeAgent(
+        obs_dim=4,
+        act_dim=2,
+        hidden_dim=16,
+        latent_dim=8,
+        max_thinking_steps=4,
+        use_adaptive_steps=True,
+        min_steps=1,
+        hard_max_steps=4,
+    )
+    agent.complexity_estimator = FixedEstimator()
+
+    obs = torch.randn(2, 4)
+    hidden = torch.zeros(2, 16)
+    _, _, _, cumulative_halt, ponder_cost = agent.forward(obs, hidden)
+
+    halt_weights = agent._last_halt_weights
+    assert halt_weights is not None
+    assert torch.allclose(halt_weights.sum(dim=1), torch.ones(2), atol=1e-4)
+    assert torch.allclose(cumulative_halt.squeeze(-1), torch.ones(2), atol=1e-4)
+    assert torch.allclose(ponder_cost[0], torch.tensor([1.0]), atol=1e-4)
+    assert 1.0 <= float(ponder_cost[1].item()) <= 4.0
 
 
 # ── DeliberativeAgentAdapter tests ───────────────────────────────────────────

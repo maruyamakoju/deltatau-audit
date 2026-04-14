@@ -34,17 +34,16 @@ parameter and single-agent mode are additive.
 
 from __future__ import annotations
 
-import math
 from collections import deque
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
 import numpy as np
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. TemporalDesyncWrapper  (deterministic delays)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TemporalDesyncWrapper(gym.Wrapper):
     """Deterministic per-agent observation delay and speed-factor injection.
@@ -270,6 +269,7 @@ class TemporalDesyncWrapper(gym.Wrapper):
 # 2. StochasticDesyncWrapper  (random delays)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class StochasticDesyncWrapper(gym.Wrapper):
     """Random observation delays drawn from a distribution each step.
 
@@ -318,10 +318,7 @@ class StochasticDesyncWrapper(gym.Wrapper):
     ):
         super().__init__(env)
         if distribution not in self._VALID_DISTS:
-            raise ValueError(
-                f"Unknown distribution {distribution!r}; "
-                f"expected one of {self._VALID_DISTS}"
-            )
+            raise ValueError(f"Unknown distribution {distribution!r}; expected one of {self._VALID_DISTS}")
         self.distribution = distribution
         self.mean_delay = max(0.0, float(mean_delay))
         self.max_delay = max(0, int(max_delay))

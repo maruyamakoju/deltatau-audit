@@ -137,11 +137,7 @@ def _basic_validate_audit_result(
     if not isinstance(manifest, Mapping):
         raise ValueError("audit result manifest must be an object")
 
-    manifest_required = (
-        schema.get("properties", {})
-        .get("manifest", {})
-        .get("required", [])
-    )
+    manifest_required = schema.get("properties", {}).get("manifest", {}).get("required", [])
     if not isinstance(manifest_required, list):
         raise ValueError("audit result schema is malformed: manifest.required must be a list")
     missing_manifest = [field for field in manifest_required if field not in manifest]
@@ -153,11 +149,7 @@ def _basic_validate_audit_result(
     if not isinstance(summary, Mapping):
         raise ValueError("audit result summary must be an object")
 
-    summary_required = (
-        schema.get("properties", {})
-        .get("summary", {})
-        .get("required", [])
-    )
+    summary_required = schema.get("properties", {}).get("summary", {}).get("required", [])
     if not isinstance(summary_required, list):
         raise ValueError("audit result schema is malformed: summary.required must be a list")
     missing_summary = [field for field in summary_required if field not in summary]
@@ -169,11 +161,7 @@ def _basic_validate_audit_result(
     if not isinstance(robustness, Mapping):
         raise ValueError("audit result robustness must be an object")
 
-    robustness_required = (
-        schema.get("properties", {})
-        .get("robustness", {})
-        .get("required", [])
-    )
+    robustness_required = schema.get("properties", {}).get("robustness", {}).get("required", [])
     if not isinstance(robustness_required, list):
         raise ValueError("audit result schema is malformed: robustness.required must be a list")
     missing_robustness = [field for field in robustness_required if field not in robustness]
@@ -269,8 +257,23 @@ class AuditReport:
             "timestamp": self.timestamp,
             "reliability_score": self.reliability_score,
             "level": self.level.name,
-            "stages": [s.__dict__ for s in self.stages],
-            "capabilities": self.capabilities.__dict__,
+            "stages": [
+                {
+                    "stage_name": s.stage_name,
+                    "pass_rate": s.pass_rate,
+                    "metrics": {k: v.to_dict() for k, v in s.metrics.items()},
+                    "success": s.success,
+                    "reasoning": s.reasoning,
+                    "artifacts": s.artifacts,
+                }
+                for s in self.stages
+            ],
+            "capabilities": {
+                "can_ponder": self.capabilities.can_ponder,
+                "max_lookahead_steps": self.capabilities.max_lookahead_steps,
+                "supports_variable_dt": self.capabilities.supports_variable_dt,
+                "has_internal_clock": self.capabilities.has_internal_clock,
+            },
             "summary": self.summary,
             **self.metadata,
         }

@@ -13,9 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
-def _run_command(
-    args: list[str], *, cwd: str | None = None, timeout_s: float = 2.0
-) -> str | None:
+def _run_command(args: list[str], *, cwd: str | None = None, timeout_s: float = 2.0) -> str | None:
     """Run a command and return stripped stdout, else None on failure."""
     try:
         out = subprocess.check_output(
@@ -86,9 +84,7 @@ def _collect_lockfile_hashes(cwd: str | None = None) -> dict[str, str]:
 def _collect_dependency_info_cached(cwd_key: str) -> dict[str, Any]:
     cwd = cwd_key or None
     """Collect dependency snapshot metadata (hash + counts)."""
-    freeze = _run_command(
-        [sys.executable, "-m", "pip", "freeze"], cwd=cwd, timeout_s=20.0
-    )
+    freeze = _run_command([sys.executable, "-m", "pip", "freeze"], cwd=cwd, timeout_s=20.0)
     lock_hashes = _collect_lockfile_hashes(cwd=cwd)
 
     if freeze is None:

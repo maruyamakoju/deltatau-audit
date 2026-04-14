@@ -129,9 +129,7 @@ class CleanRLAdapter(AgentAdapter):
         else:
             action_out = action
 
-        value_scalar = float(
-            value.item() if isinstance(value, torch.Tensor) else float(value)
-        )
+        value_scalar = float(value.item() if isinstance(value, torch.Tensor) else float(value))
 
         return action_out, value_scalar, new_hidden, None
 
@@ -175,9 +173,7 @@ class CleanRLAdapter(AgentAdapter):
                 state_dict = ckpt["model_state_dict"]
             elif "state_dict" in ckpt:
                 state_dict = ckpt["state_dict"]
-            elif all(
-                isinstance(v, torch.Tensor) for v in ckpt.values()
-            ):
+            elif all(isinstance(v, torch.Tensor) for v in ckpt.values()):
                 state_dict = ckpt  # raw state_dict
             else:
                 state_dict = ckpt
@@ -222,9 +218,7 @@ class CleanRLAdapter(AgentAdapter):
         if not module_path.exists():
             raise FileNotFoundError(f"Agent module not found: {module_path}")
 
-        spec = importlib.util.spec_from_file_location(
-            "_cleanrl_agent_module", str(module_path)
-        )
+        spec = importlib.util.spec_from_file_location("_cleanrl_agent_module", str(module_path))
         assert spec is not None, f"Cannot create module spec from {module_path}"
         module = importlib.util.module_from_spec(spec)
         sys.modules["_cleanrl_agent_module"] = module
@@ -233,14 +227,14 @@ class CleanRLAdapter(AgentAdapter):
 
         if not hasattr(module, agent_class_name):
             available = [
-                name for name in dir(module)
+                name
+                for name in dir(module)
                 if not name.startswith("_")
                 and isinstance(getattr(module, name), type)
                 and issubclass(getattr(module, name), nn.Module)
             ]
             raise AttributeError(
-                f"Class '{agent_class_name}' not found in {module_path}. "
-                f"Available nn.Module subclasses: {available}"
+                f"Class '{agent_class_name}' not found in {module_path}. Available nn.Module subclasses: {available}"
             )
 
         agent_class = getattr(module, agent_class_name)

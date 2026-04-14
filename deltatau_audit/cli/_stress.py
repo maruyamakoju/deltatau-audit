@@ -1,4 +1,5 @@
 """Stress subcommand handlers: stress analyze, ablate, train-sb3."""
+
 import sys
 
 
@@ -89,5 +90,3 @@ def _run_stress_train_sb3(args):
     print(f"  MD:   {artifacts.get('training_md')}")
     if int(counts.get("failed", 0)) > 0:
         sys.exit(1)
-
-

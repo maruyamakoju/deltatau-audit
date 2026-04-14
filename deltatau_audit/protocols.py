@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 
-import numpy as np
-from deltatau_audit.schema import AuditReport, AuditStageResult, TemporalCapability
+from deltatau_audit.schema import AuditReport, TemporalCapability
 
 
 @runtime_checkable
@@ -11,6 +10,8 @@ class AgentAdapter(Protocol):
     """Rigorous interface for any agent being audited.
 
     Every agent must conform to this protocol to be evaluated by the unified engine.
+    This unified version supports both the legacy timing-ablation axis and the
+    newer reasoning-aware axis.
     """
 
     def get_capabilities(self) -> TemporalCapability:
@@ -31,12 +32,23 @@ class AgentAdapter(Protocol):
             ponder_steps: Optional override for internal reasoning steps.
 
         Returns:
-            Tuple of (action, info_dict containing internal state/reasoning logs).
+            Tuple of (action, info_dict containing value, dt, hidden_state, etc.).
         """
         ...
 
     def reset_internal_state(self) -> None:
         """Resets recurrent or internal reasoning states (e.g., MCTS trees, RNN hidden)."""
+        ...
+
+    def rerun_with_dt(self, observation: Any, target_dt: float) -> Dict[str, Any]:
+        """Re-run the transition logic with a specific Δτ override.
+
+        Optional — only needed for intervention ablation.
+        """
+        ...
+
+    def recompute_value(self, info: Dict[str, Any]) -> float:
+        """Compute value from a (possibly intervened) internal state info."""
         ...
 
 

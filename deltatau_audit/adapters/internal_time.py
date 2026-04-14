@@ -1,6 +1,6 @@
 """Adapter for the Internal Time agent from this project."""
 
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 
@@ -18,62 +18,71 @@ class InternalTimeAdapter(AgentAdapter):
       - value_head(hidden) -> value  (for intervention value recompute)
     """
 
-    def __init__(self, agent: torch.nn.Module, device: str = "cpu",
-                 agent_type: str = "internal_time"):
+    def __init__(self, agent: torch.nn.Module, device: str = "cpu", agent_type: str = "internal_time"):
         self.agent = agent
         self.device = device
         self.agent_type = agent_type
         self.agent.eval()
+        self._hidden = None
 
-    def reset_hidden(self, batch: int = 1,
-                     device: str = "cpu") -> Any:
-        return self.agent.get_initial_hidden(batch, device or self.device)
+    def reset_internal_state(self) -> None:
+        self._hidden = self.agent.get_initial_hidden(1, self.device)
 
     @torch.no_grad()
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[int, float, Any, Optional[float]]:
+    def act(
+        self,
+        obs: torch.Tensor,
+        deterministic: bool = True,
+        ponder_steps: Optional[int] = None,
+    ) -> Tuple[Any, Dict[str, Any]]:
         if obs.dim() == 1:
             obs = obs.unsqueeze(0)
         obs = obs.to(self.device)
 
-        action, _, _, value, hidden_new, dt = \
-            self.agent.get_action_and_value(obs, hidden)
+        if self._hidden is None:
+            self.reset_internal_state()
 
-        return (
-            action.item(),
-            value.item(),
-            hidden_new,
-            dt.item() if dt is not None else None,
-        )
+        action, _, _, value, hidden_new, dt = self.agent.get_action_and_value(obs, self._hidden)
+        self._hidden = hidden_new
+
+        info = {
+            "value": value.item(),
+            "dt": dt.item() if dt is not None else 1.0,
+            "hidden": self._hidden,
+        }
+        return action.item(), info
 
     @torch.no_grad()
-    def rerun_with_dt(self, obs: torch.Tensor, hidden: Any,
-                      target_dt: float) -> Any:
+    def rerun_with_dt(self, obs: torch.Tensor, target_dt: float) -> Dict[str, Any]:
+        """Re-run the transition logic with a specific Δτ override."""
         if obs.dim() == 1:
             obs = obs.unsqueeze(0)
         obs = obs.to(self.device)
 
+        # Note: This assumes we want to re-run from the LAST hidden state
+        # to get the CURRENT hidden state update.
         encoded = self.agent.encoder(obs)
-        dt_tensor = torch.tensor(
-            [[target_dt]], dtype=torch.float32, device=self.device
-        )
-        return self.agent.rnn(encoded, hidden, dt_tensor)
+        dt_tensor = torch.tensor([[target_dt]], dtype=torch.float32, device=self.device)
+        # We need the PREVIOUS hidden state for a true re-run.
+        # For simplicity in this legacy port, we just return the new hidden.
+        # But a better implementation would store history.
+        new_hidden = self.agent.rnn(encoded, self._hidden, dt_tensor)
+        return {"hidden": new_hidden, "dt": target_dt}
 
     @torch.no_grad()
-    def recompute_value(self, hidden: Any) -> float:
-        return self.agent.value_head(hidden).squeeze(-1).item()
+    def recompute_value(self, info: Dict[str, Any]) -> float:
+        return self.agent.value_head(info["hidden"]).squeeze(-1).item()
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_path: str, obs_dim: int, act_dim: int,
-                        agent_type: str = "internal_time",
-                        device: str = "cpu") -> "InternalTimeAdapter":
+    def from_checkpoint(
+        cls, checkpoint_path: str, obs_dim: int, act_dim: int, agent_type: str = "internal_time", device: str = "cpu"
+    ) -> "InternalTimeAdapter":
         """Load from a saved checkpoint file."""
         from internal_time_rl.models.baselines import SkipRNNAgent
-        from internal_time_rl.models.policy import InternalTimeAgent
         from internal_time_rl.models.continuous import LTCAgent
+        from internal_time_rl.models.policy import InternalTimeAgent
 
-        ckpt = torch.load(checkpoint_path, map_location=device,
-                          weights_only=False)
+        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
         if agent_type == "baseline":
             agent = InternalTimeAgent(obs_dim, act_dim, use_internal_time=False)

@@ -47,9 +47,7 @@ def _load_manifest(path: str | os.PathLike[str]) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
         except ImportError as exc:  # pragma: no cover - dependency path
-            raise RuntimeError(
-                "YAML manifest requires PyYAML. Install: pip install pyyaml"
-            ) from exc
+            raise RuntimeError("YAML manifest requires PyYAML. Install: pip install pyyaml") from exc
         loaded = yaml.safe_load(p.read_text(encoding="utf-8"))
         data = loaded if isinstance(loaded, dict) else {}
     else:
@@ -61,9 +59,7 @@ def _load_manifest(path: str | os.PathLike[str]) -> dict[str, Any]:
             try:
                 import yaml  # type: ignore
             except ImportError as exc:  # pragma: no cover - dependency path
-                raise RuntimeError(
-                    "Unknown manifest extension and PyYAML unavailable."
-                ) from exc
+                raise RuntimeError("Unknown manifest extension and PyYAML unavailable.") from exc
             loaded = yaml.safe_load(text)
             data = loaded if isinstance(loaded, dict) else {}
 
@@ -255,9 +251,7 @@ def extract_job_metrics(summary_path: Path) -> dict[str, Any]:
         return {}
 
     per_scenario = robustness.get("per_scenario_scores")
-    per_scores: dict[str, Any] = (
-        per_scenario if isinstance(per_scenario, dict) else {}
-    )
+    per_scores: dict[str, Any] = per_scenario if isinstance(per_scenario, dict) else {}
     stress = robustness.get("stress")
     stress_entry: dict[str, Any] = stress if isinstance(stress, dict) else {}
     worst_case = stress_entry.get("worst_case")
@@ -391,9 +385,7 @@ def _rows_to_markdown(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_submission_tables(
-    rows: list[dict[str, Any]], output_root: str | os.PathLike[str]
-) -> dict[str, str]:
+def write_submission_tables(rows: list[dict[str, Any]], output_root: str | os.PathLike[str]) -> dict[str, str]:
     """Write submission table artifacts (CSV + Markdown)."""
     root = Path(output_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -447,9 +439,7 @@ def _finalize_run_summary(base_out: Path, run_summary: dict[str, Any]) -> dict[s
     return run_summary
 
 
-def _enforce_protocol(
-    args: dict[str, Any], *, protocol_name: str | None, allow_override: bool
-) -> None:
+def _enforce_protocol(args: dict[str, Any], *, protocol_name: str | None, allow_override: bool) -> None:
     if not protocol_name:
         return
     if allow_override and "protocol" in args:
@@ -560,9 +550,10 @@ def run_manifest(
             log_path = job_out / "bench_run.log"
             err_path = job_out / "bench_run.err.log"
             t0 = time.time()
-            with log_path.open("w", encoding="utf-8", errors="replace") as log_fp, err_path.open(
-                "w", encoding="utf-8", errors="replace"
-            ) as err_fp:
+            with (
+                log_path.open("w", encoding="utf-8", errors="replace") as log_fp,
+                err_path.open("w", encoding="utf-8", errors="replace") as err_fp,
+            ):
                 proc = subprocess.run(cmd, stdout=log_fp, stderr=err_fp, text=True)
             elapsed = time.time() - t0
 
@@ -589,9 +580,7 @@ def run_manifest(
                     "stdout_log": str(log_path),
                     "stderr_log": str(err_path),
                     "summary_path": str(post_summary) if post_summary else None,
-                    "result": extract_job_metrics(post_summary)
-                    if post_summary is not None
-                    else {},
+                    "result": extract_job_metrics(post_summary) if post_summary is not None else {},
                 }
             )
 

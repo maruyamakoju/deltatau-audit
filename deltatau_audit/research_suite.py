@@ -92,7 +92,9 @@ def _cached_stage_outcome(stage_name: str, stage_dir: Path) -> StageOutcome | No
     )
 
 
-def _write_suite_markdown(path: Path, cfg: ResearchSuiteConfig, outcomes: list[StageOutcome], recommendations: list[str]) -> None:
+def _write_suite_markdown(
+    path: Path, cfg: ResearchSuiteConfig, outcomes: list[StageOutcome], recommendations: list[str]
+) -> None:
     lines: list[str] = []
     lines.append("# Research Suite Summary")
     lines.append("")
@@ -137,7 +139,9 @@ def derive_recommendations(
         names = ", ".join(o.name for o in failed)
         recs.append(f"Fix failed stages first ({names}); rerun with --no-resume after resolving errors.")
 
-    low_deploy = [o.name for o in succeeded if o.deployment_score is not None and o.deployment_score < deployment_threshold]
+    low_deploy = [
+        o.name for o in succeeded if o.deployment_score is not None and o.deployment_score < deployment_threshold
+    ]
     if low_deploy:
         recs.append(
             "Deployment robustness below threshold for: "
@@ -155,7 +159,9 @@ def derive_recommendations(
 
     if skipped:
         names = ", ".join(o.name for o in skipped)
-        recs.append(f"Resolve skipped stages ({names}) by adding prerequisites or choosing a compatible env/action space.")
+        recs.append(
+            f"Resolve skipped stages ({names}) by adding prerequisites or choosing a compatible env/action space."
+        )
 
     if not failed and not low_deploy and not low_stress and not skipped and succeeded:
         recs.append("All stages passed thresholds; proceed to paper artifact freeze and internal review.")

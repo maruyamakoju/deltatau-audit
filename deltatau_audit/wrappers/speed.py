@@ -57,9 +57,7 @@ class FixedSpeedWrapper(gym.Wrapper):
             if terminated or truncated:
                 break
 
-        return obs, total_reward, terminated, truncated, _with_speed_info(
-            info, self.speed
-        )
+        return obs, total_reward, terminated, truncated, _with_speed_info(info, self.speed)
 
 
 class JitterWrapper(gym.Wrapper):
@@ -68,16 +66,14 @@ class JitterWrapper(gym.Wrapper):
     Simulates variable inference latency or sensor rate fluctuations.
     """
 
-    def __init__(self, env: gym.Env, base_speed: int = 1,
-                 jitter: int = 1, seed: Optional[int] = None):
+    def __init__(self, env: gym.Env, base_speed: int = 1, jitter: int = 1, seed: Optional[int] = None):
         super().__init__(env)
         self.base_speed = max(1, int(base_speed))
         self.jitter = max(0, int(jitter))
         self.rng = np.random.RandomState(seed)
 
     def step(self, action):
-        actual_speed = max(1, self.base_speed + self.rng.randint(
-            -self.jitter, self.jitter + 1))
+        actual_speed = max(1, self.base_speed + self.rng.randint(-self.jitter, self.jitter + 1))
 
         total_reward = 0.0
         terminated = False
@@ -91,9 +87,7 @@ class JitterWrapper(gym.Wrapper):
             if terminated or truncated:
                 break
 
-        return obs, total_reward, terminated, truncated, _with_speed_info(
-            info, actual_speed
-        )
+        return obs, total_reward, terminated, truncated, _with_speed_info(info, actual_speed)
 
 
 class PiecewiseSwitchWrapper(gym.Wrapper):
@@ -103,8 +97,7 @@ class PiecewiseSwitchWrapper(gym.Wrapper):
     Schedule is a list of (step_threshold, speed) tuples.
     """
 
-    def __init__(self, env: gym.Env,
-                 schedule: Optional[List[Any]] = None):
+    def __init__(self, env: gym.Env, schedule: Optional[List[Any]] = None):
         """
         Args:
             schedule: List of (step, speed) tuples. Speed changes when
@@ -141,6 +134,4 @@ class PiecewiseSwitchWrapper(gym.Wrapper):
                 break
 
         self.agent_step += 1
-        return obs, total_reward, terminated, truncated, _with_speed_info(
-            info, speed
-        )
+        return obs, total_reward, terminated, truncated, _with_speed_info(info, speed)

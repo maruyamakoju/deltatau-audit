@@ -1,6 +1,6 @@
 """Research, diff, certify, and badge subcommand handlers."""
+
 import os
-import sys
 
 
 def _run_diff(args):
@@ -62,8 +62,7 @@ def _run_research_full(args):
         stress = "n/a" if out.stress_score is None else f"{out.stress_score:.3f}"
         msg = out.reason or "-"
         print(
-            f"[Stage {idx}] {out.name:<12} status={out.status:<7} "
-            f"deployment={dep:<6} stress={stress:<6} reason={msg}"
+            f"[Stage {idx}] {out.name:<12} status={out.status:<7} deployment={dep:<6} stress={stress:<6} reason={msg}"
         )
 
     print("\nResearch suite complete")
@@ -85,7 +84,7 @@ def _run_certify(args):
         print(f"ERROR: Summary file not found: {args.summary_json}")
         return
 
-    with open(args.summary_json, 'r') as f:
+    with open(args.summary_json, "r") as f:
         result = json.load(f)
 
     status, fingerprint = generate_safety_certificate(result, args.out)
@@ -111,50 +110,41 @@ def _run_audit_deliberative(args):
     correlates with timing stress across speed conditions.
     """
     import os
-    import json
     import gymnasium as gym
+    import torch
 
+    from deltatau_audit.adapters.internal_time import InternalTimeAdapter
+    from deltatau_audit.auditors.reasoning import ReasoningAuditor
+    from deltatau_audit.core.session import AuditSession
     from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
-    from deltatau_audit.adapters.deliberative_adapter import DeliberativeAgentAdapter
-    from deltatau_audit.auditor import run_deliberative_audit
 
     os.makedirs(args.out, exist_ok=True)
     print(f"Deliberative Audit: {args.checkpoint}")
     print(f"  Env: {args.env}")
     print(f"  Speeds: {args.speeds}")
 
-    # Load model
-    import torch
     obs_dim = getattr(args, "obs_dim", 4)
     act_dim = getattr(args, "act_dim", 2)
-    agent = DeliberativeInternalTimeAgent(obs_dim=obs_dim, act_dim=act_dim)
+    agent_net = DeliberativeInternalTimeAgent(obs_dim=obs_dim, act_dim=act_dim)
     try:
         state_dict = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-        agent.load_state_dict(state_dict)
+        agent_net.load_state_dict(state_dict)
         print(f"  Loaded checkpoint: {args.checkpoint}")
     except Exception as e:
         print(f"  WARNING: Could not load checkpoint ({e}). Using untrained model.")
 
-    agent.eval()
-    adapter = DeliberativeAgentAdapter(agent)
+    adapter = InternalTimeAdapter(agent_net, device="cpu", agent_type="internal_time")
 
-    def env_factory():
-        return gym.make(args.env)
-
-    result = run_deliberative_audit(
-        adapter=adapter,
-        env_factory=env_factory,
-        speeds=args.speeds,
+    session = AuditSession(adapter, lambda: gym.make(args.env), output_dir=args.out)
+    
+    auditor = ReasoningAuditor(
         n_episodes=getattr(args, "episodes", 20),
-        verbose=True,
         seed=getattr(args, "seed", None),
+        verbose=True
     )
 
-    out_path = os.path.join(args.out, "deliberative_summary.json")
-    with open(out_path, "w") as f:
-        json.dump(result, f, indent=2, default=str)
-    print(f"\n  Results saved to: {out_path}")
-    print(f"  Deliberative score: {result['deliberative_score']:.3f} ({result['rating']})")
+    report = session.run_full_audit(reasoning_auditor=auditor)
+    print(f"\n  Deliberative score: {report.reliability_score:.3f} ({report.level.name})")
 
 
 def _run_audit_horizon(args):
@@ -163,10 +153,10 @@ def _run_audit_horizon(args):
     Tests an agent on cascading multi-step timing scenarios.
     """
     import os
-    import json
     import gymnasium as gym
 
-    from deltatau_audit.auditors.horizon_auditor import TemporalHorizonAuditor
+    from deltatau_audit.auditors.horizon import TemporalHorizonAuditor
+    from deltatau_audit.core.session import AuditSession
 
     os.makedirs(args.out, exist_ok=True)
     print(f"Horizon Audit: {args.checkpoint}")
@@ -184,7 +174,6 @@ def _run_audit_horizon(args):
             import torch
             from deltatau_audit.adapters.internal_time import InternalTimeAdapter
             state = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-            # Try to use as internal time adapter
             adapter = InternalTimeAdapter(state)
             print("  Loaded InternalTime model")
         except Exception as e2:
@@ -192,22 +181,17 @@ def _run_audit_horizon(args):
             from tests.conftest import _DummyAdapter
             adapter = _DummyAdapter()
 
-    def env_factory():
-        return gym.make(args.env)
-
+    session = AuditSession(adapter, lambda: gym.make(args.env), output_dir=args.out)
+    
     auditor = TemporalHorizonAuditor(verbose=True)
+    # Note: run_cascade_audit doesn't currently return an AuditReport,
+    # but we'll use the auditor directly for now as it's a research tool.
     result = auditor.run_cascade_audit(
         adapter=adapter,
-        env_factory=env_factory,
+        env_factory=lambda: gym.make(args.env),
         horizon=getattr(args, "horizon", 50),
         n_episodes=getattr(args, "episodes", 20),
         seed=getattr(args, "seed", None),
     )
 
-    out_path = os.path.join(args.out, "horizon_summary.json")
-    with open(out_path, "w") as f:
-        json.dump(result, f, indent=2, default=str)
-    print(f"\n  Results saved to: {out_path}")
     print(f"  Horizon robustness: {result['horizon_robustness_score']:.3f}")
-
-

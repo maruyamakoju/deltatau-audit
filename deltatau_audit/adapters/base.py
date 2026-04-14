@@ -7,89 +7,74 @@ CleanRL, custom, etc.).
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 
+from deltatau_audit.schema import TemporalCapability
+
 
 class AgentAdapter(ABC):
-    """Minimal interface for auditing a recurrent RL agent.
+    """Unified interface for auditing any RL agent.
 
-    Subclass this and implement the three methods to audit your agent.
+    Subclasses must implement the methods below to enable auditing.
+    This interface supports both legacy timing-ablation and modern
+    reasoning-aware auditing.
     """
 
-    @abstractmethod
-    def reset_hidden(self, batch: int = 1,
-                     device: str = "cpu") -> Any:
-        """Return the initial hidden state for a new episode.
+    def get_capabilities(self) -> TemporalCapability:
+        """Returns metadata about what the agent can do.
 
-        Returns:
-            Hidden state (any type — tensor, tuple, etc.)
+        Override this to enable reasoning-aware auditing features.
         """
+        return TemporalCapability()
 
     @abstractmethod
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[int, float, Any, Optional[float]]:
+    def act(
+        self,
+        obs: torch.Tensor,
+        deterministic: bool = True,
+        ponder_steps: Optional[int] = None,
+    ) -> Tuple[Any, Dict[str, Any]]:
         """Single-step forward pass.
 
         Args:
-            obs: Observation tensor, shape (obs_dim,) or (1, obs_dim)
-            hidden: Current hidden state
+            obs: Observation tensor.
+            deterministic: Whether to use deterministic action selection.
+            ponder_steps: Optional override for internal reasoning steps.
 
         Returns:
-            action: int — selected action
-            value: float — value estimate V(s)
-            hidden_new: updated hidden state
-            dt: float or None — learned Δτ (None if agent has no time module)
+            action: Selected action (int or array).
+            info: Dict containing 'value', 'dt', 'hidden', 'reasoning_trace', etc.
         """
 
-    def rerun_with_dt(self, obs: torch.Tensor, hidden: Any,
-                      target_dt: float) -> Any:
-        """Re-run the RNN transition with a specific Δτ override.
+    @abstractmethod
+    def reset_internal_state(self) -> None:
+        """Resets recurrent or internal reasoning states."""
 
-        Optional — only needed for intervention ablation. If not implemented,
-        the auditor will skip intervention tests.
+    def rerun_with_dt(self, obs: torch.Tensor, target_dt: float) -> Dict[str, Any]:
+        """Re-run the transition logic with a specific Δτ override.
 
-        Args:
-            obs: Observation tensor
-            hidden: Current hidden state (BEFORE this step's update)
-            target_dt: The Δτ value to force
-
-        Returns:
-            hidden_new: Hidden state computed with the overridden Δτ
+        Optional — only needed for intervention ablation.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not support dt intervention. "
-            "Implement rerun_with_dt() to enable intervention ablation."
+            f"{self.__class__.__name__} does not support dt intervention."
         )
 
-    def recompute_value(self, hidden: Any) -> float:
-        """Compute value from a (possibly intervened) hidden state.
-
-        Optional — used after rerun_with_dt to get value under intervention.
-        Default uses act() which may not separate hidden update from value.
-
-        Returns:
-            value: float — V(s) computed from the given hidden state
-        """
+    def recompute_value(self, info: Dict[str, Any]) -> float:
+        """Compute value from a (possibly intervened) internal state info."""
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not support recompute_value(). "
-            "Implement it to enable value-based intervention ablation."
+            f"{self.__class__.__name__} does not support recompute_value()."
         )
 
     @property
     def supports_intervention(self) -> bool:
         """Whether this adapter supports dt intervention."""
-        try:
-            # Check if rerun_with_dt is overridden
-            return type(self).rerun_with_dt is not AgentAdapter.rerun_with_dt
-        except AttributeError:
-            return False
+        # Check if the class has overridden rerun_with_dt
+        return self.__class__.rerun_with_dt is not AgentAdapter.rerun_with_dt
 
     @property
     def supports_value_recompute(self) -> bool:
         """Whether this adapter supports value recomputation."""
-        try:
-            return type(self).recompute_value is not AgentAdapter.recompute_value
-        except AttributeError:
-            return False
+        # Check if the class has overridden recompute_value
+        return self.__class__.recompute_value is not AgentAdapter.recompute_value

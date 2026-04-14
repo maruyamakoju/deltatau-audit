@@ -30,9 +30,7 @@ parameter is optional and additive.
 
 from __future__ import annotations
 
-import math
-from collections import deque
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -51,6 +49,7 @@ DEFAULT_CANDIDATE_SPEEDS: List[float] = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0]
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _execute_at_speed(env: gym.Env, action: Any, speed: float) -> Tuple:
     """Execute *action* for ``int(round(speed))`` sub-steps (min 1).
@@ -76,6 +75,7 @@ def _execute_at_speed(env: gym.Env, action: Any, speed: float) -> Tuple:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. RandomAdversarialWrapper  (baseline)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class RandomAdversarialWrapper(gym.Wrapper):
     """Baseline adversarial timing -- random speed perturbation each step.
@@ -125,9 +125,7 @@ class RandomAdversarialWrapper(gym.Wrapper):
     ):
         super().__init__(env)
         if mode not in self._VALID_MODES:
-            raise ValueError(
-                f"Unknown mode {mode!r}; expected one of {self._VALID_MODES}"
-            )
+            raise ValueError(f"Unknown mode {mode!r}; expected one of {self._VALID_MODES}")
         self.mode = mode
         self.candidate_speeds = list(candidate_speeds or DEFAULT_CANDIDATE_SPEEDS)
         self.n_candidates = max(1, int(n_candidates))
@@ -167,9 +165,7 @@ class RandomAdversarialWrapper(gym.Wrapper):
 
         self._speed_history.append(speed)
         _set_speed_metadata(self.env, speed)
-        obs, total_reward, terminated, truncated, info = _execute_at_speed(
-            self.env, action, speed
-        )
+        obs, total_reward, terminated, truncated, info = _execute_at_speed(self.env, action, speed)
         return obs, total_reward, terminated, truncated, _with_speed_info(info, speed)
 
     def _worst_of_n(self, action) -> float:  # noqa: ARG002 – action unused
@@ -181,9 +177,7 @@ class RandomAdversarialWrapper(gym.Wrapper):
         nominal speed), which is a simple but effective proxy for how
         disruptive a speed change is.
         """
-        draws = self._rng.choice(
-            self.candidate_speeds, size=self.n_candidates, replace=True
-        )
+        draws = self._rng.choice(self.candidate_speeds, size=self.n_candidates, replace=True)
         # Furthest from nominal speed 1.0 -> most disruptive
         worst_idx = int(np.argmax(np.abs(draws - 1.0)))
         return float(draws[worst_idx])
@@ -192,6 +186,7 @@ class RandomAdversarialWrapper(gym.Wrapper):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. AdversarialSpeedWrapper  (search-based, value-function guided)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class AdversarialSpeedWrapper(gym.Wrapper):
     """Search-based adversarial timing attack.
@@ -289,9 +284,7 @@ class AdversarialSpeedWrapper(gym.Wrapper):
         self._speed_history.append(speed)
         _set_speed_metadata(self.env, speed)
 
-        obs, total_reward, terminated, truncated, info = _execute_at_speed(
-            self.env, action, speed
-        )
+        obs, total_reward, terminated, truncated, info = _execute_at_speed(self.env, action, speed)
 
         # Track value delta if possible
         if self._value_fn is not None:
@@ -303,9 +296,7 @@ class AdversarialSpeedWrapper(gym.Wrapper):
                 self._value_deltas.append(float("nan"))
 
         self._last_obs = obs
-        info["adversarial_mode"] = (
-            "value_guided" if self._value_fn is not None else "random_worst_of_n"
-        )
+        info["adversarial_mode"] = "value_guided" if self._value_fn is not None else "random_worst_of_n"
         return obs, total_reward, terminated, truncated, _with_speed_info(info, speed)
 
     # ── search strategies ────────────────────────────────────────────────────
@@ -359,6 +350,7 @@ ValueAdversarialJitterWrapper = AdversarialSpeedWrapper
 # 3. GradientAdversarialWrapper  (strongest -- PGD on speed)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class GradientAdversarialWrapper(gym.Wrapper):
     """Projected-gradient-descent adversarial timing attack.
 
@@ -408,10 +400,7 @@ class GradientAdversarialWrapper(gym.Wrapper):
     ):
         super().__init__(env)
         if torch is None:
-            raise ImportError(
-                "GradientAdversarialWrapper requires PyTorch. "
-                "Install it with: pip install torch"
-            )
+            raise ImportError("GradientAdversarialWrapper requires PyTorch. Install it with: pip install torch")
         self.value_fn = value_fn
         self.epsilon = float(epsilon)
         self.speed_min = float(speed_min)
@@ -456,25 +445,19 @@ class GradientAdversarialWrapper(gym.Wrapper):
         # 2. PGD update with momentum: move speed in *negative* gradient
         #    direction to *minimise* value
         self._velocity = self.momentum * self._velocity - self.epsilon * np.sign(grad)
-        self._speed = float(
-            np.clip(self._speed + self._velocity, self.speed_min, self.speed_max)
-        )
+        self._speed = float(np.clip(self._speed + self._velocity, self.speed_min, self.speed_max))
 
         self._speed_history.append(self._speed)
         _set_speed_metadata(self.env, self._speed)
 
         # 3. Execute at the (rounded) speed
-        obs, total_reward, terminated, truncated, info = _execute_at_speed(
-            self.env, action, self._speed
-        )
+        obs, total_reward, terminated, truncated, info = _execute_at_speed(self.env, action, self._speed)
         self._last_obs = obs
 
         info["adversarial_mode"] = "pgd"
         info["adversarial_gradient"] = grad
         info["adversarial_continuous_speed"] = self._speed
-        return obs, total_reward, terminated, truncated, _with_speed_info(
-            info, self._speed
-        )
+        return obs, total_reward, terminated, truncated, _with_speed_info(info, self._speed)
 
     # ── gradient computation ─────────────────────────────────────────────────
 
@@ -485,9 +468,7 @@ class GradientAdversarialWrapper(gym.Wrapper):
         value function, numerical issues).
         """
         try:
-            speed_t = torch.tensor(
-                self._speed, dtype=torch.float32, requires_grad=True
-            )
+            speed_t = torch.tensor(self._speed, dtype=torch.float32, requires_grad=True)
 
             # Convert obs to tensor if needed
             if isinstance(obs, np.ndarray):

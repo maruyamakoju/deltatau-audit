@@ -26,6 +26,7 @@ from ._theme import (
 
 # ── Value prediction metrics ──────────────────────────────────────────
 
+
 def compute_value_rmse(values: List[float], returns: List[float]) -> float:
     """RMSE between predicted values and actual discounted returns."""
     v = np.array(values)
@@ -43,8 +44,7 @@ def compute_value_mae(values: List[float], returns: List[float]) -> float:
     return float(np.mean(np.abs(np.array(values) - np.array(returns))))
 
 
-def compute_discounted_returns(rewards: List[float], gamma: float = 0.99
-                                ) -> List[float]:
+def compute_discounted_returns(rewards: List[float], gamma: float = 0.99) -> List[float]:
     """Compute discounted return from each timestep."""
     T = len(rewards)
     returns = np.zeros(T)
@@ -56,6 +56,7 @@ def compute_discounted_returns(rewards: List[float], gamma: float = 0.99
 
 
 # ── Aggregation ───────────────────────────────────────────────────────
+
 
 def aggregate_episode_metrics(episode_results: List[Dict]) -> Dict:
     """Aggregate metrics across multiple episodes."""
@@ -73,8 +74,7 @@ def aggregate_episode_metrics(episode_results: List[Dict]) -> Dict:
             agg[f"{key}_std"] = float(np.std(vals))
             agg[f"{key}_se"] = float(np.std(vals) / np.sqrt(len(vals)))
 
-    dt_means = [ep["dt_mean"] for ep in episode_results
-                if ep.get("dt_mean") is not None]
+    dt_means = [ep["dt_mean"] for ep in episode_results if ep.get("dt_mean") is not None]
     if dt_means:
         agg["dt_mean"] = float(np.mean(dt_means))
         agg["dt_std"] = float(np.std(dt_means))
@@ -84,8 +84,8 @@ def aggregate_episode_metrics(episode_results: List[Dict]) -> Dict:
 
 # ── Degradation & ratios ─────────────────────────────────────────────
 
-def compute_degradation(baseline_rmse: float, intervention_rmse: float
-                         ) -> Dict:
+
+def compute_degradation(baseline_rmse: float, intervention_rmse: float) -> Dict:
     """Compute degradation metrics for an intervention vs baseline."""
     if baseline_rmse > 1e-10:
         pct = (intervention_rmse / baseline_rmse - 1) * 100
@@ -103,8 +103,7 @@ def compute_degradation(baseline_rmse: float, intervention_rmse: float
     }
 
 
-def compute_return_ratio(nominal_return: float,
-                          perturbed_return: float) -> float:
+def compute_return_ratio(nominal_return: float, perturbed_return: float) -> float:
     """Ratio measuring perturbed performance relative to nominal.
 
     Semantics: 1.0 = same, < 1.0 = worse, > 1.0 = better.
@@ -124,8 +123,7 @@ def compute_return_ratio(nominal_return: float,
         return 1.0 + (perturbed_return - nominal_return) / abs(nominal_return)
 
 
-def compute_cohens_d(nominal_returns: List[float],
-                     perturbed_returns: List[float]) -> float:
+def compute_cohens_d(nominal_returns: List[float], perturbed_returns: List[float]) -> float:
     """Compute Cohen's d for perturbed-vs-nominal return distributions.
 
     Positive d means perturbed > nominal (improvement).
@@ -144,8 +142,7 @@ def compute_cohens_d(nominal_returns: List[float],
     if dof <= 0:
         return 0.0
 
-    pooled_var = (((len(nom) - 1) * nom_var) +
-                  ((len(pert) - 1) * pert_var)) / dof
+    pooled_var = (((len(nom) - 1) * nom_var) + ((len(pert) - 1) * pert_var)) / dof
     if pooled_var <= 1e-12:
         return 0.0
 
@@ -153,8 +150,7 @@ def compute_cohens_d(nominal_returns: List[float],
     return float((np.mean(pert) - np.mean(nom)) / pooled_std)
 
 
-def compute_cliffs_delta(nominal_returns: List[float],
-                         perturbed_returns: List[float]) -> float:
+def compute_cliffs_delta(nominal_returns: List[float], perturbed_returns: List[float]) -> float:
     """Compute Cliff's delta for perturbed-vs-nominal return distributions.
 
     Range: [-1, 1].
@@ -191,8 +187,8 @@ def effect_size_magnitude(cohens_d: float) -> str:
 
 # ── Bootstrap confidence intervals ────────────────────────────────────
 
-def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
-                 ci: float = 0.95, seed: int = 42) -> Dict:
+
+def bootstrap_ci(data: List[float], n_bootstrap: int = 2000, ci: float = 0.95, seed: int = 42) -> Dict:
     """Compute bootstrap confidence interval for the mean.
 
     Returns:
@@ -201,12 +197,10 @@ def bootstrap_ci(data: List[float], n_bootstrap: int = 2000,
     arr = np.array(data)
     n = len(arr)
     if n == 0:
-        return {"mean": 0.0, "ci_lower": 0.0, "ci_upper": 0.0,
-                "std": 0.0, "n": 0}
+        return {"mean": 0.0, "ci_lower": 0.0, "ci_upper": 0.0, "std": 0.0, "n": 0}
     if n == 1:
         v = float(arr[0])
-        return {"mean": v, "ci_lower": v, "ci_upper": v,
-                "std": 0.0, "n": 1}
+        return {"mean": v, "ci_lower": v, "ci_upper": v, "std": 0.0, "n": 1}
 
     rng = np.random.RandomState(seed)
     means = np.empty(n_bootstrap)
@@ -237,11 +231,13 @@ def _safe_return_ratio(nominal_mean: float, pert_mean: float) -> float:
         return 1.0 + (pert_mean - nominal_mean) / abs(nominal_mean)
 
 
-def bootstrap_return_ratio(nominal_returns: List[float],
-                           perturbed_returns: List[float],
-                           n_bootstrap: int = 2000,
-                           ci: float = 0.95,
-                           seed: int = 42) -> Dict:
+def bootstrap_return_ratio(
+    nominal_returns: List[float],
+    perturbed_returns: List[float],
+    n_bootstrap: int = 2000,
+    ci: float = 0.95,
+    seed: int = 42,
+) -> Dict:
     """Bootstrap CI for the return ratio.
 
     Uses sign-aware ratio so negative nominal returns are handled correctly.
@@ -313,6 +309,7 @@ def bootstrap_return_ratio(nominal_returns: List[float],
 # ── Axis 1: Reliance ─────────────────────────────────────────────────
 # Based on RMSE ratio (intervention / none). HIGH = timing IS used.
 
+
 def reliance_rating(rmse_ratio: float) -> str:
     """Rate timing reliance from RMSE ratio (intervention/baseline).
 
@@ -341,6 +338,7 @@ def reliance_color(rating: str) -> str:
 # ── Axis 2: Robustness ───────────────────────────────────────────────
 # Based on return ratio (wrapper / nominal). FAIL = agent breaks.
 
+
 def robustness_rating(return_ratio: float) -> str:
     """Rate operational robustness from worst-case return ratio.
 
@@ -363,6 +361,7 @@ def robustness_color(rating: str) -> str:
 
 
 # ── Legacy single-axis (kept for backward compat) ────────────────────
+
 
 def severity_rating(pct_increase: float) -> str:
     """Legacy single-axis severity rating."""

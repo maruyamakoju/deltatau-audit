@@ -90,8 +90,7 @@ def _ppo_train_cleanrl(
     if _is_discrete:
         act_buf = torch.zeros(num_steps, dtype=torch.long, device=device)
     else:
-        act_buf = torch.zeros(num_steps, _act_dim, dtype=torch.float32,
-                              device=device)
+        act_buf = torch.zeros(num_steps, _act_dim, dtype=torch.float32, device=device)
     logp_buf = torch.zeros(num_steps, device=device)
     rew_buf = torch.zeros(num_steps, device=device)
     done_buf = torch.zeros(num_steps, device=device)
@@ -114,8 +113,7 @@ def _ppo_train_cleanrl(
             done_buf[step] = float(done)
 
             with torch.no_grad():
-                action, logp, _, value = agent.get_action_and_value(
-                    obs_t.unsqueeze(0))
+                action, logp, _, value = agent.get_action_and_value(obs_t.unsqueeze(0))
             if _is_discrete:
                 act_buf[step] = action.squeeze()
                 action_for_env = int(action.squeeze().item())
@@ -141,8 +139,7 @@ def _ppo_train_cleanrl(
 
         # GAE advantages
         with torch.no_grad():
-            next_val = agent.get_action_and_value(
-                obs_t.unsqueeze(0))[3].squeeze()
+            next_val = agent.get_action_and_value(obs_t.unsqueeze(0))[3].squeeze()
 
         advantages = torch.zeros(num_steps, device=device)
         last_gae = 0.0
@@ -160,9 +157,8 @@ def _ppo_train_cleanrl(
         for _ in range(update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, num_steps, mb_size):
-                idx = b_inds[start: start + mb_size]
-                _, new_logp, entropy, new_val = agent.get_action_and_value(
-                    obs_buf[idx], act_buf[idx])
+                idx = b_inds[start : start + mb_size]
+                _, new_logp, entropy, new_val = agent.get_action_and_value(obs_buf[idx], act_buf[idx])
                 ratio = (new_logp - logp_buf[idx]).exp()
                 adv = advantages[idx]
                 adv = (adv - adv.mean()) / (adv.std() + 1e-8)
@@ -181,9 +177,7 @@ def _ppo_train_cleanrl(
         if verbose and n_updates % 10 == 0:
             if ep_returns:
                 recent = ep_returns[-20:]
-                print(f"    step={global_step:7d}  "
-                      f"mean_return={np.mean(recent):.1f}  "
-                      f"(last {len(recent)} eps)")
+                print(f"    step={global_step:7d}  mean_return={np.mean(recent):.1f}  (last {len(recent)} eps)")
 
     env.close()
     agent.eval()
@@ -291,7 +285,8 @@ def fix_cleanrl_agent(
 
         t0 = time.time()
         before_result = run_full_audit(
-            adapter_before, env_factory,
+            adapter_before,
+            env_factory,
             speeds=audit_speeds,
             n_episodes=n_audit_episodes,
             sensitivity_episodes=0,
@@ -301,10 +296,8 @@ def fix_cleanrl_agent(
         )
         audit_time = time.time() - t0
 
-        generate_report(before_result, before_dir,
-                        title=f"{agent_class.__name__} on {env_id} — Before Fix")
-        write_ci_summary(before_result["summary"],
-                         before_result["robustness"], before_dir)
+        generate_report(before_result, before_dir, title=f"{agent_class.__name__} on {env_id} — Before Fix")
+        write_ci_summary(before_result["summary"], before_result["robustness"], before_dir)
 
         before_dep = before_result["summary"]["deployment_score"]
         before_rating = before_result["summary"]["deployment_rating"]
@@ -349,7 +342,8 @@ def fix_cleanrl_agent(
 
     t0 = time.time()
     trained_agent = _ppo_train_cleanrl(
-        fresh_agent, env_id,
+        fresh_agent,
+        env_id,
         total_steps=timesteps,
         speed_min=speed_min,
         speed_max=speed_max,
@@ -380,7 +374,8 @@ def fix_cleanrl_agent(
 
     t0 = time.time()
     after_result = run_full_audit(
-        after_adapter, env_factory,
+        after_adapter,
+        env_factory,
         speeds=audit_speeds,
         n_episodes=n_audit_episodes,
         sensitivity_episodes=0,
@@ -391,10 +386,8 @@ def fix_cleanrl_agent(
     audit_time_after = time.time() - t0
 
     after_dir = os.path.join(output_dir, "after")
-    generate_report(after_result, after_dir,
-                    title=f"{agent_class.__name__} on {env_id} — After Fix")
-    write_ci_summary(after_result["summary"],
-                     after_result["robustness"], after_dir)
+    generate_report(after_result, after_dir, title=f"{agent_class.__name__} on {env_id} — After Fix")
+    write_ci_summary(after_result["summary"], after_result["robustness"], after_dir)
 
     after_dep = after_result["summary"]["deployment_score"]
     after_rating = after_result["summary"]["deployment_rating"]
@@ -409,14 +402,11 @@ def fix_cleanrl_agent(
     if before_result is not None:
         before_json = os.path.join(before_dir, "summary.json")
         after_json = os.path.join(after_dir, "summary.json")
-        generate_comparison(before_json, after_json,
-                            output_path=os.path.join(output_dir, "comparison.md"))
-        generate_comparison_html(before_json, after_json,
-                                 output_path=os.path.join(output_dir, "comparison.html"))
+        generate_comparison(before_json, after_json, output_path=os.path.join(output_dir, "comparison.md"))
+        generate_comparison_html(before_json, after_json, output_path=os.path.join(output_dir, "comparison.html"))
 
     if verbose:
-        _print_summary(before_result, after_result,
-                       fixed_ckpt_path, output_dir, train_time)
+        _print_summary(before_result, after_result, fixed_ckpt_path, output_dir, train_time)
 
     return {
         "before": before_result,
@@ -459,14 +449,18 @@ def _print_summary(before, after, fixed_path, output_dir, train_time):
         b_sum = before["summary"]
         a_sum = after["summary"]
         print()
-        print(f"  Deployment: {b_sum['deployment_rating']} "
-              f"({b_sum['deployment_score']:.2f}) -> "
-              f"{a_sum['deployment_rating']} "
-              f"({a_sum['deployment_score']:.2f})")
-        print(f"  Stress:     {b_sum['stress_rating']} "
-              f"({b_sum['stress_score']:.2f}) -> "
-              f"{a_sum['stress_rating']} "
-              f"({a_sum['stress_score']:.2f})")
+        print(
+            f"  Deployment: {b_sum['deployment_rating']} "
+            f"({b_sum['deployment_score']:.2f}) -> "
+            f"{a_sum['deployment_rating']} "
+            f"({a_sum['deployment_score']:.2f})"
+        )
+        print(
+            f"  Stress:     {b_sum['stress_rating']} "
+            f"({b_sum['stress_score']:.2f}) -> "
+            f"{a_sum['stress_rating']} "
+            f"({a_sum['stress_score']:.2f})"
+        )
     else:
         a_sum = after["summary"]
         a_rob = after["robustness"]["per_scenario_scores"]
@@ -475,8 +469,7 @@ def _print_summary(before, after, fixed_path, output_dir, train_time):
             pct = info["return_ratio"] * 100
             print(f"  {sc:12s}: {pct:.1f}%")
         print()
-        print(f"  Deployment: {a_sum['deployment_rating']} "
-              f"({a_sum['deployment_score']:.2f})")
+        print(f"  Deployment: {a_sum['deployment_rating']} ({a_sum['deployment_score']:.2f})")
 
     print()
     print(f"  Training time:   {train_time:.0f}s")

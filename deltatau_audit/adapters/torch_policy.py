@@ -80,9 +80,11 @@ class TorchPolicyAdapter(AgentAdapter):
         if isinstance(action, torch.Tensor):
             action = action.cpu()
             if action.numel() == 1:
-                action_out = int(action.item()) if action.dtype in (
-                    torch.int32, torch.int64, torch.long
-                ) else float(action.item())
+                action_out = (
+                    int(action.item())
+                    if action.dtype in (torch.int32, torch.int64, torch.long)
+                    else float(action.item())
+                )
             else:
                 arr = action.numpy().flatten()
                 action_out = arr[0] if len(arr) == 1 else arr
@@ -91,9 +93,7 @@ class TorchPolicyAdapter(AgentAdapter):
         else:
             action_out = action
 
-        value_scalar = float(
-            value.item() if isinstance(value, torch.Tensor) else float(value)
-        )
+        value_scalar = float(value.item() if isinstance(value, torch.Tensor) else float(value))
 
         return action_out, value_scalar, None, None
 
@@ -185,16 +185,8 @@ class TorchPolicyAdapter(AgentAdapter):
             elif "model_state_dict" in ckpt:
                 state_dict = ckpt["model_state_dict"]
                 # Try to split by prefix
-                actor_sd = {
-                    k.replace("actor.", "", 1): v
-                    for k, v in state_dict.items()
-                    if k.startswith("actor.")
-                }
-                critic_sd = {
-                    k.replace("critic.", "", 1): v
-                    for k, v in state_dict.items()
-                    if k.startswith("critic.")
-                }
+                actor_sd = {k.replace("actor.", "", 1): v for k, v in state_dict.items() if k.startswith("actor.")}
+                critic_sd = {k.replace("critic.", "", 1): v for k, v in state_dict.items() if k.startswith("critic.")}
                 if actor_sd:
                     _try_load(actor, actor_sd)
                     if critic is not None and critic_sd:
@@ -206,10 +198,7 @@ class TorchPolicyAdapter(AgentAdapter):
                 # Raw state_dict — load into actor
                 _try_load(actor, ckpt)
         else:
-            raise ValueError(
-                f"Unexpected checkpoint format: {type(ckpt)}. "
-                "Expected a dict."
-            )
+            raise ValueError(f"Unexpected checkpoint format: {type(ckpt)}. Expected a dict.")
 
         if critic is not None:
             return cls.from_actor_critic(actor, critic, is_discrete, device)

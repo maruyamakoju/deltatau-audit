@@ -6,25 +6,23 @@ Designed for maximum ease-of-use without sacrificing research depth.
 """
 
 import os
-from typing import Any, Optional, Dict, Union
+from typing import Any, Dict, Optional
+
 import gymnasium as gym
 
+from .adapters.internal_time import InternalTimeAdapter
+from .adapters.sb3 import SB3Adapter
 from .auditor import run_full_audit
 from .report import generate_report
 from .report.certification import generate_safety_certificate
-from .adapters.internal_time import InternalTimeAdapter
-from .adapters.sb3 import SB3Adapter
+
 
 class Atlas:
     """The central coordinator for the deltatau-audit ecosystem."""
-    
+
     @staticmethod
     def load_agent(
-        path: str, 
-        agent_type: str = "sb3", 
-        env_id: Optional[str] = None,
-        algo: str = "ppo",
-        device: str = "cpu"
+        path: str, agent_type: str = "sb3", env_id: Optional[str] = None, algo: str = "ppo", device: str = "cpu"
     ) -> Any:
         """
         Loads any supported agent and returns its adapter.
@@ -40,11 +38,10 @@ class Atlas:
                 act_dim = temp_env.action_space.n
             else:
                 act_dim = temp_env.action_space.shape[0] if temp_env else 2
-            if temp_env: temp_env.close()
-            
-            return InternalTimeAdapter.from_checkpoint(
-                path, obs_dim, act_dim, agent_type=agent_type, device=device
-            )
+            if temp_env:
+                temp_env.close()
+
+            return InternalTimeAdapter.from_checkpoint(path, obs_dim, act_dim, agent_type=agent_type, device=device)
         else:
             raise ValueError(f"Unsupported agent type: {agent_type}")
 
@@ -54,7 +51,7 @@ class Atlas:
         env_id: str,
         out_dir: str = "certified_result",
         episodes: int = 50,
-        agent_type: str = "sb3"
+        agent_type: str = "sb3",
     ) -> Dict[str, Any]:
         """
         The 'Do-Everything' Command:
@@ -68,43 +65,34 @@ class Atlas:
             adapter = Atlas.load_agent(path_or_adapter, agent_type=agent_type, env_id=env_id)
         else:
             adapter = path_or_adapter
-            
+
         print(f"🚀 ATLAS: Initiating Full Certification Pipeline for {env_id}...")
-        
-        result = run_full_audit(
-            adapter,
-            lambda: gym.make(env_id),
-            n_episodes=episodes,
-            verbose=True
-        )
-        
+
+        result = run_full_audit(adapter, lambda: gym.make(env_id), n_episodes=episodes, verbose=True)
+
         # Add manifest info for certificate
         result["manifest"] = {
             "title": f"Atlas Certification: {env_id}",
             "env": env_id,
-            "agent_class": type(adapter).__name__
+            "agent_class": type(adapter).__name__,
         }
-        
+
         os.makedirs(out_dir, exist_ok=True)
         generate_report(result, out_dir)
-        
+
         cert_path = os.path.join(out_dir, "certificate.html")
         status, reg_id = generate_safety_certificate(result, cert_path)
-        
-        print(f"\n✅ ATLAS: Certification Complete.")
+
+        print("\n✅ ATLAS: Certification Complete.")
         print(f"   Status:      {status}")
         print(f"   Registry ID: DT-{reg_id}")
         print(f"   Artifacts:   {out_dir}/")
-        
+
         return result
 
     @staticmethod
     def fix(
-        path: str,
-        env_id: str,
-        algo: str = "ppo",
-        out_dir: str = "fixed_agent",
-        agent_type: str = "sb3"
+        path: str, env_id: str, algo: str = "ppo", out_dir: str = "fixed_agent", agent_type: str = "sb3"
     ) -> Dict[str, Any]:
         """
         The 'Self-Healing' Command:
@@ -114,27 +102,17 @@ class Atlas:
         4. Re-audits the fixed agent and certifies it.
         """
         from .fixer import fix_sb3_model
-        
+
         print(f"🔧 ATLAS: Initiating Auto-Fix Pipeline for {env_id}...")
-        
+
         # fix_sb3_model handles the audit -> retrain -> re-audit loop
-        result = fix_sb3_model(
-            model_path=path,
-            algo=algo,
-            env_id=env_id,
-            output_dir=out_dir
-        )
-        
+        result = fix_sb3_model(model_path=path, algo=algo, env_id=env_id, output_dir=out_dir)
+
         print(f"\n✨ ATLAS: Self-Healing Complete. Certified model saved to {out_dir}/after/")
         return result
 
     @staticmethod
-    def audit_hub(
-        repo_id: str,
-        env_id: str,
-        algo: str = "ppo",
-        out_dir: str = "hub_audit"
-    ) -> Dict[str, Any]:
+    def audit_hub(repo_id: str, env_id: str, algo: str = "ppo", out_dir: str = "hub_audit") -> Dict[str, Any]:
         """
         The 'Universal Benchmarking' Command:
         1. Downloads a model from HuggingFace Hub.
@@ -142,21 +120,19 @@ class Atlas:
         3. Prepares it for the Global Leaderboard.
         """
         print(f"🌍 ATLAS: Auditing Universal Model from Hub: {repo_id}...")
-        
+
         from .adapters.sb3 import SB3Adapter
+
         adapter = SB3Adapter.from_hub(repo_id=repo_id, algo=algo)
-        
+
         result = Atlas.certify(adapter, env_id=env_id, out_dir=out_dir)
-        
+
         print(f"📊 ATLAS: Hub Audit Complete. Ranking data ready in {out_dir}/summary.json")
         return result
 
     @staticmethod
     def verify(
-        path_or_adapter: Any,
-        env_id: str,
-        agent_type: str = "internal_time",
-        n_steps: int = 100
+        path_or_adapter: Any, env_id: str, agent_type: str = "internal_time", n_steps: int = 100
     ) -> Dict[str, Any]:
         """
         The 'Formal Verification' Command:
@@ -166,16 +142,17 @@ class Atlas:
             adapter = Atlas.load_agent(path_or_adapter, agent_type=agent_type, env_id=env_id)
         else:
             adapter = path_or_adapter
-            
+
         from .verification.formal import FormalTemporalVerifier
+
         verifier = FormalTemporalVerifier(adapter)
-        
+
         print(f"🧐 ATLAS: Formally Verifying Agent for {env_id}...")
         result = verifier.verify_agent(lambda: gym.make(env_id), n_steps=n_steps)
-        
+
         print(f"   Formal Safety Range: {result['average_safety_range']:.2f}x")
         print(f"   Status: {'PROVEN ROBUST' if result['is_formally_robust'] else 'UNPROVEN'}")
-        
+
         return result
 
     @staticmethod
@@ -183,53 +160,56 @@ class Atlas:
         path_or_adapter: Any,
         output_path: str = "agent.onnx",
         agent_type: str = "internal_time",
-        env_id: Optional[str] = None
+        env_id: Optional[str] = None,
     ):
         """
         The 'Edge Production' Command:
         Exports the agent to ONNX format for deployment on Jetson/TPU.
         """
         import torch
+
         if isinstance(path_or_adapter, str):
             adapter = Atlas.load_agent(path_or_adapter, agent_type=agent_type, env_id=env_id)
         else:
             adapter = path_or_adapter
-            
+
         print(f"📦 ATLAS: Exporting Agent to ONNX ({output_path})...")
-        
+
         # Determine dummy input shapes
-        dummy_obs = torch.randn(1, 4) # Default for CartPole, should be env-specific
+        dummy_obs = torch.randn(1, 4)  # Default for CartPole, should be env-specific
         dummy_hidden = adapter.reset_hidden(1)
-        
+
         # We export the internal agent model
         model = adapter.agent
         model.eval()
-        
+
         # ONNX doesn't like torch.distributions (Categorical)
         # We wrap the model to return logits instead
         class ONNXWrapper(torch.nn.Module):
             def __init__(self, inner):
                 super().__init__()
                 self.inner = inner
+
             def forward(self, obs, hidden):
                 # We assume forward() returns (dist, value, hidden, dt)
                 dist, value, hidden_new, dt = self.inner(obs, hidden)
                 # Return logits instead of dist
                 return dist.logits, value, hidden_new, dt
-        
+
         export_model = ONNXWrapper(model)
-        
+
         # Map forward pass for ONNX
         torch.onnx.export(
             export_model,
             (dummy_obs, dummy_hidden),
             output_path,
-            input_names=['observation', 'hidden_in'],
-            output_names=['logits', 'value', 'hidden_out', 'dt'],
-            opset_version=12
+            input_names=["observation", "hidden_in"],
+            output_names=["logits", "value", "hidden_out", "dt"],
+            opset_version=12,
         )
-        
-        print(f"   Export Complete. Use with TensorRT or ONNX Runtime for microsecond latency.")
+
+        print("   Export Complete. Use with TensorRT or ONNX Runtime for microsecond latency.")
+
 
 # Convenience instance
 atlas = Atlas()

@@ -1,15 +1,15 @@
 """
 Temporal Robustness Certification System.
 
-Generates high-fidelity safety certificates for RL agents that pass 
+Generates high-fidelity safety certificates for RL agents that pass
 all rigorous audit axes (Reliance, Robustness, Adversarial, Bridge).
 """
 
-import json
-import os
 import datetime
 import hashlib
-from typing import Dict, Any
+import json
+from typing import Any, Dict
+
 
 def generate_safety_certificate(result: Dict[str, Any], output_path: str):
     """
@@ -18,30 +18,30 @@ def generate_safety_certificate(result: Dict[str, Any], output_path: str):
     """
     summary = result.get("summary", {})
     manifest = result.get("manifest", {})
-    
+
     # 1. Validation Logic
     is_certified = (
-        summary.get("deployment_rating") == "PASS" and
-        summary.get("stress_rating") in ["PASS", "MILD", "DEGRADED"] and # Stress can be degraded
-        summary.get("reliance_rating") != "FAIL"
+        summary.get("deployment_rating") == "PASS"
+        and summary.get("stress_rating") in ["PASS", "MILD", "DEGRADED"]  # Stress can be degraded
+        and summary.get("reliance_rating") != "FAIL"
     )
-    
+
     # Check for adversarial pass if exists
     adv_jitter = result.get("robustness", {}).get("per_scenario_scores", {}).get("adversarial_jitter")
     if adv_jitter:
         is_certified = is_certified and adv_jitter.get("return_ratio", 0) > 0.5
-        
+
     status = "CERTIFIED" if is_certified else "CERTIFICATION_FAILED"
-    
+
     # 2. Digital Fingerprint
     result_str = json.dumps(result, sort_keys=True, default=str)
     fingerprint = hashlib.sha256(result_str.encode()).hexdigest()[:16].upper()
-    
+
     # 3. HTML Content
     html = f"""
     <html>
     <head>
-        <title>Safety Certificate - {manifest.get('title', 'RL Agent')}</title>
+        <title>Safety Certificate - {manifest.get("title", "RL Agent")}</title>
         <style>
             body {{ font-family: 'Georgia', serif; padding: 50px; background: #eee; text-align: center; }}
             .cert {{ border: 15px double #333; padding: 50px; background: white; max-width: 800px; margin: auto; position: relative; }}
@@ -61,15 +61,15 @@ def generate_safety_certificate(result: Dict[str, Any], output_path: str):
             <h1>TEMPORAL SAFETY CERTIFICATE</h1>
             <div class="status {status}">{status}</div>
             
-            <p>This document certifies that the agent <strong>{manifest.get('agent_class', 'Model')}</strong> 
+            <p>This document certifies that the agent <strong>{manifest.get("agent_class", "Model")}</strong> 
             has undergone a complete Temporal Robustness Audit.</p>
             
             <div class="metrics">
-                <p>📅 <strong>Date:</strong> {datetime.datetime.now().strftime('%Y-%m-%d')}</p>
-                <p>📍 <strong>Environment:</strong> {manifest.get('env', 'Unknown')}</p>
-                <p>✅ <strong>Deployment Score:</strong> {summary.get('deployment_score', 0):.2f}</p>
-                <p>🔥 <strong>Stress Resilience:</strong> {summary.get('stress_score', 0):.2f}</p>
-                <p>🛡️ <strong>Adversarial Stability:</strong> {'Verified' if adv_jitter else 'Not Tested'}</p>
+                <p>📅 <strong>Date:</strong> {datetime.datetime.now().strftime("%Y-%m-%d")}</p>
+                <p>📍 <strong>Environment:</strong> {manifest.get("env", "Unknown")}</p>
+                <p>✅ <strong>Deployment Score:</strong> {summary.get("deployment_score", 0):.2f}</p>
+                <p>🔥 <strong>Stress Resilience:</strong> {summary.get("stress_score", 0):.2f}</p>
+                <p>🛡️ <strong>Adversarial Stability:</strong> {"Verified" if adv_jitter else "Not Tested"}</p>
             </div>
             
             <p>Audit Registry ID: <code>DT-{fingerprint}</code></p>
@@ -82,8 +82,8 @@ def generate_safety_certificate(result: Dict[str, Any], output_path: str):
     </body>
     </html>
     """
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
-        
+
     return status, fingerprint

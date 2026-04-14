@@ -134,9 +134,7 @@ def generate_diagnosis(summary: Dict, robustness: Dict) -> Dict:
                         f"The agent's performance degrades under the '{scenario}' "
                         "perturbation. Review your training environment."
                     ),
-                    "fix": (
-                        "Add augmentation for this perturbation type during training."
-                    ),
+                    "fix": ("Add augmentation for this perturbation type during training."),
                 },
             )
             issues.append(
@@ -152,9 +150,7 @@ def generate_diagnosis(summary: Dict, robustness: Dict) -> Dict:
             )
 
     # Sort: worst rating first, then by largest return drop
-    issues.sort(
-        key=lambda x: (_RATING_ORDER.get(x["rating"], 99), x["return_ratio"])
-    )
+    issues.sort(key=lambda x: (_RATING_ORDER.get(x["rating"], 99), x["return_ratio"]))
 
     # Overall status based on deployment/stress rating
     dep_rating = summary.get("deployment_rating", "N/A")

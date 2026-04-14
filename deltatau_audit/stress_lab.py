@@ -233,11 +233,7 @@ def analyze_stress_result(
         if stress_score is not None:
             worst_ratio = stress_score
     gate_value = worst_ci_lower if worst_ci_lower is not None else worst_ratio
-    gate_pass = (
-        gate_value >= float(stress_threshold)
-        if isinstance(gate_value, float)
-        else False
-    )
+    gate_pass = gate_value >= float(stress_threshold) if isinstance(gate_value, float) else False
 
     per_raw = robustness.get("per_scenario_scores")
     per_scores = per_raw if isinstance(per_raw, dict) else {}
@@ -248,9 +244,7 @@ def analyze_stress_result(
         worst_ratio=worst_ratio,
         worst_rmse_ratio=worst_rmse_ratio,
     )
-    mechanism_code, mechanism_name, mechanism_rationale = _mechanism_from_pattern(
-        pattern_id
-    )
+    mechanism_code, mechanism_name, mechanism_rationale = _mechanism_from_pattern(pattern_id)
 
     variants = _recommended_variants(include_intervention3=include_intervention3)
     recommendations: list[dict[str, str]] = []
@@ -406,9 +400,7 @@ def _yaml_or_json_dump(payload: dict[str, Any], path: Path) -> Path:
         import yaml  # type: ignore
     except ImportError:
         json_path = path.with_suffix(".json")
-        json_path.write_text(
-            json.dumps(payload, indent=2, default=str), encoding="utf-8"
-        )
+        json_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         return json_path
 
     path.write_text(
@@ -553,10 +545,7 @@ def write_ablation_plan_artifacts(
     lines.append("## Generated Manifest")
     lines.append("")
     lines.append(f"- `{manifest_path}`")
-    lines.append(
-        "- Run: `python -m deltatau_audit bench run --manifest "
-        f"{manifest_path}`"
-    )
+    lines.append(f"- Run: `python -m deltatau_audit bench run --manifest {manifest_path}`")
     lines.append("")
 
     md_path.write_text("\n".join(lines), encoding="utf-8")
@@ -590,6 +579,7 @@ def _variant_training_env(
     if variant == "intervention3_memory":
         try:
             from gymnasium.wrappers import FlattenObservation
+
             try:
                 from gymnasium.wrappers import FrameStackObservation
             except Exception:
@@ -609,8 +599,7 @@ def _algo_cls(algo: str):
         import stable_baselines3 as sb3
     except ImportError as exc:
         raise ImportError(
-            "stable-baselines3 is required for stress ablation training. "
-            'Install: pip install "deltatau-audit[sb3]"'
+            'stable-baselines3 is required for stress ablation training. Install: pip install "deltatau-audit[sb3]"'
         ) from exc
 
     mapping = {
@@ -754,9 +743,7 @@ def train_sb3_ablation_models(
     }
 
 
-def write_training_summary(
-    summary: dict[str, Any], *, out_dir: str | Path
-) -> dict[str, str]:
+def write_training_summary(summary: dict[str, Any], *, out_dir: str | Path) -> dict[str, str]:
     """Persist stress ablation training summary as JSON/Markdown."""
     out = Path(out_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)

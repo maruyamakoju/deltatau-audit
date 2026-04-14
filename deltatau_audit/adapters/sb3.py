@@ -17,7 +17,7 @@ Usage:
     result = run_full_audit(adapter, env_factory, ...)
 """
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -43,13 +43,17 @@ class SB3Adapter(AgentAdapter):
         self.model = model
         self.device = device
 
-    def reset_hidden(self, batch: int = 1,
-                     device: str = "cpu") -> Any:
-        return None  # No hidden state for non-recurrent models
+    def reset_internal_state(self) -> None:
+        """No internal state for standard SB3 models."""
+        pass
 
     @torch.no_grad()
-    def act(self, obs: torch.Tensor, hidden: Any
-            ) -> Tuple[Union[int, np.ndarray], float, Any, Optional[float]]:
+    def act(
+        self,
+        obs: torch.Tensor,
+        deterministic: bool = True,
+        ponder_steps: Optional[int] = None,
+    ) -> Tuple[Any, Dict[str, Any]]:
         # Convert obs to numpy for SB3
         if obs.dim() == 1:
             obs_np = obs.cpu().numpy().reshape(1, -1)
@@ -59,29 +63,36 @@ class SB3Adapter(AgentAdapter):
         # Get action
         action, _ = self.model.predict(
             obs_np,
-            deterministic=False,
+            deterministic=deterministic,
         )
 
         # Get value estimate
-        obs_t = torch.as_tensor(obs_np, dtype=torch.float32,
-                                device=self.model.device)
-        value = self.model.policy.predict_values(obs_t)
-        value_scalar = value.item()
+        obs_t = torch.as_tensor(obs_np, dtype=torch.float32, device=self.model.device)
+        try:
+            value = self.model.policy.predict_values(obs_t)
+            value_scalar = value.item()
+        except (AttributeError, RuntimeError):
+            value_scalar = 0.0
 
         # Return action in env-compatible form
-        if hasattr(self.model.action_space, 'n'):
+        if hasattr(self.model.action_space, "n"):
             # Discrete action space
-            action_out = int(action[0]) if hasattr(action, '__len__') else int(action)
+            action_out = int(action[0]) if hasattr(action, "__len__") else int(action)
         else:
             # Continuous action space — return array
             action_out = action[0] if action.ndim > 1 else action
 
-        return (action_out, value_scalar, None, None)
+        info = {
+            "value": value_scalar,
+            "dt": 1.0,  # Constant for non-timed models
+            "hidden": None,
+        }
+        return action_out, info
 
     @classmethod
-    def from_path(cls, path: str, algo: str = "ppo",
-                  device: str = "cpu",
-                  vec_normalize_path: Optional[str] = None) -> "SB3Adapter":
+    def from_path(
+        cls, path: str, algo: str = "ppo", device: str = "cpu", vec_normalize_path: Optional[str] = None
+    ) -> "SB3Adapter":
         """Load an SB3 model from a .zip file.
 
         Args:
@@ -101,8 +112,7 @@ class SB3Adapter(AgentAdapter):
             import stable_baselines3
         except ImportError:
             raise ImportError(
-                "stable-baselines3 is required for SB3 adapter. "
-                "Install with: pip install stable-baselines3"
+                "stable-baselines3 is required for SB3 adapter. Install with: pip install stable-baselines3"
             )
 
         algo_map = {
@@ -113,9 +123,7 @@ class SB3Adapter(AgentAdapter):
         }
         algo_cls = algo_map.get(algo.lower())
         if algo_cls is None:
-            raise ValueError(
-                f"Unknown algo '{algo}'. Supported: {list(algo_map.keys())}"
-            )
+            raise ValueError(f"Unknown algo '{algo}'. Supported: {list(algo_map.keys())}")
 
         model = algo_cls.load(path, device=device)
 
@@ -170,8 +178,7 @@ class SB3Adapter(AgentAdapter):
             from huggingface_hub import hf_hub_download
         except ImportError:
             raise ImportError(
-                "huggingface_hub is required for Hub downloads. "
-                'Install with: pip install "deltatau-audit[hf]"'
+                'huggingface_hub is required for Hub downloads. Install with: pip install "deltatau-audit[hf]"'
             )
 
         # Auto-detect filename: try {algo}-{repo_name}.zip, then model.zip
