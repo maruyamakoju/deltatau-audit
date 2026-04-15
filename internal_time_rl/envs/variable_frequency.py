@@ -124,7 +124,7 @@ class VariableFrequencyChainEnv(gym.Env):
         self._update_speed_schedule()
 
         # Execute action `speed` times
-        for _repeat in range(self.current_speed):
+        for _repeat in range(int(round(self.current_speed))):
             if action == 0:
                 self.position = max(0, self.position - 1)
             elif action == 1:
