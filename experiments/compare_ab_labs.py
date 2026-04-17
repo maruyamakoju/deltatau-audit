@@ -30,31 +30,42 @@ def _load(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _extract_cycle_composites(experiment_journal: Dict[str, Any], lab_start_cycle: int) -> List[float]:
-    """Pull composite scores from records at or after the lab's start cycle."""
-    scores: List[float] = []
-    for rec in experiment_journal.get("records", []):
-        if rec.get("cycle", -1) < lab_start_cycle:
+def _walk_cycle_results(out_dir: Path) -> List[Dict[str, Any]]:
+    """Walk cycle_XXXXX_<frontier>/results.json files (skip *_lab dirs)."""
+    results: List[Dict[str, Any]] = []
+    for sub in sorted(out_dir.glob("cycle_*_*")):
+        if sub.name.endswith("_claude_lab") or sub.name.endswith("_codex_lab"):
             continue
+        path = sub / "results.json"
+        if not path.exists():
+            continue
+        try:
+            results.append(json.loads(path.read_text(encoding="utf-8")))
+        except Exception:
+            continue
+    return results
+
+
+def _extract_composites(results: List[Dict[str, Any]]) -> List[float]:
+    scores: List[float] = []
+    for rec in results:
         m = rec.get("metrics") or {}
-        c = m.get("composite")
+        c = m.get("composite_score")
+        if c is None:
+            c = m.get("composite")
         if isinstance(c, (int, float)):
             scores.append(float(c))
     return scores
 
 
-def _frontier_counts(experiment_journal: Dict[str, Any], lab_start_cycle: int) -> Counter:
+def _frontier_counts_from_results(results: List[Dict[str, Any]]) -> Counter:
     counter: Counter = Counter()
-    for rec in experiment_journal.get("records", []):
-        if rec.get("cycle", -1) < lab_start_cycle:
-            continue
+    for rec in results:
         counter[str(rec.get("frontier", "?"))] += 1
     return counter
 
 
 def _summarize(name: str, out_dir: Path) -> Dict[str, Any]:
-    exp_journal = _load(out_dir / "journal.json") or {}
-    # Lab journal could be codex_lab_journal.json or claude_lab_journal.json
     lab_journal = None
     for candidate in ("claude_lab_journal.json", "codex_lab_journal.json"):
         candidate_path = out_dir / candidate
@@ -62,14 +73,21 @@ def _summarize(name: str, out_dir: Path) -> Dict[str, Any]:
         if lab_journal is not None:
             break
 
-    lab_start_cycle = 0
-    if lab_journal:
-        recent_cycles = lab_journal.get("recent_cycles") or []
-        if recent_cycles:
-            lab_start_cycle = min(int(c.get("cycle", 0)) for c in recent_cycles)
+    results = _walk_cycle_results(out_dir)
+    scores = _extract_composites(results)
+    frontiers = _frontier_counts_from_results(results)
 
-    scores = _extract_cycle_composites(exp_journal, lab_start_cycle)
-    frontiers = _frontier_counts(exp_journal, lab_start_cycle)
+    proposals: List[Dict[str, Any]] = []
+    prop_journal = out_dir / "frontier_proposals.jsonl"
+    if prop_journal.exists():
+        for line in prop_journal.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                proposals.append(json.loads(line))
+            except Exception:
+                continue
 
     total_calls = int((lab_journal or {}).get("total_codex_calls", 0))
     total_usage = (lab_journal or {}).get("total_usage") or {}
@@ -90,8 +108,7 @@ def _summarize(name: str, out_dir: Path) -> Dict[str, Any]:
     return {
         "name": name,
         "out_dir": str(out_dir),
-        "lab_start_cycle": lab_start_cycle,
-        "cycles": len(recent),
+        "cycles": len(results),
         "composites": scores,
         "composite_mean": statistics.mean(scores) if scores else None,
         "composite_max": max(scores) if scores else None,
@@ -102,6 +119,8 @@ def _summarize(name: str, out_dir: Path) -> Dict[str, Any]:
         "total_usage": total_usage,
         "strategy_mean_sec": statistics.mean(strategy_durs) if strategy_durs else None,
         "critique_mean_sec": statistics.mean(critique_durs) if critique_durs else None,
+        "frontier_proposals": [p.get("name") for p in proposals],
+        "frontier_proposal_count": len(proposals),
     }
 
 
@@ -153,6 +172,11 @@ def _print_report(a: Dict[str, Any], b: Dict[str, Any]) -> None:
     if a["composites"] and b["composites"]:
         delta = (a["composite_mean"] or 0) - (b["composite_mean"] or 0)
         print(f"\n  Delta (mean): {name_a} - {name_b} = {delta:+.4f}")
+
+    print(f"\n  Frontier proposals: {name_a}={a['frontier_proposal_count']}  {name_b}={b['frontier_proposal_count']}")
+    for side, prefix in ((a, name_a), (b, name_b)):
+        for p in side["frontier_proposals"]:
+            print(f"    [{prefix}] {p}")
 
 
 def main() -> int:
