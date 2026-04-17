@@ -42,9 +42,18 @@ vla_audit_report/
 cert_jax.html
 meta_calibration_results.png
 .tmp/
+.tmp_audit/
 tmp_debug_health/
 atlas_demo/
 research_test/
+research_runs/
+
+# Transient training logs (top-level)
+*_log.txt
+*_causal_log.txt
+error_log.txt
+params.json
+res.json
 
 # IDE / OS / Tools
 .vscode/
