@@ -73,12 +73,45 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - **`deltatau_audit/protocols.py`**: Added "paper" protocol preset.
 - **`pyproject.toml`**: Added `dm_control` extra dependency.
 
----
-
-## [Unreleased]
+## [1.0.0] - 2026-04-17 (Cycle 11516 Breakthrough)
 
 ### Added
-- **Bench failure-mode breakdown** (`submission_health.bench_failure_breakdown` + pipeline wiring):
+- **Autonomous Research Breakthroughs (Cycle 11516)**:
+  - **Axis 7 (Meta-Policy Distillation)**: Achieved 100% zero-shot kill rate on MountainCar-v0 with Universal Adversary (Composite Score: 200.61).
+  - **Axis 9 (Recursive Self-Architecture)**: Validated dynamic ODE resolution scaling based on state complexity.
+  - **Axis 10 (Causal Temporal Reasoning)**: Unblocked System 1/2 counterfactual timing with fixed adapter initialization.
+- **Submission Infrastructure**:
+  - `submission_health.py`: Automated sanity checks for the research suite.
+  - `check_priorities.py`: UCB1-based frontier priority visualization.
+  - Multi-cycle autonomous research runner with persistent journaling.
+  - Bench failure-mode breakdown and CI-gate summary-path capture.
+  - Smart launch resume fallback and quality-repair recommendation plans.
+  - Supervisor mode with guarded auto-recovery, restart budgets, and event trails.
+  - Autopilot end-to-end mode (`preflight` -> `launch` -> `supervise` -> `finalize`).
+- **Research Suite**:
+  - `deltatau_audit/research_suite.py`: Staged execution (`deliberative`/`ltc`/`bridge`) with artifact-based resume.
+  - `TimeFeatureWrapper`: Explicit timing features (`dt`, `elapsed`, `phase`) for robust training.
+  - `ObsNoiseWrapper`: Gaussian observation noise for sensor realism.
+- **CLI & Integration**:
+  - `stress analyze/ablate/train-sb3`: Advanced robustness analysis and intervention training.
+  - `--ci` flag for standardized CI output in `ci_summary.json` and `ci_summary.md`.
+  - HuggingFace Hub integration (`audit-hf`) and experiment tracker support (W&B, MLflow).
+
+### Fixed
+- Fatal `TypeError` in `CausalAdapter.__init__` (Axis 10).
+- Adapter initialization in `MetaPolicyDistillationExperiment` (Axis 7).
+- Continuous action space support in `CleanRLAdapter`.
+- Sign-aware return ratio for environments with negative nominal returns.
+
+### Changed
+- Version: 0.8.0 → 1.0.0.
+- Unified orchestration for `research-full` via `ResearchSuite`.
+- Enhanced HTML reports with colored meter bars, verdict pills, and failure diagnostics.
+
+---
+
+## [0.8.0] — 2026-02-24
+ (`submission_health.bench_failure_breakdown` + pipeline wiring):
   classifies failed benchmark jobs into `ci_gate_failures` (summary exists) vs
   `runtime_failures` (missing summary/crash) and surfaces counts in
   `status/report` output for faster operator triage.
