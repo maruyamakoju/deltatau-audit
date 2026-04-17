@@ -537,8 +537,14 @@ Return JSON only with exactly these keys:
   "followup_frontier": "frontier name",
   "followup_hyperparams": {{"param_name": 1}},
   "red_flags": ["flag 1"],
-  "novelty_assessment": "short string"
+  "novelty_assessment": "short string",
+  "proposed_new_frontier": null
 }}
+
+Special option — proposing a NEW frontier axis:
+- Set next_action to "propose_new_frontier" and populate proposed_new_frontier when the existing frontier set looks saturated or mis-targeted. Leave it null otherwise.
+- The proposal must include: name (snake_case, 3-40 chars, unique), description (one line), rationale (why this matters now), hypothesis (testable), and optional skeleton_python (a Python file stub with a run(params) -> dict entry point).
+- This is the only way the lab can grow its search space beyond the current 10 axes. Use it when you have a concrete, testable new idea — not as filler.
 """.strip()
 
 
@@ -1008,6 +1014,22 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             if critique.error:
                 print(f"[cycle {cycle}][critique][error] {critique.error}")
+
+            try:
+                import frontier_proposals  # local import; same sys.path as this module
+                proposal = (critique.parsed_json or {}).get("proposed_new_frontier")
+                result = frontier_proposals.materialize_proposal(
+                    proposal,
+                    cycle=cycle,
+                    critic_session_id=critique.session_id,
+                    out_root=out_root,
+                )
+                if result.accepted:
+                    print(f"[cycle {cycle}][frontier-proposal] accepted: {result.name} -> {result.path}")
+                elif proposal:
+                    print(f"[cycle {cycle}][frontier-proposal] rejected: {result.reason}")
+            except Exception as exc:
+                print(f"[cycle {cycle}][frontier-proposal][error] {exc}")
 
             llm_journal.add_cycle(
                 cycle=cycle,

@@ -480,6 +480,22 @@ def run_loop(args: argparse.Namespace) -> int:
             if critique.error:
                 print(f"[cycle {cycle}][critique][error] {critique.error}")
 
+            try:
+                import frontier_proposals
+                proposal = (critique.parsed_json or {}).get("proposed_new_frontier")
+                result = frontier_proposals.materialize_proposal(
+                    proposal,
+                    cycle=cycle,
+                    critic_session_id=critique.session_id,
+                    out_root=out_root,
+                )
+                if result.accepted:
+                    print(f"[cycle {cycle}][frontier-proposal] accepted: {result.name} -> {result.path}")
+                elif proposal:
+                    print(f"[cycle {cycle}][frontier-proposal] rejected: {result.reason}")
+            except Exception as exc:
+                print(f"[cycle {cycle}][frontier-proposal][error] {exc}")
+
             llm_journal.add_cycle(
                 cycle=cycle,
                 frontier=selected_frontier,

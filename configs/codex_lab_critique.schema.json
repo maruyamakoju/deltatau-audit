@@ -33,7 +33,8 @@
         "exploit_frontier",
         "switch_frontier",
         "patch_code",
-        "abandon_direction"
+        "abandon_direction",
+        "propose_new_frontier"
       ]
     },
     "followup_frontier": {
@@ -58,6 +59,31 @@
     },
     "novelty_assessment": {
       "type": "string"
+    },
+    "proposed_new_frontier": {
+      "type": ["object", "null"],
+      "required": ["name", "description", "rationale", "hypothesis"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,39}$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "hypothesis": {
+          "type": "string"
+        },
+        "skeleton_python": {
+          "type": "string"
+        },
+        "estimated_novelty": {
+          "type": "number"
+        }
+      }
     }
   }
 }
