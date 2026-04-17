@@ -47,6 +47,10 @@ tmp_debug_health/
 atlas_demo/
 research_test/
 research_runs/
+research_runs_*/
+
+# Auto-generated frontier proposal stubs (human promotes manually)
+experiments/frontier_proposals/
 
 # Transient training logs (top-level)
 *_log.txt
