@@ -26,7 +26,7 @@ class SyncVectorEnv:
         obs_list, rew_list, done_list = [], [], []
         infos = []
         for env, action in zip(self.envs, actions):
-            obs, reward, terminated, truncated, info = env.step(int(action))
+            obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             if done:
                 # Proper handling of terminal observations for bootstrap

@@ -1,0 +1,63 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "mechanistic_take",
+    "signal_quality",
+    "next_action",
+    "followup_frontier",
+    "followup_hyperparams",
+    "red_flags",
+    "novelty_assessment"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "mechanistic_take": {
+      "type": "string"
+    },
+    "signal_quality": {
+      "type": "string",
+      "enum": [
+        "weak",
+        "mixed",
+        "strong"
+      ]
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "explore_more",
+        "exploit_frontier",
+        "switch_frontier",
+        "patch_code",
+        "abandon_direction"
+      ]
+    },
+    "followup_frontier": {
+      "type": "string"
+    },
+    "followup_hyperparams": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean"
+        ]
+      }
+    },
+    "red_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "novelty_assessment": {
+      "type": "string"
+    }
+  }
+}

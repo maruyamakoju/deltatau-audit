@@ -157,6 +157,14 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
+def _coerce_subprocess_output(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
 def parse_codex_exec_output(
     *,
     label: str,
@@ -174,39 +182,76 @@ def parse_codex_exec_output(
     session_id = None
     parsed_json = None
     parse_error = None
+    event_error = None
 
-    for raw_line in stdout_text.splitlines():
-        line = raw_line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    try:
+        if stdout_text.strip():
+            for raw_line in stdout_text.splitlines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict):
+                    continue
 
-        if event.get("type") == "thread.started":
-            session_id = event.get("thread_id")
-        elif event.get("type") == "item.completed":
-            item = event.get("item", {})
-            if item.get("type") == "agent_message" and item.get("text"):
-                final_message = str(item["text"])
-        elif event.get("type") == "turn.completed":
-            event_usage = event.get("usage", {})
-            usage.input_tokens += _safe_int(event_usage.get("input_tokens"))
-            usage.cached_input_tokens += _safe_int(
-                event_usage.get("cached_input_tokens", event_usage.get("cache_read_input_tokens", 0))
-            )
-            usage.output_tokens += _safe_int(event_usage.get("output_tokens"))
+                event_type = str(event.get("type", ""))
+                if event_type == "thread.started":
+                    session_id = event.get("thread_id") or session_id
+                elif event_type == "item.completed":
+                    item = event.get("item", {})
+                    if isinstance(item, dict) and item.get("type") == "agent_message":
+                        final_message = str(item.get("text", "") or "")
+                elif event_type == "turn.completed":
+                    turn_usage = event.get("usage", {})
+                    if isinstance(turn_usage, dict):
+                        usage.input_tokens = _safe_int(turn_usage.get("input_tokens", usage.input_tokens))
+                        usage.cached_input_tokens = _safe_int(
+                            turn_usage.get("cached_input_tokens", usage.cached_input_tokens)
+                        )
+                        usage.output_tokens = _safe_int(turn_usage.get("output_tokens", usage.output_tokens))
+                elif event_type == "error":
+                    event_error = str(event.get("message", "") or "").strip() or event_error
+
+            # Backward-compatible fallback for older single-object payloads.
+            if not final_message:
+                event = json.loads(stdout_text.strip())
+                if isinstance(event, dict):
+                    session_id = event.get("session_id") or session_id
+                    final_message = str(event.get("response", "") or "")
+                    stats = event.get("stats", {})
+                    if isinstance(stats, dict):
+                        tokens = stats.get("tokens", {})
+                        if isinstance(tokens, dict):
+                            usage.input_tokens = _safe_int(tokens.get("input", usage.input_tokens))
+                            usage.cached_input_tokens = _safe_int(tokens.get("cached", usage.cached_input_tokens))
+                            usage.output_tokens = _safe_int(tokens.get("candidates", usage.output_tokens))
+    except Exception:
+        pass
 
     if final_message:
         try:
-            parsed_json = json.loads(final_message)
+            # Strip potential markdown code blocks before JSON parsing
+            clean_message = final_message.strip()
+            if clean_message.startswith("```json"):
+                clean_message = clean_message[7:]
+            elif clean_message.startswith("```"):
+                clean_message = clean_message[3:]
+            if clean_message.endswith("```"):
+                clean_message = clean_message[:-3]
+            clean_message = clean_message.strip()
+            
+            parsed_json = json.loads(clean_message)
         except json.JSONDecodeError as exc:
             parse_error = f"Final message was not valid JSON: {exc}"
 
     error = None
     if returncode != 0:
         detail = stderr_text.strip() or stdout_text.strip()
+        if event_error:
+            detail = event_error
         error = f"codex exec failed with exit code {returncode}: {detail[:1000]}"
     elif not final_message:
         error = "codex exec did not return a final agent message"
@@ -240,7 +285,7 @@ class CodexExecRunner:
 
     @staticmethod
     def _resolve_codex_command() -> str:
-        for candidate in ("codex.cmd", "codex", "codex.ps1"):
+        for candidate in ("codex.cmd", "codex", "codex.ps1", "gemini.cmd", "gemini", "gemini.ps1"):
             path = shutil.which(candidate)
             if path:
                 return path
@@ -276,15 +321,13 @@ class CodexExecRunner:
         command = [
             self.codex_command,
             "exec",
-            "-C",
-            str(PROJECT_ROOT),
-            "--dangerously-bypass-approvals-and-sandbox",
             "--json",
-            "--color",
-            "never",
+            "--skip-git-repo-check",
+            "--dangerously-bypass-approvals-and-sandbox",
         ]
         if self.model:
             command.extend(["--model", self.model])
+        command.append("-")
 
         attempts: List[CodexCallRecord] = []
         attempt_count = self.max_retries + 1
@@ -340,22 +383,29 @@ class CodexExecRunner:
                 time.sleep(min(5.0, 1.5 * (attempt_index + 1)))
             except subprocess.TimeoutExpired as exc:
                 duration = time.perf_counter() - start
-                stdout_path.write_text(exc.stdout or "", encoding="utf-8")
-                stderr_path.write_text(exc.stderr or "", encoding="utf-8")
-                return CodexCallRecord(
+                stdout_text = _coerce_subprocess_output(exc.stdout)
+                stderr_text = _coerce_subprocess_output(exc.stderr)
+                stdout_path.write_text(stdout_text, encoding="utf-8")
+                stderr_path.write_text(stderr_text, encoding="utf-8")
+
+                record = parse_codex_exec_output(
                     label=label,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    returncode=0,
                     duration_sec=duration,
-                    returncode=124,
-                    session_id=None,
-                    final_message="",
-                    parsed_json=None,
-                    usage=CodexUsage(),
-                    prompt_path=str(prompt_path),
-                    stdout_path=str(stdout_path),
-                    stderr_path=str(stderr_path),
-                    error=f"codex exec timed out after {self.timeout_seconds} seconds",
+                    prompt_path=prompt_path,
+                    stdout_path=stdout_path,
+                    stderr_path=stderr_path,
                 )
+                if record.final_message:
+                    record.returncode = 0
+                    record.error = None
+                    return record
+
+                record.returncode = 124
+                record.error = f"codex exec timed out after {self.timeout_seconds} seconds"
+                return record
 
         if attempts:
             return attempts[-1]

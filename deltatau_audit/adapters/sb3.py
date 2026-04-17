@@ -50,15 +50,16 @@ class SB3Adapter(AgentAdapter):
     @torch.no_grad()
     def act(
         self,
-        obs: torch.Tensor,
+        obs: Any,
         deterministic: bool = True,
         ponder_steps: Optional[int] = None,
     ) -> Tuple[Any, Dict[str, Any]]:
-        # Convert obs to numpy for SB3
-        if obs.dim() == 1:
-            obs_np = obs.cpu().numpy().reshape(1, -1)
+        # Convert obs to numpy for SB3, ensuring it's at least 2D
+        obs_t = torch.as_tensor(obs)
+        if obs_t.dim() == 1:
+            obs_np = obs_t.cpu().numpy().reshape(1, -1)
         else:
-            obs_np = obs.cpu().numpy()
+            obs_np = obs_t.cpu().numpy()
 
         # Get action
         action, _ = self.model.predict(

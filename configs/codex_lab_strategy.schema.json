@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "objective",
+    "selected_frontier",
+    "hyperparams",
+    "rationale",
+    "predicted_upside",
+    "risk_factors",
+    "read_set",
+    "experiment_brief",
+    "code_change_required",
+    "confidence"
+  ],
+  "properties": {
+    "objective": {
+      "type": "string"
+    },
+    "selected_frontier": {
+      "type": "string"
+    },
+    "hyperparams": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean"
+        ]
+      }
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "predicted_upside": {
+      "type": "number"
+    },
+    "risk_factors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "read_set": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "experiment_brief": {
+      "type": "string"
+    },
+    "code_change_required": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "type": "number"
+    }
+  }
+}

@@ -144,6 +144,33 @@ print(result["robustness_score"])   # 0.0 - 1.0
 - **Diff**: `deltatau-audit diff before.json after.json` — compare two audits
 - **Badges**: `deltatau-audit badge summary.json` — generate SVG status badges
 
+## Autonomous Research
+
+This repo also includes a frontier-search loop that can keep proposing and running experiments across multiple research directions, persist a journal, and refresh a live dashboard.
+
+```powershell
+# Windows / PowerShell
+powershell -ExecutionPolicy Bypass -File .\experiments\run_autonomous_research.ps1
+
+# Stop it cleanly from another shell
+New-Item -ItemType File -Force -Path .\research_runs\STOP | Out-Null
+```
+
+```bash
+# Bash
+bash experiments/run_autonomous_research.sh
+touch research_runs/STOP
+```
+
+Outputs are written under `research_runs/`, including `journal.json`, `status.json`, and `dashboard.html`.
+
+If you want the LLM itself in the loop, use the Codex-driven lab. It runs `codex exec` for strategy and critique on every cycle, persists raw Codex JSONL traces, and tracks token usage in `codex_lab_journal.json`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\experiments\run_codex_autonomous_lab.ps1
+New-Item -ItemType File -Force -Path .\research_runs\CODEX_STOP | Out-Null
+```
+
 ## Who Needs This
 
 - **Robotics teams** deploying learned controllers on hardware with variable loop rates

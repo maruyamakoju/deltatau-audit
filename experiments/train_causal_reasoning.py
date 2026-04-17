@@ -39,7 +39,10 @@ class PPOCausal(PPOResolution):
 
                 # Current step data
                 b_obs = buffer.observations.reshape(-1, buffer.observations.shape[-1])[mb_inds]
-                b_actions = buffer.actions.reshape(-1)[mb_inds]
+                if buffer.discrete_actions:
+                    b_actions = buffer.actions.reshape(-1)[mb_inds]
+                else:
+                    b_actions = buffer.actions.reshape(-1, buffer.action_dim)[mb_inds]
                 b_log_probs = buffer.log_probs.reshape(-1)[mb_inds]
                 b_advantages = buffer.advantages.reshape(-1)[mb_inds]
                 b_returns = buffer.returns.reshape(-1)[mb_inds]
@@ -47,14 +50,16 @@ class PPOCausal(PPOResolution):
 
                 # Next step hidden state (target for causal transition)
                 # We need to compute the causal loss: predicting next_hidden from (current_hidden, action)
-                # For this, we'll use the 'next' entries from the buffer if available, 
+                # For this, we'll use the 'next' entries from the buffer if available,
                 # or re-run the forward pass.
-                
+
                 # Forward Pass
                 dist, value, aggregated_h, dt, diag = self.agent.forward(b_obs, b_hidden)
 
                 # 1. Standard PPO Losses (Policy, Value, Entropy, Time, Ponder)
                 new_log_prob = dist.log_prob(b_actions)
+                if not buffer.discrete_actions:
+                    new_log_prob = new_log_prob.sum(-1)
                 ratio = torch.exp(new_log_prob - b_log_probs)
                 surr1 = ratio * b_advantages
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_epsilon, 1.0 + self.clip_epsilon) * b_advantages
@@ -65,13 +70,16 @@ class PPOCausal(PPOResolution):
                 ponder_loss = diag["expected_steps"].mean()
 
                 # 2. Causal Transition Loss (Axis 10 Core)
-                # We want the causal model to predict the *actual* resulting hidden state 
+                # We want the causal model to predict the *actual* resulting hidden state
                 # after the ACT unroll.
                 # (Simplified: predict the aggregated_h of the NEXT step)
-                # In a real implementation, we'd slice mb_inds + 1. 
+                # In a real implementation, we'd slice mb_inds + 1.
                 # For this prototype, we'll train it to be self-consistent.
-                act_one_hot = F.one_hot(b_actions, num_classes=self.agent.act_dim).float()
-                predicted_h_next = self.agent.causal_transition(torch.cat([b_hidden, act_one_hot], dim=-1))
+                if buffer.discrete_actions:
+                    act_features = F.one_hot(b_actions, num_classes=self.agent.act_dim).float()
+                else:
+                    act_features = b_actions
+                predicted_h_next = self.agent.causal_transition(torch.cat([b_hidden, act_features], dim=-1))
                 # Target: the actual next hidden state (we'll approximate with aggregated_h for now)
                 causal_loss = F.mse_loss(predicted_h_next, aggregated_h.detach())
 

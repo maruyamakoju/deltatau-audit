@@ -25,13 +25,20 @@ class RolloutBuffer:
         obs_dim: int,
         hidden_dim: int,
         device: torch.device,
+        action_dim: int = 1,
+        discrete_actions: bool = True,
     ):
         self.num_steps = num_steps
         self.num_envs = num_envs
         self.device = device
+        self.action_dim = action_dim
+        self.discrete_actions = discrete_actions
 
         self.observations = torch.zeros(num_steps, num_envs, obs_dim, device=device)
-        self.actions = torch.zeros(num_steps, num_envs, dtype=torch.long, device=device)
+        if discrete_actions:
+            self.actions = torch.zeros(num_steps, num_envs, dtype=torch.long, device=device)
+        else:
+            self.actions = torch.zeros(num_steps, num_envs, action_dim, device=device)
         self.rewards = torch.zeros(num_steps, num_envs, device=device)
         self.dones = torch.zeros(num_steps, num_envs, device=device)
         self.log_probs = torch.zeros(num_steps, num_envs, device=device)
@@ -118,7 +125,10 @@ class PPOTime:
 
         # Flatten rollout buffer across time and environments
         obs_flat = buffer.observations.reshape(-1, buffer.observations.shape[-1])
-        actions_flat = buffer.actions.reshape(-1)
+        if buffer.discrete_actions:
+            actions_flat = buffer.actions.reshape(-1)
+        else:
+            actions_flat = buffer.actions.reshape(-1, buffer.action_dim)
         old_log_probs_flat = buffer.log_probs.reshape(-1)
         advantages_flat = buffer.advantages.reshape(-1)
         returns_flat = buffer.returns.reshape(-1)
