@@ -350,9 +350,15 @@ def run_loop(args: argparse.Namespace) -> int:
         strategy_runner = cal.CodexExecRunner(
             model=args.codex_model, timeout_seconds=args.strategy_timeout
         )
-    critique_runner = cal.CodexExecRunner(
-        model=args.codex_model, timeout_seconds=args.critique_timeout
-    )
+    if args.critique_engine == "claude":
+        critique_runner = ClaudeExecRunner(
+            model=args.claude_model,
+            timeout_seconds=args.critique_timeout,
+        )
+    else:
+        critique_runner = cal.CodexExecRunner(
+            model=args.codex_model, timeout_seconds=args.critique_timeout
+        )
 
     started_at = datetime.now(timezone.utc).isoformat()
     cycle = journal.total_cycles
@@ -364,7 +370,9 @@ def run_loop(args: argparse.Namespace) -> int:
     phase = "idle"
 
     print(f"\n{'#' * 72}")
-    print(f"#  {args.strategy_engine.upper()} AUTONOMOUS LAB (strategy={args.strategy_engine}, critique=codex)")
+    print(
+        f"#  AUTONOMOUS LAB (strategy={args.strategy_engine}, critique={args.critique_engine})"
+    )
     print(f"#  Output: {out_root}")
     print(f"#  Cycles this session: {'infinite' if args.cycles == 0 else args.cycles}")
     print(f"{'#' * 72}")
@@ -542,6 +550,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         choices=("claude", "codex"),
         default="claude",
         help="Which engine handles the strategy phase (default: claude)",
+    )
+    parser.add_argument(
+        "--critique-engine",
+        choices=("claude", "codex"),
+        default="codex",
+        help="Which engine handles the critique phase (default: codex). "
+        "Set 'claude' for a full-Pro-subscription loop.",
     )
     parser.add_argument("--claude-model", default="opus", help="Model alias for claude -p")
     parser.add_argument("--codex-model", default=None, help="Optional codex model override")
