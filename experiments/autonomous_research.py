@@ -789,6 +789,44 @@ register_frontier(FrontierSpec(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 11: Adaptive-dt Policy Gradient (Claude-proposed 2026-04-18)
+# Tests whether learning per-step dt improves RETURNS on variable-speed envs.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_adaptive_dt_policy_gradient(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """REINFORCE agent with learned dt vs fixed-dt baseline on VariableFrequencyChainEnv."""
+    from frontiers.adaptive_dt_policy_gradient import AdaptiveDTExperiment
+
+    exp = AdaptiveDTExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="adaptive_dt_policy_gradient",
+    description="Adaptive-dt policy head on variable-speed chain; measures whether learned dt correlates with env speed and beats fixed-dt baseline",
+    runner=_run_adaptive_dt_policy_gradient,
+    default_hyperparams={
+        "hidden_dim": 64,
+        "lr": 3e-3,
+        "n_episodes": 80,
+        "chain_length": 20,
+        "noise": 0.05,
+        "eval_per_speed": 20,
+        "seed": 0,
+        "device_policy": "cpu",
+    },
+    hyperparam_ranges={
+        "hidden_dim": (32, 256),
+        "lr": (1e-4, 1e-2),
+        "n_episodes": (40, 200),
+        "noise": (0.0, 0.2),
+        "eval_per_speed": (10, 40),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Main orchestrator loop
 # ═══════════════════════════════════════════════════════════════════════════════
 
