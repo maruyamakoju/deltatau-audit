@@ -572,8 +572,8 @@ def test_collect_log_health_detects_latest_signature(tmp_path: Path):
     assert health["latest_error_signature"] == "fortran_window_close"
     assert isinstance(health["latest_stdout_log"], str)
     assert isinstance(health["latest_stderr_log"], str)
-    assert health["latest_stdout_log"].endswith("job_b\\bench_run.log")
-    assert health["latest_stderr_log"].endswith("job_b\\bench_run.err.log")
+    assert health["latest_stdout_log"].endswith(os.path.join("job_b", "bench_run.log"))
+    assert health["latest_stderr_log"].endswith(os.path.join("job_b", "bench_run.err.log"))
 
 
 def test_print_diagnose_reports_stall(monkeypatch, capsys):
