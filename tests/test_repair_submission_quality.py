@@ -4,8 +4,19 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
+
+import pytest
+
+# Tests that monkeypatch os.name="nt" must be skipped on POSIX. The patch
+# leaks into pathlib.Path which then tries to instantiate WindowsPath at
+# pytest_sessionfinish and crashes the runner.
+windows_only = pytest.mark.skipif(
+    os.name != "nt",
+    reason="Patches os.name='nt' which leaks into pathlib on POSIX runners",
+)
 
 
 def _load_module():
@@ -320,6 +331,7 @@ def test_main_status_reads_state_and_returns_success_when_alive(monkeypatch, tmp
     assert "pid: 4242" in out
 
 
+@windows_only
 def test_schedule_background_task_writes_wrapper_and_uses_schtasks(monkeypatch, tmp_path: Path):
     m = _load_module()
     monkeypatch.setattr(m.os, "name", "nt", raising=False)
@@ -386,6 +398,7 @@ def test_parse_schtasks_query_extracts_state():
     assert parsed["last_run_time"] == "2026/03/16 23:13:00"
 
 
+@windows_only
 def test_scheduled_task_status_falls_back_to_schtasks(monkeypatch):
     m = _load_module()
     monkeypatch.setattr(m.os, "name", "nt", raising=False)

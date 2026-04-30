@@ -10,6 +10,16 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
+# Tests that monkeypatch os.name="nt" must be skipped on POSIX. The patch
+# leaks into pathlib.Path which then tries to instantiate WindowsPath at
+# pytest_sessionfinish and crashes the runner.
+windows_only = pytest.mark.skipif(
+    os.name != "nt",
+    reason="Patches os.name='nt' which leaks into pathlib on POSIX runners",
+)
+
 
 def _load_module():
     root = Path(__file__).resolve().parents[1]
@@ -188,6 +198,7 @@ def test_pid_alive_false_for_invalid_pid():
     assert m._pid_alive(-1) is False
 
 
+@windows_only
 def test_pid_alive_windows_tasklist_true(monkeypatch):
     m = _load_module()
     monkeypatch.setattr(m, "psutil", None)
@@ -207,6 +218,7 @@ def test_pid_alive_windows_tasklist_true(monkeypatch):
     assert m._pid_alive(1234) is True
 
 
+@windows_only
 def test_pid_alive_windows_tasklist_false(monkeypatch):
     m = _load_module()
     monkeypatch.setattr(m, "psutil", None)
@@ -226,6 +238,7 @@ def test_pid_alive_windows_tasklist_false(monkeypatch):
     assert m._pid_alive(1234) is False
 
 
+@windows_only
 def test_terminate_job_process_falls_back_to_taskkill(monkeypatch):
     m = _load_module()
     monkeypatch.setattr(m.os, "name", "nt", raising=False)
@@ -297,6 +310,7 @@ def test_atomic_write_text_overwrites_target(tmp_path: Path):
     assert tmp_files == []
 
 
+@windows_only
 def test_launch_popen_kwargs_windows(monkeypatch):
     m = _load_module()
     monkeypatch.setattr(m.os, "name", "nt", raising=False)
