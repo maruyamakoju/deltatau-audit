@@ -132,7 +132,7 @@ ignore = [
 "tests/test_v0*.py" = ["F401", "F841", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["deltatau_audit"]
+known-first-party = ["deltatau_audit", "autonomous_research", "frontiers", "internal_time_rl"]
 
 [tool.mypy]
 ignore_missing_imports = true

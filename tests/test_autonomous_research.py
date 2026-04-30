@@ -713,7 +713,6 @@ class TestConsistencyDistillation:
 
     def test_consistency_distillation_runner_preserves_seed(self, monkeypatch, tmp_path):
         import autonomous_research as ar
-
         from frontiers import temporal_consistency_distillation as tcd
 
         captured = {}
