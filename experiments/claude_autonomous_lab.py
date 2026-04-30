@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -34,14 +33,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import autonomous_research as base
 import codex_autonomous_lab as cal
+from _orch_shared import (
+    LLMRunnerBase,
+    _extract_json_block,
+)
 
 
-class ClaudeExecRunner:
+class ClaudeExecRunner(LLMRunnerBase):
     """Thin wrapper around `claude -p --output-format json`.
 
-    Returns a ``cal.CodexCallRecord`` so downstream code (journal, persist,
-    status) can treat Claude and Codex runners interchangeably.
+    Returns an :class:`LLMCallRecord` so downstream code (journal,
+    persist, status) can treat Claude and Codex runners interchangeably.
     """
+
+    _CLI_CANDIDATES = ("claude.cmd", "claude", "claude.ps1")
 
     def __init__(
         self,
@@ -54,23 +59,7 @@ class ClaudeExecRunner:
         self.timeout_seconds = timeout_seconds
         self.max_retries = max(0, int(max_retries))
         self.allowed_tools = allowed_tools
-        self.claude_command = self._resolve_claude_command()
-
-    @staticmethod
-    def _resolve_claude_command() -> str:
-        for candidate in ("claude.cmd", "claude", "claude.ps1"):
-            path = shutil.which(candidate)
-            if path:
-                return path
-        raise FileNotFoundError("Could not find claude CLI on PATH")
-
-    @staticmethod
-    def _creationflags() -> int:
-        if os.name != "nt":
-            return 0
-        return int(getattr(subprocess, "CREATE_NO_WINDOW", 0)) | int(
-            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        )
+        self.claude_command = self._resolve_cli_command(self._CLI_CANDIDATES, name="claude")
 
     @staticmethod
     def _subscription_env() -> dict:
@@ -176,33 +165,6 @@ class ClaudeExecRunner:
         return last_record
 
 
-def _extract_json_block(text: str) -> str:
-    """Extract a JSON object from a Claude response.
-
-    Claude often precedes the JSON with prose and wraps it in ```json ... ```
-    fences. Falls back to the widest top-level ``{ ... }`` pair if no fence
-    is present.
-    """
-    fence_start = text.find("```json")
-    if fence_start != -1:
-        inside = text[fence_start + len("```json"):]
-        fence_end = inside.find("```")
-        if fence_end != -1:
-            return inside[:fence_end].strip()
-        return inside.strip()
-    fence_start = text.find("```")
-    if fence_start != -1:
-        inside = text[fence_start + 3:]
-        fence_end = inside.find("```")
-        if fence_end != -1:
-            return inside[:fence_end].strip()
-    first_brace = text.find("{")
-    last_brace = text.rfind("}")
-    if first_brace != -1 and last_brace > first_brace:
-        return text[first_brace:last_brace + 1].strip()
-    return text.strip()
-
-
 def _parse_claude_output(
     *,
     label: str,
@@ -304,7 +266,8 @@ def _parse_claude_output(
 
     if record.parsed_json is not None and record.error is None:
         try:
-            from jsonschema import ValidationError, validate as jsonschema_validate
+            from jsonschema import ValidationError
+            from jsonschema import validate as jsonschema_validate
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
             jsonschema_validate(record.parsed_json, schema)
         except ValidationError as exc:

@@ -15,154 +15,37 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
 import traceback
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from jsonschema import ValidationError, validate as jsonschema_validate
+from jsonschema import ValidationError
+from jsonschema import validate as jsonschema_validate
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import autonomous_research as base
-
+from _orch_shared import (
+    CodexCallRecord,  # noqa: F401  (backwards-compat re-export)
+    CodexLabJournal,  # noqa: F401  (backwards-compat re-export)
+    CodexUsage,  # noqa: F401  (backwards-compat re-export)
+    LLMRunnerBase,
+    _coerce_subprocess_output,
+    _safe_int,
+    build_experiment_command,
+    experiment_record_from_dict,
+    should_stop,
+    usage_summary,
+    write_json,
+)
 
 WINDOWS_CONTROL_EVENT_EXIT = 0xC000013A
-
-
-@dataclass
-class CodexUsage:
-    input_tokens: int = 0
-    cached_input_tokens: int = 0
-    output_tokens: int = 0
-
-    @property
-    def observed_tokens(self) -> int:
-        return self.input_tokens + self.cached_input_tokens + self.output_tokens
-
-    @property
-    def billable_proxy_tokens(self) -> int:
-        return self.input_tokens + self.output_tokens
-
-    def add(self, other: "CodexUsage") -> None:
-        self.input_tokens += other.input_tokens
-        self.cached_input_tokens += other.cached_input_tokens
-        self.output_tokens += other.output_tokens
-
-
-@dataclass
-class CodexCallRecord:
-    label: str
-    timestamp: str
-    duration_sec: float
-    returncode: int
-    session_id: Optional[str]
-    final_message: str
-    parsed_json: Optional[Dict[str, Any]]
-    usage: CodexUsage
-    prompt_path: str
-    stdout_path: str
-    stderr_path: str
-    error: Optional[str] = None
-
-
-@dataclass
-class CodexLabJournal:
-    started_at: str
-    total_codex_calls: int = 0
-    total_usage: CodexUsage = field(default_factory=CodexUsage)
-    recent_calls: List[Dict[str, Any]] = field(default_factory=list)
-    recent_cycles: List[Dict[str, Any]] = field(default_factory=list)
-
-    def add_call(self, record: CodexCallRecord) -> None:
-        self.total_codex_calls += 1
-        self.total_usage.add(record.usage)
-        self.recent_calls.append({
-            "label": record.label,
-            "timestamp": record.timestamp,
-            "duration_sec": record.duration_sec,
-            "returncode": record.returncode,
-            "session_id": record.session_id,
-            "usage": asdict(record.usage),
-            "error": record.error,
-        })
-        self.recent_calls = self.recent_calls[-100:]
-
-    def add_cycle(
-        self,
-        cycle: int,
-        frontier: str,
-        experiment: base.ExperimentRecord,
-        strategy: CodexCallRecord,
-        critique: CodexCallRecord,
-    ) -> None:
-        usage = CodexUsage()
-        usage.add(strategy.usage)
-        usage.add(critique.usage)
-        self.recent_cycles.append({
-            "cycle": cycle,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "frontier": frontier,
-            "experiment_status": experiment.status,
-            "experiment_finding": experiment.finding,
-            "strategy_session_id": strategy.session_id,
-            "critique_session_id": critique.session_id,
-            "codex_usage": asdict(usage),
-        })
-        self.recent_cycles = self.recent_cycles[-100:]
-
-    def save(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "started_at": self.started_at,
-            "total_codex_calls": self.total_codex_calls,
-            "total_usage": asdict(self.total_usage),
-            "recent_calls": self.recent_calls,
-            "recent_cycles": self.recent_cycles,
-        }
-        path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-
-    @classmethod
-    def load(cls, path: Path) -> "CodexLabJournal":
-        if not path.exists():
-            return cls(started_at=datetime.now(timezone.utc).isoformat())
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            total_usage = CodexUsage(**payload.get("total_usage", {}))
-            return cls(
-                started_at=payload.get("started_at", datetime.now(timezone.utc).isoformat()),
-                total_codex_calls=int(payload.get("total_codex_calls", 0)),
-                total_usage=total_usage,
-                recent_calls=list(payload.get("recent_calls", [])),
-                recent_cycles=list(payload.get("recent_cycles", [])),
-            )
-        except Exception:
-            return cls(started_at=datetime.now(timezone.utc).isoformat())
-
-
-def should_stop(stop_path: Optional[Path]) -> bool:
-    return stop_path is not None and stop_path.exists()
-
-
-def _safe_int(value: Any) -> int:
-    try:
-        return int(value)
-    except Exception:
-        return 0
-
-
-def _coerce_subprocess_output(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return str(value)
 
 
 def parse_codex_exec_output(
@@ -242,7 +125,7 @@ def parse_codex_exec_output(
             if clean_message.endswith("```"):
                 clean_message = clean_message[:-3]
             clean_message = clean_message.strip()
-            
+
             parsed_json = json.loads(clean_message)
         except json.JSONDecodeError as exc:
             parse_error = f"Final message was not valid JSON: {exc}"
@@ -274,31 +157,16 @@ def parse_codex_exec_output(
     )
 
 
-class CodexExecRunner:
+class CodexExecRunner(LLMRunnerBase):
     """Thin wrapper around `codex exec --json`."""
+
+    _CLI_CANDIDATES = ("codex.cmd", "codex", "codex.ps1", "gemini.cmd", "gemini", "gemini.ps1")
 
     def __init__(self, model: Optional[str], timeout_seconds: int, max_retries: int = 2) -> None:
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_retries = max(0, int(max_retries))
-        self.codex_command = self._resolve_codex_command()
-
-    @staticmethod
-    def _resolve_codex_command() -> str:
-        for candidate in ("codex.cmd", "codex", "codex.ps1", "gemini.cmd", "gemini", "gemini.ps1"):
-            path = shutil.which(candidate)
-            if path:
-                return path
-        raise FileNotFoundError("Could not find codex CLI on PATH")
-
-    @staticmethod
-    def _creationflags() -> int:
-        """Use Windows-friendly flags so child Codex runs do not depend on a visible console."""
-        if os.name != "nt":
-            return 0
-        return int(getattr(subprocess, "CREATE_NO_WINDOW", 0)) | int(
-            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        )
+        self.codex_command = self._resolve_cli_command(self._CLI_CANDIDATES, name="codex")
 
     @staticmethod
     def _is_retryable_windows_exit(returncode: int) -> bool:
@@ -410,16 +278,6 @@ class CodexExecRunner:
         if attempts:
             return attempts[-1]
         raise RuntimeError("Unreachable codex exec retry state")
-
-
-def usage_summary(usage: CodexUsage) -> str:
-    """Compact human-readable token summary."""
-    return (
-        f"in={usage.input_tokens:,} "
-        f"cached={usage.cached_input_tokens:,} "
-        f"out={usage.output_tokens:,} "
-        f"obs={usage.observed_tokens:,}"
-    )
 
 
 def _recent_record_summary(journal: base.ResearchJournal, limit: int = 5) -> List[Dict[str, Any]]:
@@ -546,55 +404,6 @@ Special option — proposing a NEW frontier axis:
 - The proposal must include: name (snake_case, 3-40 chars, unique), description (one line), rationale (why this matters now), hypothesis (testable), and optional skeleton_python (a Python file stub with a run(params) -> dict entry point).
 - This is the only way the lab can grow its search space beyond the current 10 axes. Use it when you have a concrete, testable new idea — not as filler.
 """.strip()
-
-
-def write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-
-
-def experiment_record_from_dict(payload: Dict[str, Any]) -> base.ExperimentRecord:
-    """Reconstruct an ExperimentRecord from JSON."""
-    return base.ExperimentRecord(
-        frontier=str(payload.get("frontier", "unknown")),
-        cycle=int(payload.get("cycle", 0)),
-        timestamp=str(payload.get("timestamp", "")),
-        hyperparams=dict(payload.get("hyperparams", {})),
-        metrics=dict(payload.get("metrics", {})),
-        duration_sec=float(payload.get("duration_sec", 0.0)),
-        status=str(payload.get("status", "failed")),
-        finding=str(payload.get("finding", "")),
-        error=payload.get("error"),
-    )
-
-
-def build_experiment_command(
-    *,
-    cycle: int,
-    frontier_name: str,
-    out_root: Path,
-    journal_path: Path,
-    params_path: Path,
-    result_path: Path,
-) -> List[str]:
-    """Build the child-process command that runs one frontier in isolation."""
-    helper = PROJECT_ROOT / "experiments" / "run_frontier_once.py"
-    return [
-        sys.executable,
-        str(helper),
-        "--cycle",
-        str(cycle),
-        "--frontier",
-        frontier_name,
-        "--out",
-        str(out_root),
-        "--journal",
-        str(journal_path),
-        "--params-json",
-        str(params_path),
-        "--result-json",
-        str(result_path),
-    ]
 
 
 def run_experiment_isolated(

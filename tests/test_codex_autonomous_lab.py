@@ -161,7 +161,9 @@ class TestCodexExecRunner:
             calls.append(kwargs)
             return responses.pop(0)
 
-        monkeypatch.setattr(m.shutil, "which", lambda *_: "codex.cmd")
+        # CLI lookup now happens inside _orch_shared.LLMRunnerBase, so patch there.
+        import _orch_shared
+        monkeypatch.setattr(_orch_shared.shutil, "which", lambda *_: "codex.cmd")
         monkeypatch.setattr(m.subprocess, "run", fake_run)
         monkeypatch.setattr(m.time, "sleep", lambda *_: None)
         monkeypatch.setattr(m.os, "name", "nt")
