@@ -324,7 +324,7 @@ class TestAutonomousResearchMain:
 
         seen_cycles = []
 
-        def fake_run_cycle(cycle, journal, out_root, forced_frontier=None):
+        def fake_run_cycle(cycle, journal, out_root, forced_frontier=None, **kwargs):
             seen_cycles.append(cycle)
             return self._record(m, cycle, status="success")
 
@@ -374,7 +374,7 @@ class TestAutonomousResearchMain:
 
         seen_cycles = []
 
-        def fake_run_cycle(cycle, journal, out_root, forced_frontier=None):
+        def fake_run_cycle(cycle, journal, out_root, forced_frontier=None, **kwargs):
             seen_cycles.append(cycle)
             return self._record(m, cycle, status="failed")
 

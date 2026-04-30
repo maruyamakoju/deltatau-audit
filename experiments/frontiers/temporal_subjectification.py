@@ -7,19 +7,19 @@ driven by Continuous-Time Neural ODE dynamics.
 from __future__ import annotations
 
 import logging
-import os
-import time as _time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
 
-from internal_time_rl.models.continuous import NeuralODEAgent, odeint
 from deltatau_audit.adapters.base import AgentAdapter
+from internal_time_rl.models.continuous import NeuralODEAgent, odeint
+
+from ._base import save_summary, seed_all
+from ._metrics import aggregate_returns, normalize_score
 
 logger = logging.getLogger("deltatau-audit")
 
@@ -40,16 +40,16 @@ class SubjectiveTemporalAgent(NeuralODEAgent):
 
     def forward(self, obs: torch.Tensor, hidden: torch.Tensor, env_dt: Optional[float] = None) -> Tuple:
         encoded = self.encoder(obs)
-        
+
         # 1. Decide 'how much time' to spend thinking about this observation
         # In subjectification, we might ignore env_dt or use it as a 'hint'
         subj_dt = self.time_module(hidden, encoded)
-        
+
         # 2. Evolve internal state over the subjective interval
         self.ode_func.set_condition(encoded)
         t_span = torch.tensor([0.0, subj_dt.mean().item()], device=hidden.device)
         hidden_new = odeint(self.ode_func, hidden, t_span, method=self.ode_method)
-        
+
         self.subjective_time += subj_dt.mean().item()
 
         # 3. Policy based on matured hidden state
@@ -74,10 +74,10 @@ class SubjectiveAdapter(AgentAdapter):
         obs = obs.to(self.device)
         if self.hidden is None:
             self.hidden = self.agent.get_initial_hidden(1, self.device)
-            
+
         dist, value, self.hidden, subj_dt = self.agent(obs.unsqueeze(0), self.hidden)
         action = dist.sample()
-        
+
         return action.item() if self.agent.discrete_actions else action.cpu().numpy()[0], {
             "value": value.item(),
             "subj_dt": subj_dt.item(),
@@ -97,7 +97,8 @@ class TemporalSubjectificationExperiment:
         self.params = params
         self.env_id = params.get("env", "CartPole-v1")
         self.device = params.get("device", "cpu")
-        
+        self.seed = int(params.get("seed", 42))
+
         self.agent = SubjectiveTemporalAgent(
             obs_dim=params.get("obs_dim", 4),
             act_dim=params.get("act_dim", 2),
@@ -108,8 +109,9 @@ class TemporalSubjectificationExperiment:
         self.optimizer = optim.Adam(self.agent.parameters(), lr=params.get("lr", 1e-3))
 
     def run(self, out_dir: Path) -> Dict[str, float]:
+        seed_all(self.seed)
         print(f"  Training Subjective Agent on {self.env_id}...")
-        
+
         # Simple training loop (Reinforce-style for research speed)
         n_episodes = self.params.get("n_episodes", 50)
         returns = []
@@ -120,38 +122,38 @@ class TemporalSubjectificationExperiment:
             obs, _ = env.reset()
             hidden = self.agent.get_initial_hidden(1, self.device)
             self.agent.subjective_time = 0.0
-            
+
             ep_reward = 0
             log_probs = []
             env_time = 0.0
-            
+
             done = False
             while not done:
                 # Agent acts in its subjective time
                 dist, value, hidden, subj_dt = self.agent(
-                    torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.device), 
+                    torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.device),
                     hidden
                 )
                 action = dist.sample()
                 log_probs.append(dist.log_prob(action))
-                
+
                 # Execute in env (here env_dt is 1.0)
                 obs, r, term, trunc, _ = env.step(action.item())
                 ep_reward += r
                 env_time += 1.0
-                
+
                 done = term or trunc
                 if len(log_probs) > 500: break
-            
+
             # Update
             loss = -torch.stack(log_probs).sum() * ep_reward / 100.0
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            
+
             returns.append(ep_reward)
             subjective_drifts.append(abs(self.agent.subjective_time - env_time))
-            
+
             if ep % 10 == 0:
                 print(f"    Episode {ep}: Return = {ep_reward:.1f}, Drift = {subjective_drifts[-1]:.2f}")
             env.close()
@@ -160,12 +162,17 @@ class TemporalSubjectificationExperiment:
         print("  Testing temporal robustness (Subjective vs Baseline)...")
         robustness_score = self._eval_robustness()
 
-        return {
-            "mean_return": float(np.mean(returns)),
-            "subjective_consistency": 1.0 / (1.0 + np.mean(subjective_drifts)),
-            "temporal_robustness": robustness_score,
-            "composite_score": float(np.mean(returns) / 200.0 * robustness_score)
+        return_stats = aggregate_returns(returns)
+        ceiling = float(self.params.get("nominal_return", 200.0))
+        normalised = normalize_score(return_stats["mean_return"], ceiling=ceiling)
+        summary = {
+            **return_stats,
+            "subjective_consistency": float(1.0 / (1.0 + np.mean(subjective_drifts))) if subjective_drifts else 0.0,
+            "temporal_robustness": float(robustness_score),
+            "composite_score": float(normalised * robustness_score),
         }
+        save_summary(out_dir, summary)
+        return summary
 
     def _eval_robustness(self) -> float:
         # Test under random timing jitters

@@ -827,6 +827,317 @@ register_frontier(FrontierSpec(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 13: Causal-Relativistic World Model (CRWM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_causal_relativistic_wm(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Relativistic temporal field via Hyperbolic latent ODE."""
+    from frontiers.causal_relativistic_world_model import CRWMExperiment
+
+    exp = CRWMExperiment(params)
+    return exp.run(out_dir)
+
+
+def _sanitize_relativistic_hyperparams(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure hidden_dim is a multiple of n_groups."""
+    result = dict(params)
+    n_groups = max(1, int(result.get("n_groups", 4)))
+    hidden_dim = int(result.get("hidden_dim", 128))
+    # Round hidden_dim up to the nearest multiple of n_groups
+    result["hidden_dim"] = ((hidden_dim + n_groups - 1) // n_groups) * n_groups
+    result["n_groups"] = n_groups
+    return result
+
+
+register_frontier(FrontierSpec(
+    name="causal_relativistic_wm",
+    description="Proper Time Field over Hyperbolic latent space -- relativistic action timing",
+    runner=_run_causal_relativistic_wm,
+    sanitize_hyperparams=_sanitize_relativistic_hyperparams,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "obs_dim": 4,
+        "act_dim": 2,
+        "hidden_dim": 128,
+        "n_groups": 4,
+        "lr": 1e-3,
+        "n_episodes": 40,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "n_groups": (2, 8),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 14: Quantum-Tunneling Relativistic World Model (QTRWM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_quantum_tunneling_wm(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Quantum-tunneling latent jumps over relativistic manifold."""
+    from frontiers.frontier_14 import QTRWMExperiment
+
+    exp = QTRWMExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="quantum_tunneling_wm",
+    description="Relativistic latent ODE with stochastic quantum-tunneling jumps for extreme timing jitter",
+    runner=_run_quantum_tunneling_wm,
+    sanitize_hyperparams=_sanitize_relativistic_hyperparams,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "obs_dim": 4,
+        "act_dim": 2,
+        "hidden_dim": 128,
+        "n_groups": 4,
+        "lr": 1e-3,
+        "n_episodes": 48,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "n_groups": (2, 8),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (30, 150),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 15: Entropic Causal Manifold Alignment (ECMA)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_entropic_causal_manifold_alignment(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Riemannian manifold ODE with entropic information bottleneck."""
+    from frontiers.entropic_causal_manifold_alignment import ECMAExperiment
+
+    exp = ECMAExperiment(params)
+    return exp.run(out_dir)
+
+
+def _sanitize_ecma_hyperparams(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure environment-specific dimensions and robust defaults."""
+    result = dict(params)
+    env_id = result.get("env", "CartPole-v1")
+    
+    # Auto-detect dimensions if not provided
+    if "obs_dim" not in result or "act_dim" not in result:
+        try:
+            temp_env = gym.make(env_id)
+            result["obs_dim"] = temp_env.observation_space.shape[0]
+            if isinstance(temp_env.action_space, gym.spaces.Discrete):
+                result["act_dim"] = temp_env.action_space.n
+            else:
+                result["act_dim"] = temp_env.action_space.shape[0]
+            temp_env.close()
+        except Exception:
+            result.setdefault("obs_dim", 4)
+            result.setdefault("act_dim", 2)
+
+    # Set nominal returns based on env
+    if "nominal_return" not in result:
+        if "CartPole" in env_id: result["nominal_return"] = 500.0
+        elif "HalfCheetah" in env_id: result["nominal_return"] = 3000.0
+        elif "Hopper" in env_id: result["nominal_return"] = 2000.0
+        else: result["nominal_return"] = 100.0
+        
+    return result
+
+
+register_frontier(FrontierSpec(
+    name="entropic_causal_manifold_alignment",
+    description="Riemannian geodesic flow in latent space with entropic regularization for scale-invariant causal discovery",
+    runner=_run_entropic_causal_manifold_alignment,
+    sanitize_hyperparams=_sanitize_ecma_hyperparams,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "hidden_dim": 128,
+        "lr": 1e-3,
+        "n_episodes": 50,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 512),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 200),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 16: Spatiotemporal Contrastive Foundation Transformer (SCFT)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_scft_foundation_transformer(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Continuous-time foundation transformer with Rotary Positional Embeddings."""
+    from frontiers.scft_foundation_transformer import SCFTExperiment
+
+    exp = SCFTExperiment(params)
+    return exp.run(out_dir)
+
+
+def _sanitize_scft_hyperparams(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure latent_dim is divisible by num_heads (4)."""
+    result = dict(params)
+    latent_dim = int(result.get("latent_dim", 64))
+    # Round up to nearest multiple of 4
+    result["latent_dim"] = ((latent_dim + 3) // 4) * 4
+    return result
+
+
+register_frontier(FrontierSpec(
+    name="scft_foundation_transformer",
+    description="Continuous-time foundation transformer with Rotary Positional Embeddings (RoPE) and latent time-query head",
+    runner=_run_scft_foundation_transformer,
+    sanitize_hyperparams=_sanitize_scft_hyperparams,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "latent_dim": 64,
+        "lr": 1e-3,
+        "n_episodes": 30,
+    },
+    hyperparam_ranges={
+        "latent_dim": (32, 256),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 17: Fractal-Temporal World Model (FTWM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_fractal_temporal_world_model(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Scale-indexed Neural ODE with fractal scale-attention."""
+    from frontiers.fractal_temporal_world_model import FTWMExperiment
+
+    exp = FTWMExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="fractal_temporal_world_model",
+    description="Time as a fractal manifold; continuous scale-indexed Neural ODE with scale-attention for infinite-resolution cognition",
+    runner=_run_fractal_temporal_world_model,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "hidden_dim": 128,
+        "n_scales": 4,
+        "lr": 1e-3,
+        "n_episodes": 40,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "n_scales": (2, 8),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 18: Meta-Temporal Evolution (MTE)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_meta_temporal_evolution(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Online meta-learning of temporal clock parameters."""
+    from frontiers.meta_temporal_evolution import MTEExperiment
+
+    exp = MTEExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="meta_temporal_evolution",
+    description="Online meta-learning loop for dynamic clock (dt) and resolution adaptation",
+    runner=_run_meta_temporal_evolution,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "hidden_dim": 128,
+        "lr": 1e-3,
+        "n_episodes": 50,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 19: Causal-Entangled Message Passing Transformer (CEMPT)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_cempt_causal_transformer(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Spatiotemporal causal graph with message-passing transformer."""
+    from frontiers.cempt_causal_transformer import CEMPTExperiment
+
+    exp = CEMPTExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="cempt_causal_transformer",
+    description="Environment as a causal graph; message-passing transformer for explicit structural reasoning",
+    runner=_run_cempt_causal_transformer,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "hidden_dim": 128,
+        "lr": 1e-3,
+        "n_episodes": 30,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Frontier 20: Temporal Singularity World Model (TSWM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _run_temporal_singularity_world_model(params: Dict[str, Any], out_dir: Path) -> Dict[str, float]:
+    """Inverse-causality singularity with Hawking radiation regularization."""
+    from frontiers.temporal_singularity_world_model import TSWMExperiment
+
+    exp = TSWMExperiment(params)
+    return exp.run(out_dir)
+
+
+register_frontier(FrontierSpec(
+    name="temporal_singularity_wm",
+    description="Time as a singularity; inverse-causality decoding from an Event Horizon latent",
+    runner=_run_temporal_singularity_world_model,
+    default_hyperparams={
+        "env": "CartPole-v1",
+        "hidden_dim": 128,
+        "lr": 1e-3,
+        "n_episodes": 40,
+    },
+    hyperparam_ranges={
+        "hidden_dim": (64, 256),
+        "lr": (1e-4, 5e-3),
+        "n_episodes": (20, 100),
+    },
+))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Main orchestrator loop
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1156,6 +1467,7 @@ def run_cycle(
     out_root: Path,
     forced_frontier: Optional[str] = None,
     runtime_config: Optional[CycleRuntimeConfig] = None,
+    env_override: Optional[str] = None,
 ) -> ExperimentRecord:
     """Execute one research cycle."""
     runtime_config = runtime_config or CURRENT_CYCLE_RUNTIME_CONFIG
@@ -1169,6 +1481,8 @@ def run_cycle(
         base_params, spec.hyperparam_ranges, spec.mutation_sigma,
         journal, frontier_name,
     )
+    if env_override:
+        params["env"] = env_override
     params = prepare_frontier_params(frontier_name, params)
     device_policy = resolve_cycle_device_policy(journal, frontier_name, runtime_config)
     params = apply_resource_profile(frontier_name, params, device_policy)
@@ -1437,6 +1751,7 @@ def persist_runtime_artifacts(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Autonomous Research Orchestrator")
+    parser.add_argument("--env", type=str, default=None, help="Override default environment")
     parser.add_argument("--cycles", type=int, default=0, help="Number of cycles (0=infinite)")
     parser.add_argument("--frontier", type=str, default=None, help="Force specific frontier")
     parser.add_argument("--out", type=str, default="research_runs", help="Output directory")
@@ -1604,7 +1919,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             global CURRENT_CYCLE_RUNTIME_CONFIG
             CURRENT_CYCLE_RUNTIME_CONFIG = runtime_config
             try:
-                record = run_cycle(cycle, journal, out_root, target_frontier)
+                record = run_cycle(cycle, journal, out_root, target_frontier, env_override=args.env)
             finally:
                 CURRENT_CYCLE_RUNTIME_CONFIG = None
             last_record = record

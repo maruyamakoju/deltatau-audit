@@ -32,6 +32,7 @@ import torch.nn.functional as F
 
 from internal_time_rl.envs.variable_frequency import VariableFrequencyChainEnv
 
+from ._base import save_summary, seed_all
 
 TRAIN_SPEEDS: Tuple[int, ...] = (1, 2, 3)
 EVAL_SPEEDS: Tuple[int, ...] = (1, 2, 3, 5, 8)
@@ -233,8 +234,7 @@ class AdaptiveDTExperiment:
         self.seed = int(params.get("seed", 0))
 
     def _build(self, adaptive_dt: bool) -> AdaptiveDTAgent:
-        torch.manual_seed(self.seed)
-        np.random.seed(self.seed)
+        seed_all(self.seed)
         # obs = chain_length + step_frac + speed + reward_pending
         obs_dim = self.chain_length + 3
         return AdaptiveDTAgent(
@@ -247,6 +247,7 @@ class AdaptiveDTExperiment:
     def run(self, out_dir: Path) -> Dict[str, float]:
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
+        seed_all(self.seed)
 
         print("  [adaptive_dt_pg] training adaptive agent...")
         adaptive_agent = self._build(adaptive_dt=True)
@@ -337,4 +338,5 @@ class AdaptiveDTExperiment:
         (out_dir / "per_speed_eval.json").write_text(
             json.dumps(per_speed_summary, indent=2), encoding="utf-8"
         )
+        save_summary(out_dir, metrics)
         return metrics
