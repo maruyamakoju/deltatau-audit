@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add experiments to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "experiments"))
@@ -129,6 +132,14 @@ class TestCodexLabJournal:
 class TestCodexExecRunner:
     """Validate Windows-friendly Codex execution behavior."""
 
+    @pytest.mark.skipif(
+        os.name != "nt",
+        reason=(
+            "Test patches os.name='nt' to exercise the Windows control-event "
+            "retry path; on POSIX this leaks into pathlib.Path which then "
+            "tries to instantiate WindowsPath and crashes pytest_sessionfinish."
+        ),
+    )
     def test_runner_retries_transient_windows_control_event(self, tmp_path, monkeypatch):
         import codex_autonomous_lab as m
 
