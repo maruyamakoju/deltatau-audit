@@ -1,10 +1,8 @@
 """Tests for TemporalRSSM and WorldModelTrainer (PHASE 4)."""
 from __future__ import annotations
 
-import pytest
 import torch
 import torch.nn.functional as F
-
 
 # ── TemporalRSSM tests ────────────────────────────────────────────────────────
 
@@ -126,8 +124,9 @@ def test_rssm_predict_timing_shape():
 
 def test_rssm_imagine_output_structure():
     """rssm_imagine() must return correct keys and sequence length."""
-    from internal_time_rl.models.world_model import TemporalRSSM
     import torch.nn as nn
+
+    from internal_time_rl.models.world_model import TemporalRSSM
     B, horizon = 2, 3
     model = TemporalRSSM(obs_dim=4, act_dim=2, hidden_dim=16, latent_dim=4)
     h, z = model.initial_state(B)
@@ -174,7 +173,8 @@ def test_world_model_trainer_reduces_loss():
     model = TemporalRSSM(obs_dim=4, act_dim=2, hidden_dim=32, latent_dim=8)
     trainer = WorldModelTrainer(model, lr=1e-2)
 
-    losses_start = [trainer.train_step(obs, act)["reconstruction_loss"] for _ in range(3)]
+    # Warm-up steps before measuring; results discarded.
+    _ = [trainer.train_step(obs, act)["reconstruction_loss"] for _ in range(3)]
     losses_end = [trainer.train_step(obs, act)["reconstruction_loss"] for _ in range(10)]
 
     # Should generally decrease (not guaranteed, but strong signal)

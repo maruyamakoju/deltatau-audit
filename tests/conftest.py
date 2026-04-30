@@ -19,7 +19,6 @@ import torch
 
 from deltatau_audit.adapters.base import AgentAdapter
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _TEST_TEMP_ROOT = _REPO_ROOT / ".tmp" / "pytest_temp_root"
 _TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)

@@ -10,14 +10,10 @@ from __future__ import annotations
 import json
 import pathlib
 import tempfile
-from typing import Any, Optional
 
 import gymnasium as gym
-import numpy as np
-import pytest
 import torch
 import torch.nn as nn
-
 
 # ── Minimal CartPole-compatible adapter ──────────────────────────────────────
 
@@ -124,8 +120,8 @@ def test_full_audit_pipeline_cartpole():
 
 def test_schema_version_propagates_to_audit_result():
     """SCHEMA_VERSION from schema.py should appear in run_full_audit output."""
-    from deltatau_audit.schema import SCHEMA_VERSION
     from deltatau_audit.auditor import run_full_audit
+    from deltatau_audit.schema import SCHEMA_VERSION
 
     adapter = _CartPoleDummyAdapter()
     result = run_full_audit(
@@ -151,14 +147,13 @@ def test_formal_verifier_not_purely_random():
     same observation produces the same result (deterministic). A stub that
     returns torch.randn() would produce different values each call.
     """
-    from deltatau_audit.verification.formal import LipschitzVerifier
     from deltatau_audit.protocols import AgentAdapter
+    from deltatau_audit.verification.formal import LipschitzVerifier
 
     class _MinimalAdapter(AgentAdapter):
         """Minimal adapter exposing internal model for formal verification."""
 
         def __init__(self):
-            import torch.nn as nn
             # Small model with explicit internal structure
             self._model = _TinyModel()
 

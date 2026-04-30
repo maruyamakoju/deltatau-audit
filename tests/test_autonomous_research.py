@@ -5,7 +5,6 @@ import json
 import math
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +24,7 @@ class TestResearchJournal:
     """Test the research journal persistence and UCB1 frontier selection."""
 
     def test_journal_save_load_roundtrip(self, tmp_path):
-        from autonomous_research import ResearchJournal, ExperimentRecord
+        from autonomous_research import ExperimentRecord, ResearchJournal
 
         journal = ResearchJournal()
         record = ExperimentRecord(
@@ -49,7 +48,7 @@ class TestResearchJournal:
         assert loaded.best_per_frontier["test_frontier"]["score"] == 0.75
 
     def test_journal_load_restores_recent_records(self, tmp_path):
-        from autonomous_research import ResearchJournal, ExperimentRecord
+        from autonomous_research import ExperimentRecord, ResearchJournal
 
         journal = ResearchJournal()
         record = ExperimentRecord(
@@ -73,7 +72,7 @@ class TestResearchJournal:
         assert loaded.records[0].finding == "Recovered from disk"
 
     def test_ucb1_priority_explores_unvisited(self):
-        from autonomous_research import ResearchJournal, ExperimentRecord, FRONTIER_REGISTRY
+        from autonomous_research import FRONTIER_REGISTRY, ExperimentRecord, ResearchJournal
 
         journal = ResearchJournal()
         for i in range(5):
@@ -125,7 +124,7 @@ class TestResearchJournal:
         assert finding.startswith("Baseline established")
 
     def test_tail_failure_streak_restored_from_disk(self, tmp_path):
-        from autonomous_research import ResearchJournal, ExperimentRecord
+        from autonomous_research import ExperimentRecord, ResearchJournal
 
         journal = ResearchJournal()
         journal.add(ExperimentRecord(
@@ -439,7 +438,7 @@ class TestCertifiedMCTS:
         assert bound > 0
 
     def test_certified_mcts_search(self):
-        from frontiers.certified_mcts import CertifiedWorldModel, CertifiedMCTSEngine
+        from frontiers.certified_mcts import CertifiedMCTSEngine, CertifiedWorldModel
 
         model = CertifiedWorldModel(hidden_dim=64, obs_dim=4)
         engine = CertifiedMCTSEngine(
@@ -460,7 +459,7 @@ class TestCertifiedMCTS:
 
     def test_pruning_with_low_threshold(self):
         """Very low threshold should prune most branches."""
-        from frontiers.certified_mcts import CertifiedWorldModel, CertifiedMCTSEngine
+        from frontiers.certified_mcts import CertifiedMCTSEngine, CertifiedWorldModel
 
         model = CertifiedWorldModel(hidden_dim=64, obs_dim=4)
         engine = CertifiedMCTSEngine(
@@ -513,7 +512,7 @@ class TestWMGuidedDeliberation:
         assert (uncertainty >= 0).all()
 
     def test_uncertainty_guided_act_forward(self):
-        from frontiers.world_model_guided_deliberation import UncertaintyGuidedACT, ACTConfig
+        from frontiers.world_model_guided_deliberation import ACTConfig, UncertaintyGuidedACT
 
         cfg = ACTConfig(obs_dim=4, action_dim=2, hidden_dim=64)
         act = UncertaintyGuidedACT(cfg)
@@ -629,7 +628,7 @@ class TestConsistencyDistillation:
         assert (dts > 0).all()
 
     def test_lipschitz_consistency_loss(self):
-        from frontiers.temporal_consistency_distillation import StudentNetwork, LipschitzConsistencyLoss
+        from frontiers.temporal_consistency_distillation import LipschitzConsistencyLoss, StudentNetwork
 
         student = StudentNetwork(obs_dim=4, action_dim=2, hidden_dim=32)
         loss_fn = LipschitzConsistencyLoss(margin=1.2)
@@ -645,7 +644,7 @@ class TestConsistencyDistillation:
         assert "lip_violation" in info
 
     def test_generate_targets_estimates_root_value_from_children(self, monkeypatch):
-        from frontiers.temporal_consistency_distillation import TeacherMCTS, MCTSNode
+        from frontiers.temporal_consistency_distillation import MCTSNode, TeacherMCTS
 
         teacher = TeacherMCTS(obs_dim=4, action_dim=2, hidden_dim=16)
         hidden = teacher.world_model.initial_hidden(1, teacher.device)
@@ -714,6 +713,7 @@ class TestConsistencyDistillation:
 
     def test_consistency_distillation_runner_preserves_seed(self, monkeypatch, tmp_path):
         import autonomous_research as ar
+
         from frontiers import temporal_consistency_distillation as tcd
 
         captured = {}

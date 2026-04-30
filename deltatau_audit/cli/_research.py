@@ -110,6 +110,7 @@ def _run_audit_deliberative(args):
     correlates with timing stress across speed conditions.
     """
     import os
+
     import gymnasium as gym
     import torch
 
@@ -153,6 +154,7 @@ def _run_audit_horizon(args):
     Tests an agent on cascading multi-step timing scenarios.
     """
     import os
+
     import gymnasium as gym
 
     from deltatau_audit.auditors.horizon import TemporalHorizonAuditor
@@ -165,6 +167,7 @@ def _run_audit_horizon(args):
     # Try to load as SB3 model, fall back to generic dummy adapter
     try:
         from stable_baselines3 import PPO
+
         from deltatau_audit.adapters.sb3 import SB3Adapter
         model = PPO.load(args.checkpoint)
         adapter = SB3Adapter(model)
@@ -172,6 +175,7 @@ def _run_audit_horizon(args):
     except Exception:
         try:
             import torch
+
             from deltatau_audit.adapters.internal_time import InternalTimeAdapter
             state = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
             adapter = InternalTimeAdapter(state)

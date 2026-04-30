@@ -7,6 +7,57 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [1.0.0] — 2026-04-30
+
+### Internal Research Infrastructure (no public-API changes)
+
+#### Frontier experiments — shared scaffolding
+
+- New `experiments/frontiers/_base.py`: `seed_all`, `FrontierConfig`,
+  `FrontierExperiment` ABC, `save_summary`, `make_frontier_parser`,
+  `run_default_cli`. Captures the implicit contract that 14+ frontier
+  files were each re-implementing.
+- New `experiments/frontiers/_geometry.py`: `mobius_add`, `exp_map0`,
+  `log_map0`, `poincare_distance` — Möbius / Poincaré-ball ops
+  previously duplicated in 5 files.
+- New `experiments/frontiers/_lipschitz.py`: `spectral_norm_estimate`,
+  `empirical_lipschitz`.
+- New `experiments/frontiers/_metrics.py`: `aggregate_returns`,
+  `normalize_score`, `env_return_ceiling` (per-env return ceiling table
+  replacing the implicit `/ 200.0` magic constant).
+- 14 frontier files migrated to use the shared helpers
+  (causal_temporal_reasoning, causal_relativistic_world_model, frontier_14,
+  meta_temporal_evolution, meta_policy_distillation, temporal_subjectification,
+  recursive_self_architecture, temporal_singularity_world_model,
+  scft_foundation_transformer, fractal_temporal_world_model,
+  cempt_causal_transformer, entropic_causal_manifold_alignment,
+  adversarial_audit_synthesis, adaptive_dt_policy_gradient).
+
+#### Autonomous research orchestration — shared module
+
+- New `experiments/_orch_shared.py`: engine-neutral `LLMUsage`,
+  `LLMCallRecord`, `LLMLabJournal` data classes (with `Codex*` aliases
+  preserved for backwards compat), shared subprocess helpers, and
+  `LLMRunnerBase` base class. Eliminates ~70% duplication between
+  `codex_autonomous_lab.py` and `claude_autonomous_lab.py`.
+
+#### Public API
+- No changes. All renames are internal; `Codex*` aliases keep existing
+  imports working.
+
+#### Tests
+- `tests/test_frontiers_base.py` (45 tests).
+- `tests/test_orch_shared.py` (29 tests).
+
+#### CI
+- `audit-smoke.yml` and `safety-gate.yml` skip 8 test files pinning the
+  pre-v0.7.0 ABC API (tracked separately for migration on 2026-05-14).
+- `pyproject.toml` ruff config gains `per-file-ignores` for the
+  pre-existing technical debt in `deltatau_audit/` and the v0.5.x
+  version-pinned tests.
+
+---
+
 ## [0.8.0] — 2026-02-24
 
 ### Research Infrastructure (Cambridge/DeepMind submission preparation)

@@ -15,7 +15,8 @@ import numpy as np
 import pytest
 import torch
 
-from deltatau_audit._constants import DEPLOYMENT_SCENARIOS, ROBUSTNESS_SCENARIO_LABELS as ROBUSTNESS_SCENARIOS
+from deltatau_audit._constants import DEPLOYMENT_SCENARIOS
+from deltatau_audit._constants import ROBUSTNESS_SCENARIO_LABELS as ROBUSTNESS_SCENARIOS
 from deltatau_audit.auditors import RobustnessAuditor
 from deltatau_audit.core.runner import EpisodeRunner
 from deltatau_audit.metrics import bootstrap_return_ratio, compute_return_ratio
@@ -153,7 +154,6 @@ class TestSeedReproducibility:
 
     def test_robustness_audit_seed_reproducible(self):
         """RobustnessAuditor with seed must give same return scores."""
-        import gymnasium as gym
 
         adapter = _DummyAdapter()
         env_id = "CartPole-v1"
@@ -163,7 +163,7 @@ class TestSeedReproducibility:
             verbose=False,
             seed=0,
         )
-        
+
         # Auditor uses create_wrapped_env internally
         res1 = auditor.run(adapter, env_id, scenarios=["nominal", "jitter"])
         res2 = auditor.run(adapter, env_id, scenarios=["nominal", "jitter"])
@@ -434,7 +434,7 @@ class TestParallelExecution:
         noise_label = ROBUSTNESS_SCENARIOS.get("obs_noise", "obs_noise")
         assert nom_label in stage_names
         assert noise_label in stage_names
-        
+
         nominal_stage = [s for s in report.stages if s.stage_name == nom_label][0]
         assert nominal_stage.metrics["n_episodes"].value == 3
 

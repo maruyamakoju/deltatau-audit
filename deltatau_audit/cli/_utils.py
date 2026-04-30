@@ -21,8 +21,8 @@ def _run_audit_pipeline(
 
     Migrated to use AuditSession and class-based Auditors directly.
     """
-    from deltatau_audit.auditors import RelianceAuditor, RobustnessAuditor, ReasoningAuditor
-    from deltatau_audit.core.session import AuditSession
+    from deltatau_audit.auditor import _convert_report_to_legacy_dict, _print_summary
+    from deltatau_audit.auditors import ReasoningAuditor, RelianceAuditor, RobustnessAuditor
     from deltatau_audit.cli import (
         _build_seed_sweep_result,
         _emit_json,
@@ -35,10 +35,10 @@ def _run_audit_pipeline(
         _resolve_workers,
         _result_experiment_manifest,
     )
+    from deltatau_audit.core.session import AuditSession
     from deltatau_audit.report import generate_report
     from deltatau_audit.seed_sweep import run_seed_sweep
     from deltatau_audit.tracker import maybe_log
-    from deltatau_audit.auditor import _print_summary, _convert_report_to_legacy_dict
 
     _json_mode = getattr(args, "output_format", "text") == "json"
     _verbose = not getattr(args, "quiet", False) and not _json_mode

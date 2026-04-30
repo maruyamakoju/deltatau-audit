@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import math
-import pytest
+
 import torch
 import torch.nn as nn
 
-from deltatau_audit.verification.formal import LipschitzVerifier, LipschitzCertificate
-
+from deltatau_audit.verification.formal import LipschitzCertificate, LipschitzVerifier
 
 # ── Helper adapter ────────────────────────────────────────────────────────────
 

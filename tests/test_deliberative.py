@@ -1,10 +1,9 @@
 """Tests for the Proper ACT deliberative agent (PHASE 3)."""
 from __future__ import annotations
 
+import pytest
 import torch
 import torch.nn as nn
-import pytest
-
 
 # ── DeliberativeInternalTimeAgent tests ──────────────────────────────────────
 
@@ -190,9 +189,9 @@ def test_deliberative_adaptive_steps_preserve_halt_mass():
 
 def test_deliberative_adapter_act_returns_four_values():
     """DeliberativeAgentAdapter.act() must return (action, value, hidden, dt)."""
-    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
+
     from deltatau_audit.adapters.deliberative_adapter import DeliberativeAgentAdapter
-    import gymnasium as gym
+    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
 
     agent = DeliberativeInternalTimeAgent(obs_dim=4, act_dim=2, hidden_dim=16, latent_dim=8)
     adapter = DeliberativeAgentAdapter(agent)
@@ -209,8 +208,8 @@ def test_deliberative_adapter_act_returns_four_values():
 
 def test_deliberative_adapter_deliberation_stats():
     """get_deliberation_stats() must return ponder tracking metrics."""
-    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
     from deltatau_audit.adapters.deliberative_adapter import DeliberativeAgentAdapter
+    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
 
     agent = DeliberativeInternalTimeAgent(obs_dim=4, act_dim=2, hidden_dim=16, latent_dim=8,
                                           max_thinking_steps=4)
@@ -231,8 +230,8 @@ def test_deliberative_adapter_deliberation_stats():
 
 def test_deliberative_adapter_reset_episode():
     """reset_episode() must clear ponder tracking."""
-    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
     from deltatau_audit.adapters.deliberative_adapter import DeliberativeAgentAdapter
+    from internal_time_rl.models.deliberative import DeliberativeInternalTimeAgent
 
     agent = DeliberativeInternalTimeAgent(obs_dim=4, act_dim=2, hidden_dim=16, latent_dim=8)
     adapter = DeliberativeAgentAdapter(agent)
